@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { z } from 'zod';
 console.error('[kora] server booted');
 const KORA_PORT = 8123;
 const KORA_URL  = `http://127.0.0.1:${KORA_PORT}`;
@@ -29,6 +30,44 @@ server.registerTool(
       ]
     };
   }
+);
+
+server.registerTool(
+	'update_frontmatter',
+	{
+		description: 'Create or update frontmatter for a list of files.',
+		inputSchema: {
+			files: z.array(z.string()).describe('Array of file paths to update.'),
+			frontmatter: z
+				.record(z.any())
+				.describe('JSON object with frontmatter keys and values to set.'),
+		},
+	},
+	async ({ files, frontmatter }) => {
+		const res = await fetch(`${KORA_URL}/frontmatter`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({ files, frontmatter }),
+		});
+
+		if (!res.ok) {
+			const errorBody = await res.text();
+			throw new Error(`Obsidian server responded ${res.status}: ${errorBody}`);
+		}
+
+		const result = await res.json();
+		return {
+			content: [
+				{
+					type: 'text',
+					text: `Updated frontmatter for ${files.length} files.`,
+				},
+				{ type: 'text', text: JSON.stringify(result, null, 2) },
+			],
+		};
+	}
 );
 
 async function main() {

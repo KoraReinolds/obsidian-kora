@@ -1,6 +1,10 @@
 import { App, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
 import * as http from 'http';
 import { AddressInfo } from 'net';
+import {
+	getMarkdownFiles,
+	updateFrontmatterForFiles,
+} from './lib/obsidian';
 
 interface KoraMcpPluginSettings {
 	port: number;
@@ -63,12 +67,55 @@ export default class KoraMcpPlugin extends Plugin {
 				return;
 			}
 
+			if (req.url === '/frontmatter' && req.method === 'POST') {
+				let body = '';
+				req.on('data', (chunk) => {
+					body += chunk.toString();
+				});
+				req.on('end', async () => {
+					try {
+						const { files, frontmatter } = JSON.parse(body);
+
+						if (
+							!Array.isArray(files) ||
+							typeof frontmatter !== 'object' ||
+							frontmatter === null
+						) {
+							res.writeHead(400, {
+								'Content-Type': 'application/json',
+							});
+							res.end(
+								JSON.stringify({ error: 'Invalid request body' })
+							);
+							return;
+						}
+
+						const result = await updateFrontmatterForFiles(
+							this.app,
+							files,
+							frontmatter
+						);
+
+						res.writeHead(200, {
+							'Content-Type': 'application/json',
+						});
+						res.end(JSON.stringify(result));
+					} catch (error) {
+						res.writeHead(400, {
+							'Content-Type': 'application/json',
+						});
+						res.end(
+							JSON.stringify({
+								error: 'Invalid JSON in request body',
+							})
+						);
+					}
+				});
+				return;
+			}
+
 			if (req.url === '/files' && req.method === 'GET') {
-				const files = this.app.vault.getMarkdownFiles().map((f) => ({
-					path: f.path,
-					basename: f.basename,
-					stat: f.stat,
-				}));
+				const files = getMarkdownFiles(this.app);
 				res.writeHead(200, { 'Content-Type': 'application/json' });
 				res.end(JSON.stringify(files));
 				return;
