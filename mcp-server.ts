@@ -1,8 +1,7 @@
 #!/usr/bin/env bun
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { z } from 'zod';                // удобнее, чем «ручной» JSON Schema
-
+console.error('[kora] server booted');
 const KORA_PORT = 8123;
 const KORA_URL  = `http://127.0.0.1:${KORA_PORT}`;
 
@@ -17,7 +16,7 @@ server.registerTool(
   'get_obsidian_files',
   {
     description: 'Return an array of markdown files from the vault.',
-    inputSchema: { a: z.number(), b: z.number() }       // ← пустые параметры
+    inputSchema: {} // No input parameters
   },
   async () => {
     const res = await fetch(`${KORA_URL}/files`);
@@ -35,9 +34,10 @@ server.registerTool(
 async function main() {
   // 3. Connect the server to the stdio transport
   const transport = new StdioServerTransport();
-  server.connect(transport);
+  await server.connect(transport);
 }
 
 main().catch((e) => {
+  console.error(e);
   // The SDK handles logging errors to stderr, which is visible in Cursor's MCP logs.
 }); 
