@@ -2,6 +2,7 @@ import { App, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
 import * as http from 'http';
 import { AddressInfo } from 'net';
 import {
+	getAreas,
 	getMarkdownFiles,
 	updateFrontmatterForFiles,
 } from './lib/obsidian';
@@ -48,6 +49,7 @@ export default class KoraMcpPlugin extends Plugin {
 	}
 
 	startServer() {
+		console.log('Starting MCP server...', this.server);
 		if (this.server) {
 			new Notice('MCP server is already running.');
 			return;
@@ -114,6 +116,13 @@ export default class KoraMcpPlugin extends Plugin {
 				return;
 			}
 
+			if (req.url === '/areas' && req.method === 'GET') {
+				const areas = getAreas(this.app);
+				res.writeHead(200, { 'Content-Type': 'application/json' });
+				res.end(JSON.stringify(areas));
+				return;
+			}
+
 			if (req.url === '/files' && req.method === 'GET') {
 				const files = getMarkdownFiles(this.app);
 				res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -138,10 +147,9 @@ export default class KoraMcpPlugin extends Plugin {
 
 		this.server.listen(this.settings.port, '127.0.0.1', () => {
 			const address = this.server?.address() as AddressInfo;
-			new Notice(`MCP server started on port ${address.port}`);
-			console.log(
-				`MCP server listening on http://127.0.0.1:${address.port}`
-			);
+			const port = address.port;
+			new Notice(`MCP server started on port ${port}`);
+			console.log(`MCP server listening on http://127.0.0.1:${port}`);
 		});
 	}
 

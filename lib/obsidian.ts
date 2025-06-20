@@ -57,4 +57,23 @@ export function getMarkdownFiles(app: App) {
 		basename: f.basename,
 		stat: f.stat,
 	}));
+}
+
+/**
+ * Retrieves all "areas" from the vault based on tags.
+ * Areas are identified by tags with the prefix "area/".
+ * @param app The Obsidian application instance.
+ * @returns An array of unique area names.
+ */
+export function getAreas(app: App): string[] {
+	// @ts-ignore
+	const allTags = app.metadataCache.getTags();
+	const areaTags = Object.keys(allTags).filter((tag) =>
+		tag.startsWith('#area/')
+	);
+	const areas = areaTags.map((tag) => {
+		const areaPath = tag.substring('#area/'.length);
+		return areaPath.split('/')[0];
+	});
+	return [...new Set(areas)]; // Return unique areas
 } 

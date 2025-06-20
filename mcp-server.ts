@@ -70,6 +70,25 @@ server.registerTool(
 	}
 );
 
+server.registerTool(
+	'get_areas',
+	{
+		description: 'Return an array of all areas in the Obsidian vault.',
+		inputSchema: {}, // No input parameters
+	},
+	async () => {
+		const res = await fetch(`${KORA_URL}/areas`);
+		if (!res.ok) throw new Error(`Obsidian server responded ${res.status}`);
+		const areas: string[] = await res.json();
+		return {
+			content: [
+				{ type: 'text', text: `Retrieved ${areas.length} areas ✅` },
+				{ type: 'text', text: JSON.stringify(areas, null, 2) },
+			],
+		};
+	}
+);
+
 async function main() {
   // 3. Connect the server to the stdio transport
   const transport = new StdioServerTransport();
