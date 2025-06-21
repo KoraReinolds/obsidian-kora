@@ -89,6 +89,105 @@ server.registerTool(
 	}
 );
 
+server.registerTool(
+	'get_area_frontmatters',
+	{
+		description: 'Returns the frontmatter for all notes in the "Area/" folder.',
+		inputSchema: {},
+	},
+	async () => {
+		const res = await fetch(`${KORA_URL}/area_frontmatters`);
+		if (!res.ok)
+			throw new Error(`Obsidian server responded ${res.status}`);
+		const frontmatters = await res.json();
+		return {
+			content: [
+				{
+					type: 'text',
+					text: `Retrieved ${frontmatters.length} area frontmatters ✅`,
+				},
+				{ type: 'text', text: JSON.stringify(frontmatters, null, 2) },
+			],
+		};
+	}
+);
+
+server.registerTool(
+	'get_frontmatter_for_files',
+	{
+		description: 'Returns the frontmatter for a given list of files.',
+		inputSchema: {
+			files: z
+				.array(z.string())
+				.describe('Array of file paths to read frontmatter from.'),
+		},
+	},
+	async ({ files }) => {
+		const res = await fetch(`${KORA_URL}/get_frontmatter`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ files }),
+		});
+		if (!res.ok)
+			throw new Error(`Obsidian server responded ${res.status}`);
+		const frontmatters = await res.json();
+		return {
+			content: [
+				{
+					type: 'text',
+					text: `Retrieved frontmatter for ${files.length} files ✅`,
+				},
+				{ type: 'text', text: JSON.stringify(frontmatters, null, 2) },
+			],
+		};
+	}
+);
+
+server.registerTool(
+	'get_file_content',
+	{
+		description: 'Return raw markdown content of a specified file.',
+		inputSchema: {
+			file: z.string().describe('Path to the markdown file.'),
+		},
+	},
+	async ({ file }) => {
+		const res = await fetch(`${KORA_URL}/file_content`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ file }),
+		});
+		if (!res.ok)
+			throw new Error(`Obsidian server responded ${res.status}`);
+		const { content } = await res.json();
+		return {
+			content: [
+				{ type: 'text', text: `Content of ${file} retrieved ✅` },
+				{ type: 'text', text: content },
+			],
+		};
+	}
+);
+
+server.registerTool(
+	'get_automate_docs',
+	{
+		description: 'Return documentation from the Automate/mcp/ folder with full content.',
+		inputSchema: {}, // No input parameters
+	},
+	async () => {
+		const res = await fetch(`${KORA_URL}/automate_docs`);
+		if (!res.ok) throw new Error(`Obsidian server responded ${res.status}`);
+		const docs: Array<{ path: string; basename: string; title: string; content: string; stat: any }> = await res.json();
+		return {
+			content: [
+				{ type: 'text', text: `Retrieved ${docs.length} documentation files ✅` },
+				{ type: 'text', text: JSON.stringify(docs, null, 2) },
+			],
+		};
+	}
+);
+
 async function main() {
   // 3. Connect the server to the stdio transport
   const transport = new StdioServerTransport();

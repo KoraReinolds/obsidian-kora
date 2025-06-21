@@ -1,8 +1,11 @@
-import { App, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, Notice, Plugin, PluginSettingTab, Setting, TFile } from 'obsidian';
 import * as http from 'http';
 import { AddressInfo } from 'net';
 import {
+	getAreaFrontmatters,
 	getAreas,
+	getAutomateDocs,
+	getFrontmatterForFiles,
 	getMarkdownFiles,
 	updateFrontmatterForFiles,
 } from './lib/obsidian';
@@ -49,7 +52,8 @@ export default class KoraMcpPlugin extends Plugin {
 	}
 
 	startServer() {
-		console.log('Starting MCP server...', this.server);
+		console.log('Starting MCP server...');
+
 		if (this.server) {
 			new Notice('MCP server is already running.');
 			return;
@@ -116,6 +120,55 @@ export default class KoraMcpPlugin extends Plugin {
 				return;
 			}
 
+			if (req.url === '/area_frontmatters' && req.method === 'GET') {
+				const frontmatters = await getAreaFrontmatters(this.app);
+				res.writeHead(200, { 'Content-Type': 'application/json' });
+				res.end(JSON.stringify(frontmatters));
+				return;
+			}
+
+			if (req.url === '/get_frontmatter' && req.method === 'POST') {
+				let body = '';
+				req.on('data', (chunk) => {
+					body += chunk.toString();
+				});
+				req.on('end', async () => {
+					try {
+						const { files } = JSON.parse(body);
+						if (!Array.isArray(files)) {
+							res.writeHead(400, {
+								'Content-Type': 'application/json',
+							});
+							res.end(
+								JSON.stringify({
+									error: 'Invalid request body, "files" must be an array.',
+								})
+							);
+							return;
+						}
+						const result = await getFrontmatterForFiles(
+							this.app,
+							files
+						);
+						res.writeHead(200, {
+							'Content-Type': 'application/json',
+						});
+						res.end(JSON.stringify(result));
+					} catch (error: any) {
+						res.writeHead(400, {
+							'Content-Type': 'application/json',
+						});
+						res.end(
+							JSON.stringify({
+								error: 'Invalid JSON in request body',
+								message: error.message,
+							})
+						);
+					}
+				});
+				return;
+			}
+
 			if (req.url === '/areas' && req.method === 'GET') {
 				const areas = getAreas(this.app);
 				res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -124,9 +177,59 @@ export default class KoraMcpPlugin extends Plugin {
 			}
 
 			if (req.url === '/files' && req.method === 'GET') {
-				const files = getMarkdownFiles(this.app);
+				const files = await getMarkdownFiles(this.app);
 				res.writeHead(200, { 'Content-Type': 'application/json' });
 				res.end(JSON.stringify(files));
+				return;
+			}
+
+			if (req.url === '/file_content' && req.method === 'POST') {
+				let body = '';
+				req.on('data', (chunk) => {
+					body += chunk.toString();
+				});
+				req.on('end', async () => {
+					try {
+						const { file } = JSON.parse(body);
+						if (typeof file !== 'string') {
+							res.writeHead(400, { 'Content-Type': 'application/json' });
+							res.end(
+								JSON.stringify({ error: 'Invalid "file" parameter' })
+							);
+							return;
+						}
+
+						const abstract = this.app.vault.getAbstractFileByPath(file);
+						if (!(abstract instanceof TFile)) {
+							res.writeHead(404, {
+								'Content-Type': 'application/json',
+							});
+							res.end(JSON.stringify({ error: 'File not found' }));
+							return;
+						}
+
+						const content = await this.app.vault.read(abstract);
+						res.writeHead(200, { 'Content-Type': 'application/json' });
+						res.end(JSON.stringify({ file, content }));
+					} catch (error: any) {
+						res.writeHead(400, { 'Content-Type': 'application/json' });
+						res.end(
+							JSON.stringify({ error: 'Invalid JSON', message: error.message })
+						);
+					}
+				});
+				return;
+			}
+
+			if (req.url === '/automate_docs' && req.method === 'GET') {
+				try {
+					const docs = await getAutomateDocs(this.app);
+					res.writeHead(200, { 'Content-Type': 'application/json' });
+					res.end(JSON.stringify(docs));
+				} catch (error: any) {
+					res.writeHead(500, { 'Content-Type': 'application/json' });
+					res.end(JSON.stringify({ error: 'Internal server error', message: error.message }));
+				}
 				return;
 			}
 
