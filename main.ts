@@ -1,4 +1,4 @@
-import { App, Notice, Plugin, PluginSettingTab, Setting, TFile } from 'obsidian';
+import { App, Notice, Plugin, PluginSettingTab, Setting, TFile, WorkspaceLeaf } from 'obsidian';
 import * as http from 'http';
 import { AddressInfo } from 'net';
 import {
@@ -9,23 +9,52 @@ import {
 	getMarkdownFiles,
 	updateFrontmatterForFiles,
 } from './lib/obsidian';
+import { TelegramBot, TelegramSettings } from './modules/telegram';
+import { McpSettingTab } from 'settings';
 
 interface KoraMcpPluginSettings {
 	port: number;
+	telegram: TelegramSettings;
 }
 
 const DEFAULT_SETTINGS: KoraMcpPluginSettings = {
 	port: 8123,
+	telegram: {
+		botToken: '',
+		chatId: '',
+		enabled: false,
+		customIconUrl: '',
+		stickerFileId: '',
+		sendAsPhoto: false,
+		customEmojis: [
+			{ standard: '🗿', customId: '5346283626868812660', description: 'Moai' },
+			{ standard: '🧠', customId: '5346180109567028520', description: 'Brain' },
+			{ standard: '✅', customId: '5345939909226034997', description: 'Check' },
+			{ standard: '❓', customId: '5346065137587482787', description: 'Question' },
+			{ standard: '🛑', customId: '5345787871678723001', description: 'Stop' },
+			{ standard: '➕', customId: '5345922583327962454', description: 'Plus' },
+			{ standard: '❤️', customId: '5345784989755668154', description: 'Heart' },
+			{ standard: '📂', customId: '5346104226084844010', description: 'Folder' },
+			{ standard: '💾', customId: '5346103010609101716', description: 'Floppy' },
+			{ standard: '🫂', customId: '5346048443049607054', description: 'Hug' },
+			{ standard: '🗺', customId: '5346278150785497951', description: 'Map' }
+		],
+		useCustomEmojis: false,
+	},
 };
 
 export default class KoraMcpPlugin extends Plugin {
 	settings: KoraMcpPluginSettings;
 	private server: http.Server | null = null;
+	private telegramBot: TelegramBot;
 
 	async onload() {
 		await this.loadSettings();
 
 		this.addSettingTab(new McpSettingTab(this.app, this));
+		
+		// Инициализируем Telegram бота
+		this.telegramBot = new TelegramBot(this.app, this.settings.telegram);
 
 		this.startServer();
 
@@ -37,6 +66,127 @@ export default class KoraMcpPlugin extends Plugin {
 				this.startServer();
 			},
 		});
+
+		this.addCommand({
+			id: 'send-note-to-telegram',
+			name: 'Отправить заметку в Telegram',
+			callback: async () => {
+				const file = this.app.workspace.getActiveFile();
+				if (file) {
+					await this.telegramBot.sendFile(file);
+				} else {
+					new Notice('Нет активного файла');
+				}
+			},
+		});
+
+		this.addCommand({
+			id: 'test-telegram-connection',
+			name: 'Проверить подключение Telegram бота',
+			callback: async () => {
+				await this.telegramBot.testConnection();
+			},
+		});
+    
+    this.addCommand({
+			id: "move-to-notes",
+			name: "Переместить файл в Notes",
+			callback: async () => {
+				const file = this.app.workspace.getActiveFile();
+				if (file) {
+					await this.moveFileToFolder(file, "Organize/Notes");
+				} else {
+					new Notice("Нет активного файла");
+				}
+			}
+		});
+
+		this.registerEvent(
+			this.app.workspace.on("active-leaf-change", this.handleLeafChange.bind(this))
+		);
+	}
+
+	handleLeafChange(leaf: WorkspaceLeaf | null) {
+		if (!leaf || !leaf.view || leaf.view.getViewType() !== "markdown") return;
+
+		const file = (leaf.view as any).file as TFile;
+		if (!file) return;
+
+		// Пример: показываем кнопку, если файл в папке "Projects"
+		// if (file.path.startsWith("Projects/")) {
+			this.injectButton(leaf);
+		// }
+	}
+
+	async moveFileToFolder(file: TFile, targetFolder: string) {
+		const fileName = file.name;
+		const newPath = `${targetFolder}/${fileName}`;
+
+		try {
+			await this.app.vault.rename(file, newPath);
+			new Notice(`Файл перемещён в ${targetFolder}`);
+		} catch (err) {
+			new Notice(`Ошибка перемещения: ${err}`);
+		}
+	}
+
+	injectButton(leaf: WorkspaceLeaf) {
+		const container = (leaf.view as any).containerEl;
+
+		// Удалим уже существующие наши кнопки, если есть
+		const existing = container.querySelector(".custom-folder-button");
+		if (existing) existing.remove();
+
+		// Создаём кнопки
+		const buttonNotes = document.createElement("button");
+		buttonNotes.textContent = "Move to Notes";
+		buttonNotes.className = "custom-folder-button";
+		buttonNotes.style.margin = "10px";
+		buttonNotes.onclick = () => {
+			if ((leaf.view as any).file) {
+				this.moveFileToFolder((leaf.view as any).file as TFile, "Organize/Notes");
+			} else {
+				new Notice("Нет активного файла");
+			}
+		};
+
+		const buttonTelegram = document.createElement("button");
+		buttonTelegram.textContent = "📤 Send to Telegram";
+		buttonTelegram.className = "custom-telegram-button";
+		buttonTelegram.style.margin = "10px";
+		buttonTelegram.style.backgroundColor = "#0088cc";
+		buttonTelegram.style.color = "white";
+		buttonTelegram.style.border = "none";
+		buttonTelegram.style.borderRadius = "5px";
+		buttonTelegram.style.padding = "5px 10px";
+		buttonTelegram.onclick = async () => {
+			if ((leaf.view as any).file) {
+				await this.telegramBot.sendFile((leaf.view as any).file as TFile);
+			} else {
+				new Notice("Нет активного файла");
+			}
+		};
+
+		// const buttonMOC = document.createElement("button");
+		// buttonMOC.textContent = "Move to MOC";
+		// buttonMOC.className = "custom-folder-button";
+		// buttonMOC.style.margin = "10px";
+		// buttonMOC.onclick = () => {
+		// 	if (leaf.view.file) {
+		// 		this.moveFileToFolder(leaf.view.file as TFile, "Organize/MOC");
+		// 	} else {
+		// 		new Notice("Нет активного файла");
+		// 	}
+		// };
+
+
+		// Вставляем в начало preview-панели
+		const markdownEl = container.querySelector(".view-content");
+		if (markdownEl) {
+			markdownEl.prepend(buttonTelegram);
+			markdownEl.prepend(buttonNotes);
+			// markdownEl.prepend(buttonMOC);
+		}
 	}
 
 	onunload() {
@@ -44,11 +194,47 @@ export default class KoraMcpPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const data: any = await this.loadData();
+    if (!data.telegram.customEmojis) {
+      data.telegram.customEmojis = DEFAULT_SETTINGS.telegram.customEmojis;
+    }
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
 	}
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+		// Обновляем настройки Telegram бота
+		if (this.telegramBot) {
+			this.telegramBot.updateSettings(this.settings.telegram);
+		}
+	}
+
+	/**
+	 * Публичный метод для тестирования Telegram подключения
+	 */
+	async testTelegramConnection(): Promise<boolean> {
+		return await this.telegramBot.testConnection();
+	}
+
+	/**
+	 * Публичный метод для тестирования кастомной иконки
+	 */
+	async testCustomIcon(): Promise<boolean> {
+		return await this.telegramBot.sendTestWithIcon();
+	}
+
+	/**
+	 * Публичный метод для тестирования кастомных эмодзи
+	 */
+	async testCustomEmojis(): Promise<boolean> {
+		return await this.telegramBot.testCustomEmojis();
+	}
+
+	/**
+	 * Получить Telegram бота (для настроек)
+	 */
+	getTelegramBot() {
+		return this.telegramBot;
 	}
 
 	startServer() {
@@ -264,40 +450,5 @@ export default class KoraMcpPlugin extends Plugin {
 				this.server = null;
 			});
 		}
-	}
-}
-
-class McpSettingTab extends PluginSettingTab {
-	plugin: KoraMcpPlugin;
-
-	constructor(app: App, plugin: KoraMcpPlugin) {
-		super(app, plugin);
-		this.plugin = plugin;
-	}
-
-	display(): void {
-		const { containerEl } = this;
-
-		containerEl.empty();
-
-		containerEl.createEl('h2', { text: 'MCP Server Settings' });
-
-		new Setting(containerEl)
-			.setName('Server Port')
-			.setDesc(
-				'The port for the MCP server to listen on. The server needs to be restarted for changes to take effect.'
-			)
-			.addText((text) =>
-				text
-					.setPlaceholder('Enter port')
-					.setValue(this.plugin.settings.port.toString())
-					.onChange(async (value) => {
-						const port = parseInt(value, 10);
-						if (!isNaN(port) && port > 0 && port < 65536) {
-							this.plugin.settings.port = port;
-							await this.plugin.saveSettings();
-						}
-					})
-			);
 	}
 }
