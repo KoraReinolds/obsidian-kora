@@ -27,8 +27,8 @@ export class ImageUtils {
 			const contentType = response.headers.get('content-type');
 			
 			return response.ok && 
-				   contentType !== null && 
-				   contentType.startsWith('image/');
+			contentType !== null && 
+			contentType.startsWith('image/');
 		} catch (error) {
 			return false;
 		}

@@ -188,6 +188,9 @@ server.registerTool(
 	}
 );
 
+// Note: GramJS functionality is now handled by the separate gramjs-server process
+// and accessed through the HTTP bridge in the main plugin
+
 async function main() {
   // 3. Connect the server to the stdio transport
   const transport = new StdioServerTransport();
