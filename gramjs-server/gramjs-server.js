@@ -66,7 +66,7 @@ app.get('/health', (req, res) => {
 /**
  * Send text message
  */
-app.post('/send_message', async (req, res) => {
+app.get('/send_message', async (req, res) => {
   try {
     const { peer, message } = req.body;
     
