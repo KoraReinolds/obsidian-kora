@@ -5,7 +5,7 @@
  * Runs as separate Node.js process to avoid Electron compatibility issues
  */
 
-const { TelegramClient } = require('telegram');
+const { TelegramClient, Api } = require('telegram');
 const { StringSession } = require('telegram/sessions');
 const express = require('express');
 const fs = require('fs');
@@ -33,9 +33,16 @@ let isConnected = false;
  * Initialize GramJS client
  */
 async function initClient() {
-  if (client && isConnected) return;
+  if (client && isConnected) {
+    console.log('[initClient] Client already connected, skipping initialization');
+    return;
+  }
   
   try {
+    console.log('[initClient] Initializing GramJS client...');
+    console.log('[initClient] API ID:', CONFIG.apiId);
+    console.log('[initClient] Session string length:', CONFIG.stringSession?.length || 0);
+    
     client = new TelegramClient(
       new StringSession(CONFIG.stringSession),
       CONFIG.apiId,
@@ -43,11 +50,17 @@ async function initClient() {
       { connectionRetries: 5 }
     );
     
+    console.log('[initClient] Client created, attempting to connect...');
     await client.connect();
     isConnected = true;
-    console.log('GramJS client connected successfully');
+    
+    // Get user info to verify connection
+    const me = await client.getMe();
+    console.log(`[initClient] GramJS client connected successfully as: @${me.username} (${me.firstName} ${me.lastName})`);
   } catch (error) {
-    console.error('Failed to initialize GramJS client:', error);
+    console.error('[initClient] Failed to initialize GramJS client:', error);
+    console.error('[initClient] Error details:', error.message);
+    isConnected = false;
     throw error;
   }
 }
@@ -64,23 +77,42 @@ app.get('/health', (req, res) => {
 });
 
 /**
- * Send text message
+ * Send text message with support for MarkdownV2 and custom emojis
  */
-app.get('/send_message', async (req, res) => {
+app.post('/send_message', async (req, res) => {
   try {
-    const { peer, message } = req.body;
-    
+    const { peer, message, entities } = req.body;
+
     if (!peer || !message) {
       return res.status(400).json({ error: 'peer and message are required' });
     }
     
     await initClient();
-    await client.sendMessage(peer, { message });
     
-    res.json({ success: true, message: 'Message sent successfully' });
+    // Build message options
+    const messageOptions = {
+      message,
+    };
+    
+    // Convert entities to proper GramJS format for custom emojis
+    if (entities && entities.length > 0) {      
+      messageOptions.formattingEntities = entities.map(entity => {
+        return new Api.MessageEntityCustomEmoji({
+          offset: entity.offset,
+          length: entity.length,
+          documentId: entity.custom_emoji_id
+        });
+      });
+    }
+    
+    const result = await client.sendMessage(peer, messageOptions);
+    console.log(`[send_message] Message sent successfully. Options:`, messageOptions);
+    
+    res.json({ success: true, message: 'Message sent successfully', result });
   } catch (error) {
-    console.error('Error sending message:', error);
-    res.status(500).json({ error: error.message });
+    console.error('[send_message] Error sending message:', error);
+    console.error('[send_message] Error stack:', error.stack);
+    res.status(500).json({ error: error.message, details: error.toString() });
   }
 });
 

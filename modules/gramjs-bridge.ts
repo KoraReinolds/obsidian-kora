@@ -14,6 +14,15 @@ interface GramJSBridgeConfig {
 interface SendMessageRequest {
   peer: string;
   message: string;
+  entities?: MessageEntity[];
+  parseMode?: string;
+}
+
+interface MessageEntity {
+  type: string;
+  offset: number;
+  length: number;
+  custom_emoji_id?: string;
 }
 
 interface SendFileRequest {
@@ -58,14 +67,14 @@ export class GramJSBridge {
   }
 
   /**
-   * Send text message via GramJS userbot
+   * Send text message via GramJS userbot with MarkdownV2 support
    */
-  async sendMessage(peer: string, message: string): Promise<boolean> {
+  async sendMessage(peer: string, message: string, entities?: MessageEntity[]): Promise<boolean> {
     try {
       const response = await fetch(`${this.baseUrl}/send_message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ peer, message } as SendMessageRequest),
+        body: JSON.stringify({ peer, message, entities } as SendMessageRequest),
       });
 
       if (!response.ok) {

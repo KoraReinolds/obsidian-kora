@@ -175,9 +175,9 @@ export class UIManager {
     }
 
     // Process custom emojis
-    const { processedText } = this.messageFormatter.processCustomEmojis(content);
-    
-    const success = await this.gramjsBridge.sendMessage(peer, processedText);
+    const { processedText, entities } = this.messageFormatter.processCustomEmojis(content);
+
+    const success = await this.gramjsBridge.sendMessage(peer, processedText, entities);
     if (success) {
       new Notice('Заметка отправлена как текст!');
     }
