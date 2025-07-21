@@ -37,6 +37,51 @@ interface SendNoteAsImageRequest {
   title?: string;
 }
 
+interface GetMessagesRequest {
+  peer: string;
+  startDate?: string;
+  endDate?: string;
+  limit?: number;
+}
+
+interface Channel {
+  id: string;
+  title: string;
+  username?: string;
+  type: 'channel' | 'group' | 'chat';
+  participantsCount?: number;
+  isChannel: boolean;
+  isGroup: boolean;
+  isUser: boolean;
+  accessHash?: string;
+  date: Date;
+}
+
+interface Message {
+  id: number;
+  message?: string;
+  date: string;
+  fromId?: string;
+  peerId: any;
+  out: boolean;
+  mentioned?: boolean;
+  mediaUnread?: boolean;
+  silent?: boolean;
+  post?: boolean;
+  fromScheduled?: boolean;
+  legacy?: boolean;
+  editHide?: boolean;
+  pinned?: boolean;
+  noforwards?: boolean;
+  media?: any;
+  views?: number;
+  forwards?: number;
+  replies?: any;
+  editDate?: string;
+  postAuthor?: string;
+  groupedId?: string;
+}
+
 export class GramJSBridge {
   private config: GramJSBridgeConfig;
   private baseUrl: string;
@@ -156,6 +201,61 @@ export class GramJSBridge {
       return await response.json();
     } catch (error) {
       console.error('Error getting user info from GramJS:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all channels (chats, groups, channels)
+   */
+  async getChannels(): Promise<Channel[]> {
+    try {
+      const response = await fetch(`${this.baseUrl}/channels`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to get channels');
+      }
+
+      const data = await response.json();
+      return data.channels.map((channel: any) => ({
+        ...channel,
+        date: new Date(channel.date)
+      }));
+    } catch (error) {
+      console.error('Error getting channels from GramJS:', error);
+      new Notice(`Ошибка получения каналов: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Get messages from a specific channel/chat between dates
+   */
+  async getMessages(peer: string, startDate?: string, endDate?: string, limit = 100): Promise<Message[]> {
+    try {
+      const params = new URLSearchParams({ peer, limit: limit.toString() });
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+
+      const response = await fetch(`${this.baseUrl}/messages?${params.toString()}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to get messages');
+      }
+
+      const data = await response.json();
+      return data.messages;
+    } catch (error) {
+      console.error('Error getting messages from GramJS:', error);
+      new Notice(`Ошибка получения сообщений: ${error.message}`);
       throw error;
     }
   }

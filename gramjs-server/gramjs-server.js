@@ -228,6 +228,129 @@ app.get('/me', async (req, res) => {
 });
 
 /**
+ * Get all channels (chats, groups, channels)
+ */
+app.get('/channels', async (req, res) => {
+  try {
+    await initClient();
+    
+    // Get all dialogs (chats)
+    const dialogs = await client.getDialogs();
+    
+    const channels = dialogs.map(dialog => ({
+      id: dialog.id,
+      title: dialog.title,
+      username: dialog.entity.username || null,
+      type: dialog.isChannel ? 'channel' : dialog.isGroup ? 'group' : 'chat',
+      participantsCount: dialog.entity.participantsCount || null,
+      isChannel: dialog.isChannel,
+      isGroup: dialog.isGroup,
+      isUser: dialog.isUser,
+      accessHash: dialog.entity.accessHash?.toString() || null,
+      date: dialog.date
+    }));
+    
+    res.json({
+      success: true,
+      channels,
+      total: channels.length
+    });
+  } catch (error) {
+    console.error('Error getting channels:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Get messages from a specific channel/chat between dates
+ */
+app.get('/messages', async (req, res) => {
+  try {
+    const { peer, startDate, endDate, limit = 100 } = req.query;
+    
+    if (!peer) {
+      return res.status(400).json({ error: 'peer is required' });
+    }
+    
+    await initClient();
+    
+    // Parse dates
+    const start = startDate ? new Date(startDate) : null;
+    const end = endDate ? new Date(endDate) : null;
+    
+    // Get messages
+    const messages = await client.getMessages(peer, {
+      limit: parseInt(limit),
+      offsetDate: end || undefined,
+      minId: 0,
+      maxId: 0
+    });
+    
+    // Filter by date range if provided
+    let filteredMessages = messages;
+    if (start || end) {
+      filteredMessages = messages.filter(message => {
+        const msgDate = new Date(message.date * 1000);
+        if (start && msgDate < start) return false;
+        if (end && msgDate > end) return false;
+        return true;
+      });
+    }
+    
+    // Format messages
+    const formattedMessages = filteredMessages.map(message => ({
+      id: message.id,
+      message: message.message || null,
+      date: new Date(message.date * 1000).toISOString(),
+      fromId: message.fromId?.userId?.toString() || null,
+      peerId: message.peerId,
+      out: message.out,
+      mentioned: message.mentioned,
+      mediaUnread: message.mediaUnread,
+      silent: message.silent,
+      post: message.post,
+      fromScheduled: message.fromScheduled,
+      legacy: message.legacy,
+      editHide: message.editHide,
+      pinned: message.pinned,
+      noforwards: message.noforwards,
+      media: message.media ? {
+        className: message.media.className,
+        document: message.media.document ? {
+          id: message.media.document.id?.toString(),
+          mimeType: message.media.document.mimeType,
+          size: message.media.document.size
+        } : null,
+        photo: message.media.photo ? {
+          id: message.media.photo.id?.toString(),
+          hasStickers: message.media.photo.hasStickers
+        } : null
+      } : null,
+      views: message.views,
+      forwards: message.forwards,
+      replies: message.replies,
+      editDate: message.editDate ? new Date(message.editDate * 1000).toISOString() : null,
+      postAuthor: message.postAuthor,
+      groupedId: message.groupedId?.toString() || null
+    }));
+    
+    res.json({
+      success: true,
+      messages: formattedMessages,
+      total: formattedMessages.length,
+      peer,
+      dateRange: {
+        start: start?.toISOString() || null,
+        end: end?.toISOString() || null
+      }
+    });
+  } catch (error) {
+    console.error('Error getting messages:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * Graceful shutdown
  */
 process.on('SIGINT', async () => {

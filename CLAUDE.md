@@ -1,4 +1,4 @@
-# CLAUDE.md
+te# CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -101,6 +101,8 @@ The GramJS server runs as a separate Node.js process and provides:
 - `POST /send_note_as_image` - Send note content as HTML image
 - `GET /me` - Get current user info
 - `GET /health` - Health check endpoint
+- `GET /channels` - Get all channels, groups, and chats
+- `GET /messages` - Get messages from specific channel/chat between dates
 
 ## File Structure
 
