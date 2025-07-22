@@ -5,12 +5,17 @@
  * Runs as separate Node.js process to avoid Electron compatibility issues
  */
 
+// Load environment variables from .env file FIRST
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
+
+const { v4: uuidv4 } = require('uuid');
 const { TelegramClient, Api } = require('telegram');
 const { StringSession } = require('telegram/sessions');
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
+const VectorService = require('./vector-service');
 
 const app = express();
 const PORT = 8124; // Different from main plugin port
@@ -28,6 +33,19 @@ const CONFIG = {
 
 let client = null;
 let isConnected = false;
+let vectorService = null;
+
+// Initialize vector service
+try {
+  vectorService = new VectorService({
+    qdrantUrl: process.env.QDRANT_URL,
+    openaiApiKey: process.env.OPENAI_API_KEY,
+    collectionName: process.env.QDRANT_COLLECTION,
+  });
+  console.log('[VectorService] Initialized');
+} catch (error) {
+  console.warn('[VectorService] Failed to initialize:', error.message);
+}
 
 /**
  * Initialize GramJS client
@@ -347,6 +365,274 @@ app.get('/messages', async (req, res) => {
   } catch (error) {
     console.error('Error getting messages:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================================================
+// VECTOR SERVICE ENDPOINTS
+// ============================================================================
+
+/**
+ * Vectorize content (universal endpoint)
+ */
+app.post('/vectorize', async (req, res) => {
+  try {
+    if (!vectorService) {
+      return res.status(503).json({ error: 'Vector service not available' });
+    }
+
+    const { id, contentType, title, content, metadata } = req.body;
+
+    if (!id || !contentType || !content) {
+      return res.status(400).json({ 
+        error: 'id, contentType, and content are required' 
+      });
+    }
+
+    const result = await vectorService.vectorizeContent({
+      id,
+      contentType,
+      title,
+      content,
+      metadata
+    });
+
+    res.json({
+      success: true,
+      ...result
+    });
+
+  } catch (error) {
+    console.error('[/vectorize] Error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Vectorize Telegram messages from a channel
+ */
+app.post('/vectorize_messages', async (req, res) => {
+  try {
+    if (!vectorService) {
+      return res.status(503).json({ error: 'Vector service not available' });
+    }
+
+    const { peer, startDate, endDate, limit = 100 } = req.body;
+    
+    if (!peer) {
+      return res.status(400).json({ error: 'peer is required' });
+    }
+    
+    await initClient();
+    
+    // Get messages first
+    const start = startDate ? new Date(startDate) : null;
+    const end = endDate ? new Date(endDate) : null;
+    
+    const messages = await client.getMessages(peer, {
+      // limit: parseInt(limit),
+      limit: 1000,
+      offsetDate: end || undefined,
+      minId: 0,
+      maxId: 0
+    });
+
+    // Filter by date range if provided
+    let filteredMessages = messages;
+    if (start || end) {
+      filteredMessages = messages.filter(message => {
+        const msgDate = new Date(message.date * 1000);
+        if (start && msgDate < start) return false;
+        if (end && msgDate > end) return false;
+        return true;
+      });
+    }
+
+    // Prepare content list for vectorization
+    const contentList = filteredMessages
+      .filter(msg => msg.message && msg.message.trim().length > 0)
+      .map(msg => ({
+        id: `telegram_${peer}_${msg.id}`,
+        contentType: 'telegram_post',
+        content: msg.message,
+        metadata: {
+          telegram: {
+            channelId: peer,
+            messageId: msg.id,
+            author: msg.postAuthor || null,
+            date: new Date(msg.date * 1000).toISOString(),
+            views: msg.views,
+            forwards: msg.forwards,
+            isComment: false
+          }
+        }
+      }));
+    
+    if (contentList.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No messages with content found to vectorize',
+        processed: 0,
+        results: []
+      });
+    }
+
+    // Batch vectorize
+    const results = await vectorService.batchVectorize(contentList, (progress) => {
+      console.log(`[/vectorize_messages] Progress: ${progress.current}/${progress.total}`);
+    });
+
+    res.json({
+      success: true,
+      peer,
+      processed: results.length,
+      results,
+      dateRange: {
+        start: start?.toISOString() || null,
+        end: end?.toISOString() || null
+      }
+    });
+
+  } catch (error) {
+    console.error('[/vectorize_messages] Error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Search vectorized content
+ */
+app.post('/search', async (req, res) => {
+  try {
+    if (!vectorService) {
+      return res.status(503).json({ error: 'Vector service not available' });
+    }
+
+    const { 
+      query, 
+      limit = 10, 
+      contentTypes = [], 
+      filters = {},
+      scoreThreshold = 0.0
+    } = req.body;
+
+    if (!query || typeof query !== 'string') {
+      return res.status(400).json({ error: 'query is required and must be a string' });
+    }
+
+    const results = await vectorService.searchContent(query, {
+      limit,
+      contentTypes,
+      filters,
+      scoreThreshold
+    });
+
+    res.json({
+      success: true,
+      ...results
+    });
+
+  } catch (error) {
+    console.error('[/search] Error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Get vectorized content by ID
+ */
+app.get('/content/:id', async (req, res) => {
+  try {
+    if (!vectorService) {
+      return res.status(503).json({ error: 'Vector service not available' });
+    }
+
+    const { id } = req.params;
+    const content = await vectorService.getContent(id);
+
+    if (!content) {
+      return res.status(404).json({ error: 'Content not found' });
+    }
+
+    res.json({
+      success: true,
+      content
+    });
+
+  } catch (error) {
+    console.error(`[/content/${req.params.id}] Error:`, error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Delete vectorized content
+ */
+app.delete('/content/:id', async (req, res) => {
+  try {
+    if (!vectorService) {
+      return res.status(503).json({ error: 'Vector service not available' });
+    }
+
+    const { id } = req.params;
+    const result = await vectorService.deleteContent(id);
+
+    res.json({
+      success: true,
+      ...result
+    });
+
+  } catch (error) {
+    console.error(`[DELETE /content/${req.params.id}] Error:`, error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Get vector service statistics
+ */
+app.get('/vector_stats', async (req, res) => {
+  try {
+    if (!vectorService) {
+      return res.status(503).json({ error: 'Vector service not available' });
+    }
+
+    const stats = await vectorService.getStats();
+
+    res.json({
+      success: true,
+      ...stats
+    });
+
+  } catch (error) {
+    console.error('[/vector_stats] Error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Vector service health check
+ */
+app.get('/vector_health', async (req, res) => {
+  try {
+    if (!vectorService) {
+      return res.status(503).json({ 
+        status: 'unavailable',
+        error: 'Vector service not initialized'
+      });
+    }
+
+    const health = await vectorService.healthCheck();
+    const statusCode = health.status === 'healthy' ? 200 : 503;
+    
+    res.status(statusCode).json(health);
+
+  } catch (error) {
+    console.error('[/vector_health] Error:', error);
+    res.status(503).json({ 
+      status: 'error',
+      error: error.message 
+    });
   }
 });
 

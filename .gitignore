@@ -23,3 +23,5 @@ data.json
 
 mcp-obsidian
 build
+
+.env

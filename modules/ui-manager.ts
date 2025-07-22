@@ -2,29 +2,42 @@
  * UI Manager for injecting buttons and interface elements
  */
 
-import { TFile, Notice, WorkspaceLeaf } from 'obsidian';
+import { TFile, Notice, WorkspaceLeaf, App } from 'obsidian';
 import { GramJSBridge } from './gramjs-bridge';
 import { MessageFormatter } from './message-formatter';
+import { NoteUISystem } from './note-ui-system';
+import { VectorBridge } from './vector-bridge';
 import type { KoraMcpPluginSettings } from '../main';
 
 export class UIManager {
+  private app: App;
   private settings: KoraMcpPluginSettings;
   private gramjsBridge: GramJSBridge;
   private messageFormatter: MessageFormatter;
   private moveFileToFolder: (file: TFile, targetFolder: string) => Promise<void>;
+  private getFileContent: (file: TFile) => Promise<string>;
+  private noteUISystem: NoteUISystem;
+  private vectorBridge: VectorBridge;
 
   constructor(
+    app: App,
     settings: KoraMcpPluginSettings,
     gramjsBridge: GramJSBridge,
-    moveFileToFolder: (file: TFile, targetFolder: string) => Promise<void>
+    vectorBridge: VectorBridge,
+    moveFileToFolder: (file: TFile, targetFolder: string) => Promise<void>,
+    getFileContent: (file: TFile) => Promise<string>
   ) {
+    this.app = app;
     this.settings = settings;
     this.gramjsBridge = gramjsBridge;
+    this.vectorBridge = vectorBridge;
     this.moveFileToFolder = moveFileToFolder;
+    this.getFileContent = getFileContent;
     this.messageFormatter = new MessageFormatter(
       settings.telegram.customEmojis,
       settings.telegram.useCustomEmojis
     );
+    this.noteUISystem = new NoteUISystem();
   }
 
   /**
@@ -39,16 +52,16 @@ export class UIManager {
   }
 
   /**
-   * Inject buttons into the workspace leaf
+   * Inject buttons and note-specific UI into the workspace leaf
    */
-  injectButtons(leaf: WorkspaceLeaf): void {
+  async injectButtons(leaf: WorkspaceLeaf): Promise<void> {
     const container = (leaf.view as any).containerEl;
 
-    // Удалим уже существующие наши кнопки, если есть
-    const existing = container.querySelectorAll('.kora-custom-button');
-    existing.forEach((btn: HTMLElement) => btn.remove());
+    // Удалим уже существующие наши элементы, если есть
+    const existing = container.querySelectorAll('.kora-custom-button, .note-ui-renderer');
+    existing.forEach((element: HTMLElement) => element.remove());
 
-    // Создаём кнопки
+    // Создаём стандартные кнопки
     const buttons = this.createButtons(leaf);
     
     // Вставляем в начало preview-панели
@@ -57,6 +70,49 @@ export class UIManager {
       buttons.reverse().forEach(button => {
         markdownEl.prepend(button);
       });
+
+      // Добавляем note-specific UI если есть активный файл
+      const file = (leaf.view as any).file as TFile;
+      if (file) {
+        await this.injectNoteUI(markdownEl, leaf, file);
+      }
+    }
+  }
+
+  /**
+   * Inject note-specific UI based on file path and frontmatter
+   */
+  private async injectNoteUI(containerEl: HTMLElement, leaf: WorkspaceLeaf, file: TFile): Promise<void> {
+    try {
+      const context = {
+        file,
+        leaf,
+        app: this.app,
+        frontmatter: {},
+        settings: this.settings,
+        vectorBridge: this.vectorBridge,
+        getFileContent: this.getFileContent
+      };
+
+      // Создаём контейнер для note UI
+      const noteUIContainer = document.createElement('div');
+      noteUIContainer.className = 'kora-note-ui-container';
+      containerEl.prepend(noteUIContainer);
+
+      noteUIContainer.style.cssText = `
+        border-bottom: 1px solid var(--background-modifier-border);
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+      `;
+
+      await this.noteUISystem.renderNoteUI(noteUIContainer, context);
+
+      // Если контейнер пустой, удаляем его
+      if (!noteUIContainer.hasChildNodes()) {
+        noteUIContainer.remove();
+      }
+    } catch (error) {
+      console.error('Error injecting note UI:', error);
     }
   }
 
@@ -184,17 +240,9 @@ export class UIManager {
   }
 
   /**
-   * Get file content from vault
+   * Cleanup note UI system
    */
-  private async getFileContent(file: TFile): Promise<string> {
-    // This should be injected from the main plugin
-    return '';
-  }
-
-  /**
-   * Set file content getter
-   */
-  setFileContentGetter(getter: (file: TFile) => Promise<string>): void {
-    this.getFileContent = getter;
+  cleanup(): void {
+    this.noteUISystem.cleanup();
   }
 }

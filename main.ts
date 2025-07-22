@@ -12,8 +12,11 @@ import {
 import { GramJSBridge } from './modules/gramjs-bridge';
 import { PluginCommands } from './modules/commands';
 import { UIManager } from './modules/ui-manager';
+import { VectorBridge } from './modules/vector-bridge';
 import { McpSettingTab } from './settings';
 import type { EmojiMapping } from './modules/message-formatter';
+import type { VectorSettingsInterface } from './settings/VectorSettings';
+import { defaultVectorSettings } from './settings/VectorSettings';
 
 export interface TelegramSettings {
 	botToken: string;
@@ -33,6 +36,7 @@ export interface KoraMcpPluginSettings {
 		stringSession?: string;
 		chatId?: string;
 	};
+	vectorSettings: VectorSettingsInterface;
 }
 
 const DEFAULT_SETTINGS: KoraMcpPluginSettings = {
@@ -63,12 +67,14 @@ const DEFAULT_SETTINGS: KoraMcpPluginSettings = {
 		stringSession: '',
 		chatId: '',
 	},
+	vectorSettings: defaultVectorSettings,
 };
 
 export default class KoraMcpPlugin extends Plugin {
 	settings: KoraMcpPluginSettings;
 	private server: http.Server | null = null;
 	private gramjsBridge: GramJSBridge;
+	private vectorBridge: VectorBridge;
 	private pluginCommands: PluginCommands;
 	private uiManager: UIManager;
 
@@ -80,12 +86,21 @@ export default class KoraMcpPlugin extends Plugin {
 		// Инициализируем GramJS bridge
 		this.gramjsBridge = new GramJSBridge();
 		
+		// Инициализируем Vector bridge
+		this.vectorBridge = new VectorBridge();
+		
 		// Инициализируем команды
 		this.pluginCommands = new PluginCommands(this.app, this.settings, this.gramjsBridge);
 		
 		// Инициализируем UI manager
-		this.uiManager = new UIManager(this.settings, this.gramjsBridge, this.moveFileToFolder.bind(this));
-		this.uiManager.setFileContentGetter(this.app.vault.read.bind(this.app.vault));
+		this.uiManager = new UIManager(
+			this.app,
+			this.settings,
+			this.gramjsBridge,
+			this.vectorBridge,
+			this.moveFileToFolder.bind(this),
+			this.app.vault.read.bind(this.app.vault)
+		);
 
 		this.startServer();
 
@@ -115,7 +130,7 @@ export default class KoraMcpPlugin extends Plugin {
 		const file = (leaf.view as any).file as TFile;
 		if (!file) return;
 
-		// Показываем кнопки для всех markdown файлов
+		// Показываем кнопки и note UI для всех markdown файлов
 		this.uiManager.injectButtons(leaf);
 	}
 
@@ -134,6 +149,7 @@ export default class KoraMcpPlugin extends Plugin {
 
 	onunload() {
 		this.stopServer();
+		this.uiManager?.cleanup();
 	}
 
 	async loadSettings() {

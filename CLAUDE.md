@@ -4,12 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is the **Kora MCP** (Model Context Protocol) Obsidian plugin that exposes vault data through HTTP APIs and provides GramJS userbot integration. The plugin consists of:
+This is the **Kora MCP** (Model Context Protocol) Obsidian plugin that exposes vault data through HTTP APIs and provides GramJS userbot integration with AI-powered vector search. The plugin consists of:
 
 - **Obsidian Plugin** (`main.ts`): Main plugin with HTTP server for vault access
 - **MCP Server** (`mcp-server.ts`): Standalone MCP server with tools for vault operations
 - **GramJS Integration**: GramJS userbot support with custom emoji handling and message formatting
 - **GramJS Server** (`gramjs-server/`): Separate Node.js process for userbot functionality
+- **Vector Search System**: AI-powered semantic search using OpenAI embeddings and Qdrant vector database
 - **Modular Architecture**: Commands, UI management, and message formatting in separate modules
 - **Modular Settings**: Separate setting modules for different features
 
@@ -104,6 +105,40 @@ The GramJS server runs as a separate Node.js process and provides:
 - `GET /channels` - Get all channels, groups, and chats
 - `GET /messages` - Get messages from specific channel/chat between dates
 
+**Vector Search Endpoints:**
+- `POST /vectorize` - Vectorize any content (universal endpoint)
+- `POST /vectorize_messages` - Vectorize Telegram messages from a channel
+- `POST /search` - Search vectorized content with semantic similarity
+- `GET /content/:id` - Get vectorized content by ID
+- `DELETE /content/:id` - Delete vectorized content
+- `GET /vector_stats` - Get vector database statistics
+- `GET /vector_health` - Vector service health check
+
+### Vector Search System
+
+The plugin includes a comprehensive AI-powered vector search system that can index and search across multiple content types:
+
+**Components:**
+- **EmbeddingService** (`gramjs-server/embedding-service.js`): OpenAI embeddings with chunking and averaging
+- **VectorService** (`gramjs-server/vector-service.js`): Qdrant integration with CRUD operations
+- **VectorBridge** (`modules/vector-bridge.ts`): TypeScript interface for vector operations
+- **VectorSettings** (`settings/VectorSettings.ts`): Configuration UI with connection testing
+
+**Supported Content Types:**
+- `telegram_post` - Messages from Telegram channels/groups
+- `telegram_comment` - Comments in Telegram chats
+- `obsidian_note` - Notes from Obsidian vault
+
+**Features:**
+- Semantic similarity search using cosine distance
+- Content deduplication via hash checking
+- Batch processing for large datasets
+- Filtered search by content type, channel, date, etc.
+- Automatic text chunking for long content
+- Idempotent operations (safe to re-run)
+
+**Data Schema:** All content stored in single Qdrant collection with universal payload structure containing content type, metadata, and source-specific fields.
+
 ## File Structure
 
 ```
@@ -111,23 +146,28 @@ main.ts              # Main plugin entry point
 mcp-server.ts        # Standalone MCP server
 gramjs-server/       # GramJS server directory
 ├── gramjs-server.js # HTTP server for GramJS userbot operations
-└── gramjs-auth.js   # Authentication helper
+├── gramjs-auth.js   # Authentication helper
+├── embedding-service.js # OpenAI embeddings service
+└── vector-service.js # Qdrant vector database service
 settings/            # Modular settings components
 ├── index.ts         # Settings tab assembler
 ├── ServerSettings.ts
 ├── TelegramSettings.ts
 ├── GramJsSettings.ts
-└── CustomEmojiSettings.ts
+├── CustomEmojiSettings.ts
+└── VectorSettings.ts # Vector search configuration
 modules/             # Feature modules
 ├── commands.ts      # Command definitions and handlers
 ├── ui-manager.ts    # UI button injection and management
 ├── message-formatter.ts # Message formatting and emoji processing
 ├── gramjs-bridge.ts # HTTP bridge to GramJS server
+├── vector-bridge.ts # HTTP bridge to vector services
 └── image-utils.ts   # Image processing utilities
 lib/
 └── obsidian.ts      # Obsidian API wrappers
 docs/                # Documentation
 ├── GRAMJS_SETUP.md  # GramJS setup instructions
+├── VECTOR_USAGE.md  # Vector search usage guide
 └── *.md            # Architecture and integration docs
 ```
 
@@ -135,9 +175,12 @@ docs/                # Documentation
 
 - Plugin serves HTTP API on localhost:8123 by default (security: local only)
 - GramJS server runs on localhost:8124 as separate Node.js process
+- Vector search requires Qdrant running on localhost:6333 (Docker recommended)
+- OpenAI API key required for embeddings (paid service)
 - MCP server communicates with plugin HTTP server, not Obsidian API directly
 - Settings are persistent through Obsidian's plugin data system
 - GramJS requires API credentials from Telegram and separate server process
+- All vector data stored in single Qdrant collection for cross-content search
 - Modular architecture allows for easy extension and maintenance
 
 ## GramJS Setup
@@ -152,9 +195,12 @@ For GramJS userbot setup, see `docs/GRAMJS_SETUP.md` for detailed instructions i
 
 Key dependencies:
 - `@modelcontextprotocol/sdk`: MCP protocol implementation
+- `@qdrant/js-client-rest`: Qdrant vector database client
+- `openai`: OpenAI API client for embeddings
 - `telegram`: GramJS userbot library
 - `express`: HTTP server for GramJS service
 - `cors`: CORS middleware for GramJS server
+- `crypto`: Content hashing for deduplication
 - `zod`: Schema validation for MCP tools
 - `obsidian`: Obsidian plugin API
 
