@@ -95,11 +95,46 @@ app.get('/health', (req, res) => {
 });
 
 /**
+ * Convert buttons array to GramJS inline keyboard
+ */
+function createInlineKeyboard(buttons) {
+  if (!buttons || buttons.length === 0) return null;
+  
+  // Создаем ряды кнопок
+  const rows = buttons.map(row => {
+    const buttonRow = row.map(btn => {
+      if (btn.url) {
+        return new Api.KeyboardButtonUrl({
+          text: btn.text,
+          url: btn.url
+        });
+      } else if (btn.data) {
+        return new Api.KeyboardButtonCallback({
+          text: btn.text,
+          data: Buffer.from(btn.data, 'utf-8')
+        });
+      }
+      // Обычная кнопка без действия (редко используется в inline)
+      return new Api.KeyboardButtonCallback({
+        text: btn.text,
+        data: Buffer.from(btn.text, 'utf-8') // fallback data
+      });
+    });
+    
+    // Оборачиваем в KeyboardButtonRow
+    return new Api.KeyboardButtonRow({ buttons: buttonRow });
+  });
+  
+  // Возвращаем ReplyInlineMarkup
+  return new Api.ReplyInlineMarkup({ rows });
+}
+
+/**
  * Send text message with support for MarkdownV2 and custom emojis
  */
 app.post('/send_message', async (req, res) => {
   try {
-    const { peer, message, entities } = req.body;
+    const { peer, message, entities, buttons } = req.body;
 
     if (!peer || !message) {
       return res.status(400).json({ error: 'peer and message are required' });
@@ -123,7 +158,30 @@ app.post('/send_message', async (req, res) => {
       });
     }
     
-    const result = await client.sendMessage(peer, messageOptions);
+    // Add inline buttons if provided
+    const inlineButtons = createInlineKeyboard(buttons);
+
+    // Тестовый вариант с хардкодом
+const testButtons = new Api.ReplyInlineMarkup({
+  rows : [
+    new Api.KeyboardButtonRow({
+       buttons : [
+         new Api.KeyboardButtonUrl({
+            text : "button text",
+            url : "button url"
+         })
+       ]
+    })
+  ]
+})
+
+    if (inlineButtons) {
+      messageOptions.replyMarkup = testButtons;
+    }
+
+    const me = await client.getMe();
+    
+    const result = await client.sendMessage(me.id, messageOptions);
     console.log(`[send_message] Message sent successfully. Options:`, messageOptions);
     
     res.json({ success: true, message: 'Message sent successfully', result });
@@ -167,7 +225,7 @@ app.post('/send_file', async (req, res) => {
  */
 app.post('/send_note_as_image', async (req, res) => {
   try {
-    const { peer, content, title } = req.body;
+    const { peer, content, title, buttons } = req.body;
     
     if (!peer || !content) {
       return res.status(400).json({ error: 'peer and content are required' });
@@ -209,10 +267,19 @@ app.post('/send_note_as_image', async (req, res) => {
     fs.writeFileSync(htmlFile, htmlContent);
     
     await initClient();
-    await client.sendFile(peer, { 
+    
+    const sendOptions = { 
       file: htmlFile,
       caption: title || 'Note from Obsidian'
-    });
+    };
+    
+    // Add inline buttons if provided
+    const inlineButtons = createInlineKeyboard(buttons);
+    if (inlineButtons) {
+      sendOptions.replyMarkup = inlineButtons;
+    }
+    
+    await client.sendFile(peer, sendOptions);
     
     // Clean up
     fs.unlinkSync(htmlFile);

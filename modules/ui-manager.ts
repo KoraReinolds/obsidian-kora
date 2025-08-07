@@ -206,9 +206,12 @@ export class UIManager {
       return;
     }
 
-    const success = await this.gramjsBridge.sendNoteAsImage(peer, content, file.basename);
+    // Create navigation buttons for the post
+    const navigationButtons = this.createNavigationButtons(file);
+
+    const success = await this.gramjsBridge.sendNoteAsImage(peer, content, file.basename, navigationButtons);
     if (success) {
-      new Notice('Заметка отправлена как изображение!');
+      new Notice('Заметка отправлена как изображение с навигационными кнопками!');
     }
   }
 
@@ -233,10 +236,40 @@ export class UIManager {
     // Process custom emojis
     const { processedText, entities } = this.messageFormatter.processCustomEmojis(content);
 
-    const success = await this.gramjsBridge.sendMessage(peer, processedText, entities);
+    const buttons = this.createNavigationButtons(file);
+
+    const success = await this.gramjsBridge.sendMessage(peer, processedText, entities, buttons);
     if (success) {
       new Notice('Заметка отправлена как текст!');
     }
+  }
+
+  /**
+   * Create navigation buttons for the post
+   */
+  private createNavigationButtons(file: TFile): any[][] {
+    const buttons = [];
+    
+    // First row: Note link button
+    buttons.push([{
+      text: `📝 ${file.basename}`,
+      url: `obsidian://open?vault=${encodeURIComponent(this.app.vault.getName())}&file=${encodeURIComponent(file.path)}`
+    }]);
+    
+    // Second row: Vault and folder navigation
+    const folderPath = file.parent?.path || '';
+    buttons.push([
+      {
+        text: '🗂️ Vault',
+        url: `obsidian://open?vault=${encodeURIComponent(this.app.vault.getName())}`
+      },
+      ...(folderPath ? [{
+        text: `📁 ${file.parent?.name || 'Folder'}`,
+        url: `obsidian://open?vault=${encodeURIComponent(this.app.vault.getName())}&file=${encodeURIComponent(folderPath)}`
+      }] : [])
+    ]);
+
+    return buttons;
   }
 
   /**

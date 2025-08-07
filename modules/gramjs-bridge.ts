@@ -16,6 +16,13 @@ interface SendMessageRequest {
   message: string;
   entities?: MessageEntity[];
   parseMode?: string;
+  buttons?: InlineButton[][];
+}
+
+interface InlineButton {
+  text: string;
+  url?: string;
+  data?: string;
 }
 
 interface MessageEntity {
@@ -35,6 +42,7 @@ interface SendNoteAsImageRequest {
   peer: string;
   content: string;
   title?: string;
+  buttons?: InlineButton[][];
 }
 
 interface GetMessagesRequest {
@@ -114,12 +122,12 @@ export class GramJSBridge {
   /**
    * Send text message via GramJS userbot with MarkdownV2 support
    */
-  async sendMessage(peer: string, message: string, entities?: MessageEntity[]): Promise<boolean> {
+  async sendMessage(peer: string, message: string, entities?: MessageEntity[], buttons?: InlineButton[][]): Promise<boolean> {
     try {
       const response = await fetch(`${this.baseUrl}/send_message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ peer, message, entities } as SendMessageRequest),
+        body: JSON.stringify({ peer, message, entities, buttons } as SendMessageRequest),
       });
 
       if (!response.ok) {
@@ -162,12 +170,12 @@ export class GramJSBridge {
   /**
    * Send note content as image via GramJS userbot
    */
-  async sendNoteAsImage(peer: string, content: string, title?: string): Promise<boolean> {
+  async sendNoteAsImage(peer: string, content: string, title?: string, buttons?: InlineButton[][]): Promise<boolean> {
     try {
       const response = await fetch(`${this.baseUrl}/send_note_as_image`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ peer, content, title } as SendNoteAsImageRequest),
+        body: JSON.stringify({ peer, content, title, buttons } as SendNoteAsImageRequest),
       });
 
       if (!response.ok) {
