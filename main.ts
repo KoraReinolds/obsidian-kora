@@ -31,9 +31,11 @@ export interface KoraMcpPluginSettings {
 	telegram: TelegramSettings;
 	useGramJsUserbot?: boolean;
 	gramjs?: {
+		mode?: 'bot' | 'userbot';
 		apiId?: number;
 		apiHash?: string;
 		stringSession?: string;
+		botToken?: string;
 		chatId?: string;
 	};
 	vectorSettings: VectorSettingsInterface;
@@ -168,6 +170,37 @@ export default class KoraMcpPlugin extends Plugin {
 		}
 		if (this.uiManager) {
 			this.uiManager.updateSettings(this.settings);
+		}
+		// Синхронизируем настройки с GramJS сервером
+		await this.syncGramJSConfig();
+	}
+
+	/**
+	 * Синхронизировать конфигурацию GramJS сервера
+	 */
+	private async syncGramJSConfig() {
+		if (!this.settings.useGramJsUserbot || !this.settings.gramjs) {
+			return;
+		}
+
+		try {
+			const isRunning = await this.gramjsBridge.isServerRunning();
+			if (!isRunning) {
+				console.log('[syncGramJSConfig] GramJS server not running, skipping sync');
+				return;
+			}
+
+			await this.gramjsBridge.updateConfig({
+				mode: this.settings.gramjs.mode || 'userbot',
+				botToken: this.settings.gramjs.botToken,
+				apiId: this.settings.gramjs.apiId,
+				apiHash: this.settings.gramjs.apiHash,
+				stringSession: this.settings.gramjs.stringSession
+			});
+
+			console.log('[syncGramJSConfig] Configuration synced with GramJS server');
+		} catch (error) {
+			console.error('[syncGramJSConfig] Failed to sync with GramJS server:', error);
 		}
 	}
 

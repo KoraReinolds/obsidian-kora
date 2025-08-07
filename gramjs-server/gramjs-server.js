@@ -9,13 +9,13 @@
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 
 const { v4: uuidv4 } = require('uuid');
-const { TelegramClient, Api } = require('telegram');
-const { StringSession } = require('telegram/sessions');
+const { Api } = require('telegram');
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
 const VectorService = require('./vector-service');
+const StrategyFactory = require('./strategies/StrategyFactory');
 
 const app = express();
 const PORT = 8124; // Different from main plugin port
@@ -26,13 +26,19 @@ app.use(express.json());
 
 // Configuration (you'll need to set these)
 const CONFIG = {
+  // Userbot configuration
   apiId: process.env.TELEGRAM_API_ID || 27782052, // Replace with your API ID
   apiHash: process.env.TELEGRAM_API_HASH || '68a4d2fd1466ab6faccfb81bd4b68255', // Replace with your API Hash
-  stringSession: process.env.TELEGRAM_SESSION || '1AgAOMTQ5LjE1NC4xNjcuNDEBu12zMcMWPrgkH8lmy5vdKybpnoWFxGiwtvdXgCvXK7WFLyZB6LiT5vILrCFUDSnU0Ae9zXHPkBjBtGwuv5vCUIHCFc26j31/Kx25D0YyX21CGAXvMTi9kNZhlCakjo+BqgztIyVWs+2Je63WyTPp3893JoCjwUBcHx3l7NqR6JMYUzReE6P6C4nFnnjc8WP9QyKXC7kretLCKgacK+xzpFMcW35sMmemlmflB3a/cnqL+uWPmMsFHNS+R1GgnprS7Yta6K8R3A7uOhaP31LocYuKFfoL07mWMB5HsfIZME8kZgQ5K55DJH/mhsQrq1u93CtVTldbKcm2yjbAskbbl3A=' // Replace with your session string
+  stringSession: process.env.TELEGRAM_SESSION || '1AgAOMTQ5LjE1NC4xNjcuNDEBu12zMcMWPrgkH8lmy5vdKybpnoWFxGiwtvdXgCvXK7WFLyZB6LiT5vILrCFUDSnU0Ae9zXHPkBjBtGwuv5vCUIHCFc26j31/Kx25D0YyX21CGAXvMTi9kNZhlCakjo+BqgztIyVWs+2Je63WyTPp3893JoCjwUBcHx3l7NqR6JMYUzReE6P6C4nFnnjc8WP9QyKXC7kretLCKgacK+xzpFMcW35sMmemlmflB3a/cnqL+uWPmMsFHNS+R1GgnprS7Yta6K8R3A7uOhaP31LocYuKFfoL07mWMB5HsfIZME8kZgQ5K55DJH/mhsQrq1u93CtVTldbKcm2yjbAskbbl3A=', // Replace with your session string
+  
+  // Bot configuration
+  botToken: process.env.TELEGRAM_BOT_TOKEN || '7548908784:AAGOiQ2iOeaa9mMsBh7l0A68ndhIh24oy_I',
+  
+  // Mode: 'userbot' or 'bot'
+  mode: process.env.TELEGRAM_MODE || 'bot' // Default to userbot for backward compatibility
 };
 
-let client = null;
-let isConnected = false;
+let currentStrategy = null;
 let vectorService = null;
 
 // Initialize vector service
@@ -48,37 +54,43 @@ try {
 }
 
 /**
- * Initialize GramJS client
+ * Initialize Telegram client using strategy pattern
  */
 async function initClient() {
-  if (client && isConnected) {
-    console.log('[initClient] Client already connected, skipping initialization');
-    return;
+  // Check if current strategy is already valid
+  if (currentStrategy && 
+      currentStrategy.isClientConnected() && 
+      currentStrategy.getMode() === CONFIG.mode) {
+    console.log('[initClient] Strategy already connected, skipping initialization');
+    return currentStrategy;
+  }
+  
+  // Disconnect existing strategy if mode changed
+  if (currentStrategy && currentStrategy.getMode() !== CONFIG.mode) {
+    console.log(`[initClient] Mode changed from ${currentStrategy.getMode()} to ${CONFIG.mode}, switching strategy...`);
+    try {
+      await currentStrategy.disconnect();
+    } catch (error) {
+      console.warn('[initClient] Error disconnecting previous strategy:', error.message);
+    }
+    currentStrategy = null;
   }
   
   try {
-    console.log('[initClient] Initializing GramJS client...');
-    console.log('[initClient] API ID:', CONFIG.apiId);
-    console.log('[initClient] Session string length:', CONFIG.stringSession?.length || 0);
+    console.log(`[initClient] Creating ${CONFIG.mode} strategy...`);
     
-    client = new TelegramClient(
-      new StringSession(CONFIG.stringSession),
-      CONFIG.apiId,
-      CONFIG.apiHash,
-      { connectionRetries: 5 }
-    );
+    // Create new strategy
+    currentStrategy = StrategyFactory.createValidatedStrategy(CONFIG.mode, CONFIG);
     
-    console.log('[initClient] Client created, attempting to connect...');
-    await client.connect();
-    isConnected = true;
+    // Initialize the strategy
+    const userInfo = await currentStrategy.initialize();
     
-    // Get user info to verify connection
-    const me = await client.getMe();
-    console.log(`[initClient] GramJS client connected successfully as: @${me.username} (${me.firstName} ${me.lastName})`);
+    console.log(`[initClient] Strategy initialized successfully: ${CONFIG.mode} mode`);
+    return currentStrategy;
+    
   } catch (error) {
-    console.error('[initClient] Failed to initialize GramJS client:', error);
-    console.error('[initClient] Error details:', error.message);
-    isConnected = false;
+    console.error(`[initClient] Failed to initialize strategy in ${CONFIG.mode} mode:`, error);
+    currentStrategy = null;
     throw error;
   }
 }
@@ -89,7 +101,10 @@ async function initClient() {
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
-    connected: isConnected,
+    connected: currentStrategy ? currentStrategy.isClientConnected() : false,
+    mode: currentStrategy ? currentStrategy.getMode() : null,
+    configuredMode: CONFIG.mode,
+    strategyInfo: currentStrategy ? StrategyFactory.getStrategyInfo(currentStrategy.getMode()) : null,
     timestamp: new Date().toISOString()
   });
 });
@@ -140,7 +155,7 @@ app.post('/send_message', async (req, res) => {
       return res.status(400).json({ error: 'peer and message are required' });
     }
     
-    await initClient();
+    const strategy = await initClient();
     
     // Build message options
     const messageOptions = {
@@ -160,35 +175,25 @@ app.post('/send_message', async (req, res) => {
     
     // Add inline buttons if provided
     const inlineButtons = createInlineKeyboard(buttons);
-
-    // Тестовый вариант с хардкодом
-const testButtons = new Api.ReplyInlineMarkup({
-  rows : [
-    new Api.KeyboardButtonRow({
-       buttons : [
-         new Api.KeyboardButtonUrl({
-            text : "button text",
-            url : "button url"
-         })
-       ]
-    })
-  ]
-})
-
     if (inlineButtons) {
-      messageOptions.replyMarkup = testButtons;
+      messageOptions.replyMarkup = inlineButtons;
     }
 
-    const me = await client.getMe();
+    // Send message using strategy
+    const result = await strategy.sendMessage(peer, messageOptions);
     
-    const result = await client.sendMessage(me.id, messageOptions);
-    console.log(`[send_message] Message sent successfully. Options:`, messageOptions);
-    
-    res.json({ success: true, message: 'Message sent successfully', result });
+    res.json({ 
+      success: true, 
+      message: 'Message sent successfully', 
+      mode: strategy.getMode(),
+      result 
+    });
   } catch (error) {
-    console.error('[send_message] Error sending message:', error);
-    console.error('[send_message] Error stack:', error.stack);
-    res.status(500).json({ error: error.message, details: error.toString() });
+    console.error(`[send_message] Error sending message:`, error);
+    res.status(500).json({ 
+      error: error.message,
+      mode: currentStrategy ? currentStrategy.getMode() : 'unknown'
+    });
   }
 });
 
@@ -207,16 +212,24 @@ app.post('/send_file', async (req, res) => {
       return res.status(400).json({ error: 'File not found' });
     }
     
-    await initClient();
-    await client.sendFile(peer, { 
+    const strategy = await initClient();
+    const result = await strategy.sendFile(peer, { 
       file: filePath,
       caption: caption || ''
     });
     
-    res.json({ success: true, message: 'File sent successfully' });
+    res.json({ 
+      success: true, 
+      message: 'File sent successfully',
+      mode: strategy.getMode(),
+      result
+    });
   } catch (error) {
     console.error('Error sending file:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      error: error.message,
+      mode: currentStrategy ? currentStrategy.getMode() : 'unknown'
+    });
   }
 });
 
@@ -266,7 +279,7 @@ app.post('/send_note_as_image', async (req, res) => {
     const htmlFile = path.join(tempDir, `note_${Date.now()}.html`);
     fs.writeFileSync(htmlFile, htmlContent);
     
-    await initClient();
+    const strategy = await initClient();
     
     const sendOptions = { 
       file: htmlFile,
@@ -279,15 +292,23 @@ app.post('/send_note_as_image', async (req, res) => {
       sendOptions.replyMarkup = inlineButtons;
     }
     
-    await client.sendFile(peer, sendOptions);
+    const result = await strategy.sendFile(peer, sendOptions);
     
     // Clean up
     fs.unlinkSync(htmlFile);
     
-    res.json({ success: true, message: 'Note sent as image successfully' });
+    res.json({ 
+      success: true, 
+      message: 'Note sent as image successfully',
+      mode: strategy.getMode(),
+      result
+    });
   } catch (error) {
     console.error('Error sending note as image:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      error: error.message,
+      mode: currentStrategy ? currentStrategy.getMode() : 'unknown'
+    });
   }
 });
 
@@ -296,19 +317,24 @@ app.post('/send_note_as_image', async (req, res) => {
  */
 app.get('/me', async (req, res) => {
   try {
-    await initClient();
-    const me = await client.getMe();
+    const strategy = await initClient();
+    const me = await strategy.getMe();
     
     res.json({
       id: me.id,
       username: me.username,
       firstName: me.firstName,
       lastName: me.lastName,
-      phone: me.phone
+      phone: me.phone,
+      mode: strategy.getMode(),
+      capabilities: me.capabilities || null
     });
   } catch (error) {
     console.error('Error getting user info:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      error: error.message,
+      mode: currentStrategy ? currentStrategy.getMode() : 'unknown'
+    });
   }
 });
 
@@ -317,32 +343,44 @@ app.get('/me', async (req, res) => {
  */
 app.get('/channels', async (req, res) => {
   try {
-    await initClient();
+    const strategy = await initClient();
+    const { limit } = req.query;
     
-    // Get all dialogs (chats)
-    const dialogs = await client.getDialogs();
+    const dialogs = await strategy.getDialogs({ 
+      limit: limit ? parseInt(limit) : undefined 
+    });
     
-    const channels = dialogs.map(dialog => ({
-      id: dialog.id,
-      title: dialog.title,
-      username: dialog.entity.username || null,
-      type: dialog.isChannel ? 'channel' : dialog.isGroup ? 'group' : 'chat',
-      participantsCount: dialog.entity.participantsCount || null,
-      isChannel: dialog.isChannel,
-      isGroup: dialog.isGroup,
-      isUser: dialog.isUser,
-      accessHash: dialog.entity.accessHash?.toString() || null,
-      date: dialog.date
-    }));
+    const channels = strategy.formatChannels(dialogs);
     
     res.json({
       success: true,
       channels,
-      total: channels.length
+      total: channels.length,
+      mode: strategy.getMode(),
+      strategyInfo: StrategyFactory.getStrategyInfo(strategy.getMode())
     });
   } catch (error) {
-    console.error('Error getting channels:', error);
-    res.status(500).json({ error: error.message });
+    console.error(`[channels] Error getting channels:`, error);
+    
+    // Handle strategy-specific errors gracefully
+    const mode = currentStrategy ? currentStrategy.getMode() : 'unknown';
+    
+    if (mode === 'bot' && error.message.includes('dialog')) {
+      // Bot cannot access dialogs - this is normal
+      res.json({
+        success: true,
+        channels: [],
+        total: 0,
+        mode: 'bot',
+        note: 'Bot cannot access dialogs. This is normal for bots that haven\'t been added to any chats yet.',
+        error: error.message
+      });
+    } else {
+      res.status(500).json({ 
+        error: error.message,
+        mode
+      });
+    }
   }
 });
 
@@ -357,14 +395,14 @@ app.get('/messages', async (req, res) => {
       return res.status(400).json({ error: 'peer is required' });
     }
     
-    await initClient();
+    const strategy = await initClient();
     
     // Parse dates
     const start = startDate ? new Date(startDate) : null;
     const end = endDate ? new Date(endDate) : null;
     
     // Get messages
-    const messages = await client.getMessages(peer, {
+    const messages = await strategy.getMessages(peer, {
       limit: parseInt(limit),
       offsetDate: end || undefined,
       minId: 0,
@@ -424,6 +462,7 @@ app.get('/messages', async (req, res) => {
       messages: formattedMessages,
       total: formattedMessages.length,
       peer,
+      mode: strategy.getMode(),
       dateRange: {
         start: start?.toISOString() || null,
         end: end?.toISOString() || null
@@ -431,7 +470,10 @@ app.get('/messages', async (req, res) => {
     });
   } catch (error) {
     console.error('Error getting messages:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      error: error.message,
+      mode: currentStrategy ? currentStrategy.getMode() : 'unknown'
+    });
   }
 });
 
@@ -490,13 +532,13 @@ app.post('/vectorize_messages', async (req, res) => {
       return res.status(400).json({ error: 'peer is required' });
     }
     
-    await initClient();
+    const strategy = await initClient();
     
     // Get messages first
     const start = startDate ? new Date(startDate) : null;
     const end = endDate ? new Date(endDate) : null;
     
-    const messages = await client.getMessages(peer, {
+    const messages = await strategy.getMessages(peer, {
       // limit: parseInt(limit),
       limit: 1000,
       offsetDate: end || undefined,
@@ -554,6 +596,7 @@ app.post('/vectorize_messages', async (req, res) => {
       peer,
       processed: results.length,
       results,
+      mode: strategy.getMode(),
       dateRange: {
         start: start?.toISOString() || null,
         end: end?.toISOString() || null
@@ -708,14 +751,88 @@ app.get('/vector_health', async (req, res) => {
  */
 process.on('SIGINT', async () => {
   console.log('Shutting down GramJS server...');
-  if (client && isConnected) {
-    await client.disconnect();
+  if (currentStrategy) {
+    try {
+      await currentStrategy.disconnect();
+      console.log('Strategy disconnected successfully');
+    } catch (error) {
+      console.warn('Error disconnecting strategy:', error.message);
+    }
   }
   process.exit(0);
 });
 
 // Start server
+/**
+ * Update configuration endpoint
+ */
+app.post('/config', async (req, res) => {
+  try {
+    const { mode, botToken, apiId, apiHash, stringSession } = req.body;
+    
+    console.log(`[/config] Updating configuration - mode: ${mode}`);
+    
+    // Store previous mode
+    const previousMode = CONFIG.mode;
+    
+    // Update config
+    if (mode) CONFIG.mode = mode;
+    if (botToken) CONFIG.botToken = botToken;
+    if (apiId) CONFIG.apiId = apiId;
+    if (apiHash) CONFIG.apiHash = apiHash;
+    if (stringSession) CONFIG.stringSession = stringSession;
+    
+    // Disconnect existing strategy if mode changed
+    if (currentStrategy && previousMode !== CONFIG.mode) {
+      console.log(`[/config] Mode changed from ${previousMode} to ${CONFIG.mode}, disconnecting current strategy`);
+      try {
+        await currentStrategy.disconnect();
+      } catch (error) {
+        console.warn('[/config] Error disconnecting strategy:', error.message);
+      }
+      currentStrategy = null;
+    }
+    
+    // Validate new configuration
+    try {
+      const validationResult = StrategyFactory.validateConfigCompleteness(CONFIG.mode, CONFIG);
+      
+      res.json({
+        success: true,
+        message: 'Configuration updated',
+        currentConfig: {
+          mode: CONFIG.mode,
+          hasApiId: !!CONFIG.apiId,
+          hasApiHash: !!CONFIG.apiHash,
+          hasBotToken: !!CONFIG.botToken,
+          hasStringSession: !!CONFIG.stringSession
+        },
+        validation: validationResult,
+        strategyInfo: StrategyFactory.getStrategyInfo(CONFIG.mode)
+      });
+    } catch (validationError) {
+      res.json({
+        success: true,
+        message: 'Configuration updated with validation warnings',
+        currentConfig: {
+          mode: CONFIG.mode,
+          hasApiId: !!CONFIG.apiId,
+          hasApiHash: !!CONFIG.apiHash,
+          hasBotToken: !!CONFIG.botToken,
+          hasStringSession: !!CONFIG.stringSession
+        },
+        validationError: validationError.message
+      });
+    }
+    
+  } catch (error) {
+    console.error('[/config] Error updating configuration:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.listen(PORT, '127.0.0.1', () => {
   console.log(`GramJS server running on http://127.0.0.1:${PORT}`);
+  console.log(`Mode: ${CONFIG.mode}`);
   console.log('Use Ctrl+C to stop');
 });

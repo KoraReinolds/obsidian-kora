@@ -269,6 +269,38 @@ export class GramJSBridge {
   }
 
   /**
+   * Update GramJS server configuration
+   */
+  async updateConfig(config: {
+    mode?: 'bot' | 'userbot';
+    botToken?: string;
+    apiId?: number;
+    apiHash?: string;
+    stringSession?: string;
+  }): Promise<boolean> {
+    try {
+      const response = await fetch(`${this.baseUrl}/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update configuration');
+      }
+
+      const data = await response.json();
+      console.log('[updateConfig] Configuration updated:', data.currentConfig);
+      return true;
+    } catch (error) {
+      console.error('Error updating GramJS configuration:', error);
+      new Notice(`Ошибка обновления конфигурации GramJS: ${error.message}`);
+      return false;
+    }
+  }
+
+  /**
    * Test connection to GramJS server
    */
   async testConnection(): Promise<boolean> {
