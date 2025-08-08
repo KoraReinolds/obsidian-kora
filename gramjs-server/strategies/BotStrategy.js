@@ -2,8 +2,7 @@
  * Bot strategy for Telegram operations
  * Handles regular bots created via @BotFather
  */
-const { TelegramClient } = require('telegram');
-const { StringSession } = require('telegram/sessions');
+const TelegramBot = require('node-telegram-bot-api');
 const TelegramClientStrategy = require('./TelegramClientStrategy');
 
 class BotStrategy extends TelegramClientStrategy {
@@ -18,9 +17,6 @@ class BotStrategy extends TelegramClientStrategy {
     if (!this.config.botToken) {
       throw new Error('Bot token is required for bot mode. Set TELEGRAM_BOT_TOKEN environment variable.');
     }
-    if (!this.config.apiId || !this.config.apiHash) {
-      throw new Error('API ID and Hash are required. Get them from https://my.telegram.org/apps');
-    }
   }
 
   /**
@@ -32,21 +28,12 @@ class BotStrategy extends TelegramClientStrategy {
     console.log('[BotStrategy] Initializing bot client...');
     console.log('[BotStrategy] Bot token available:', !!this.config.botToken);
     
-    this.client = new TelegramClient(
-      new StringSession(''), // Empty session for bot
-      this.config.apiId,
-      this.config.apiHash,
-      { connectionRetries: 5 }
-    );
-    
-    await this.client.start({
-      botAuthToken: this.config.botToken
-    });
+    this.client = new TelegramBot(this.config.botToken, { polling: false });
     
     this.isConnected = true;
     
     const me = await this.client.getMe();
-    console.log(`[BotStrategy] Bot connected successfully: @${me.username} (${me.firstName})`);
+    console.log(`[BotStrategy] Bot connected successfully: @${me.username} (${me.first_name})`);
     
     return me;
   }
@@ -74,14 +61,12 @@ class BotStrategy extends TelegramClientStrategy {
    */
   async getDialogsImpl(options = {}) {
     try {
+      // node-telegram-bot-api doesn't have getDialogs method
       // Bots have limited access to chat information
       console.log('[BotStrategy] Getting dialogs with bot limitations...');
-      
-      const dialogs = await this.client.getDialogs({ 
-        limit: options.limit || 100 
-      });
-      
-      return dialogs;
+      console.warn('[BotStrategy] Bot dialog access limited: node-telegram-bot-api does not support getDialogs');
+      // Return empty array as bots can't list dialogs
+      return [];
     } catch (error) {
       console.warn('[BotStrategy] Bot dialog access limited:', error.message);
       // Return empty array if bot can't access dialogs (normal for new bots)
@@ -108,25 +93,43 @@ class BotStrategy extends TelegramClientStrategy {
    */
   async sendMessage(peer, options) {
     try {
-      // Add bot-specific message handling if needed
-      console.log(`[BotStrategy] Sending message to peer: ${peer}`);
+      console.log(`[BotStrategy] Sending message to peer: ${peer}, ${JSON.stringify(options)}`);
       
-      const result = await super.sendMessage(peer, options);
+      const opts = {};
+      
+      // Extract message and buttons from options (format matching gramjs-bridge)
+      const message = options.message || options;
+      
+      if (options.replyMarkup && options.replyMarkup.inline_keyboard) {
+        // gramjs-server.js format
+        opts.reply_markup = options.replyMarkup;
+        console.log(`[BotStrategy] Using replyMarkup directly:`, JSON.stringify(opts.reply_markup));
+      }
+
+      // Handle parse mode
+      if (options.parseMode) {
+        opts.parse_mode = options.parseMode;
+      }
+
+      const result = await this.client.sendMessage(peer, message, opts);
       
       console.log('[BotStrategy] Message sent successfully in bot mode');
       return {
-        ...result,
+        id: result.message_id,
+        peerId: result.chat.id,
+        message: result.text,
+        date: result.date,
         mode: 'bot'
       };
     } catch (error) {
       console.error('[BotStrategy] Bot message error:', error);
       
       // Provide bot-specific error context
-      if (error.message.includes('PEER_ID_INVALID')) {
+      if (error.message.includes('Bad Request: chat not found')) {
         throw new Error('Bot cannot send to this peer. Make sure bot is added to the chat and has permission to send messages.');
       }
-      if (error.message.includes('BOT_METHOD_INVALID')) {
-        throw new Error('This method is not available for bots. Some features are userbot-only.');
+      if (error.message.includes('Forbidden')) {
+        throw new Error('Bot is blocked or doesn\'t have permission to send messages to this chat.');
       }
       
       throw error;
@@ -139,7 +142,10 @@ class BotStrategy extends TelegramClientStrategy {
   async getMessages(peer, options = {}) {
     try {
       console.log(`[BotStrategy] Getting messages from peer: ${peer} (bot mode)`);
-      return await super.getMessages(peer, options);
+      console.warn('[BotStrategy] Bot message access limited: node-telegram-bot-api does not support getMessages');
+      // node-telegram-bot-api doesn't have getMessages method
+      // Bots typically can only respond to incoming messages, not fetch history
+      return [];
     } catch (error) {
       console.warn('[BotStrategy] Bot message access limited:', error.message);
       
@@ -157,12 +163,49 @@ class BotStrategy extends TelegramClientStrategy {
   async sendFile(peer, options) {
     try {
       console.log(`[BotStrategy] Sending file to peer: ${peer}`);
-      return await super.sendFile(peer, options);
+      
+      const opts = {};
+      
+      // Handle buttons for file messages
+      if (options.buttons && options.buttons.length > 0) {
+        opts.reply_markup = {
+          inline_keyboard: options.buttons.map(row => 
+            row.map(btn => ({
+              text: btn.text,
+              ...(btn.url ? { url: btn.url } : {}),
+              ...(btn.data ? { callback_data: btn.data } : {})
+            }))
+          )
+        };
+      }
+
+      // Handle caption
+      if (options.caption) {
+        opts.caption = options.caption;
+      }
+
+      // Handle parse mode
+      if (options.parseMode) {
+        opts.parse_mode = options.parseMode;
+      }
+
+      const result = await this.client.sendDocument(peer, options.file, opts);
+      
+      console.log('[BotStrategy] File sent successfully in bot mode');
+      return {
+        id: result.message_id,
+        peerId: result.chat.id,
+        date: result.date,
+        mode: 'bot'
+      };
     } catch (error) {
       console.error('[BotStrategy] Bot file send error:', error);
       
-      if (error.message.includes('PEER_ID_INVALID')) {
+      if (error.message.includes('Bad Request: chat not found')) {
         throw new Error('Bot cannot send files to this peer. Make sure bot is added to the chat.');
+      }
+      if (error.message.includes('Forbidden')) {
+        throw new Error('Bot is blocked or doesn\'t have permission to send files to this chat.');
       }
       
       throw error;

@@ -176,7 +176,15 @@ app.post('/send_message', async (req, res) => {
     // Add inline buttons if provided
     const inlineButtons = createInlineKeyboard(buttons);
     if (inlineButtons) {
-      messageOptions.replyMarkup = inlineButtons;
+      messageOptions.replyMarkup = {
+        inline_keyboard: buttons.map(row => 
+            row.map(btn => ({
+                text: btn.text,
+                ...(btn.url ? { url: btn.url } : {}),
+                ...(btn.data ? { callback_data: btn.data } : {})
+            }))
+        )
+      };
     }
 
     // Send message using strategy

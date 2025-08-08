@@ -24,7 +24,7 @@ class StrategyFactory {
         return new UserbotStrategy(config);
         
       default:
-        throw new Error(`Unknown strategy mode: ${mode}. Supported modes: 'bot', 'userbot'`);
+        throw new Error(`Unknown strategy mode: ${mode}. Supported modes: 'bot', 'nodebot', 'userbot'`);
     }
   }
 
@@ -53,8 +53,8 @@ class StrategyFactory {
   static getStrategyInfo(mode) {
     const strategyInfoMap = {
       'bot': {
-        name: 'Bot Strategy',
-        description: 'Regular Telegram bots created via @BotFather',
+        name: 'Bot Strategy (GramJS)',
+        description: 'Regular Telegram bots using GramJS library',
         requirements: ['botToken', 'apiId', 'apiHash'],
         capabilities: {
           sendMessages: true,
@@ -68,7 +68,8 @@ class StrategyFactory {
           'Cannot initiate conversations with users',
           'Limited access to chat history',
           'Must be added to groups/channels to send messages',
-          'No custom emoji support'
+          'No custom emoji support',
+          'Inline buttons may not work properly'
         ]
       },
       'userbot': {
