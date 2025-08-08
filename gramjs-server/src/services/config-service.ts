@@ -21,20 +21,32 @@ let configState: ServerConfig = {
   apiHash: process.env.TELEGRAM_API_HASH,
   stringSession: process.env.TELEGRAM_SESSION,
   botToken: process.env.TELEGRAM_BOT_TOKEN,
-  mode: (process.env.TELEGRAM_MODE as TelegramMode) || 'bot',
+  // Initialize with a safe default; actual mode is resolved dynamically in getConfig
+  mode: 'bot',
 };
+
+// Tracks whether mode was explicitly set via updateConfig (e.g., HTTP /config)
+let hasExplicitModeUpdate = false;
 
 /**
  * JSDoc: Returns the current config snapshot.
  */
 export function getConfig(): ServerConfig {
-  return { ...configState };
+  const envMode = process.env.TELEGRAM_MODE as TelegramMode | undefined;
+  const resolvedMode: TelegramMode = hasExplicitModeUpdate
+    ? (configState.mode ?? 'bot')
+    : (envMode ?? configState.mode ?? 'bot');
+
+  return { ...configState, mode: resolvedMode };
 }
 
 /**
  * JSDoc: Mutates current config with partial fields.
  */
 export function updateConfig(partial: Partial<ServerConfig>): ServerConfig {
+  if (typeof partial.mode !== 'undefined') {
+    hasExplicitModeUpdate = true;
+  }
   configState = { ...configState, ...partial };
   return getConfig();
 }

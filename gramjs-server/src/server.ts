@@ -22,7 +22,9 @@ const modeArg = args.find(arg => arg.startsWith('--mode='));
 
 const PORT = portArg ? parseInt(portArg.split('=')[1]) : 8124;
 const MODE = modeArg ? modeArg.split('=')[1] : 'bot';
-console.log(MODE, PORT);
+
+// Set mode via environment variable
+process.env.TELEGRAM_MODE = MODE;
 
 import express from 'express';
 import cors from 'cors';
@@ -75,7 +77,8 @@ registerVectorHealthRoute(app);
 attachGracefulShutdown();
 
 app.listen(PORT, '127.0.0.1', () => {
-  const cfg = getConfig(); 
+  const cfg = getConfig();
+
   // eslint-disable-next-line no-console
   console.log(`GramJS server running on http://127.0.0.1:${PORT}`);
   // eslint-disable-next-line no-console
