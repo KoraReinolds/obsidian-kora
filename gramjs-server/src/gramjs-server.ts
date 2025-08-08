@@ -72,16 +72,17 @@ interface FileOptions {
 // Configuration (you'll need to set these)
 const CONFIG: ServerConfig = {
   // Userbot configuration
-  apiId: Number(process.env.TELEGRAM_API_ID) || 27782052, // Replace with your API ID
-  apiHash: process.env.TELEGRAM_API_HASH || '68a4d2fd1466ab6faccfb81bd4b68255', // Replace with your API Hash
-  stringSession: process.env.TELEGRAM_SESSION || '1AgAOMTQ5LjE1NC4xNjcuNDEBu12zMcMWPrgkH8lmy5vdKybpnoWFxGiwtvdXgCvXK7WFLyZB6LiT5vILrCFUDSnU0Ae9zXHPkBjBtGwuv5vCUIHCFc26j31/Kx25D0YyX21CGAXvMTi9kNZhlCakjo+BqgztIyVWs+2Je63WyTPp3893JoCjwUBcHx3l7NqR6JMYUzReE6P6C4nFnnjc8WP9QyKXC7kretLCKgacK+xzpFMcW35sMmemlmflB3a/cnqL+uWPmMsFHNS+R1GgnprS7Yta6K8R3A7uOhaP31LocYuKFfoL07mWMB5HsfIZME8kZgQ5K55DJH/mhsQrq1u93CtVTldbKcm2yjbAskbbl3A=', // Replace with your session string
+  apiId: Number(process.env.TELEGRAM_API_ID), // Replace with your API ID
+  apiHash: process.env.TELEGRAM_API_HASH, // Replace with your API Hash
+  stringSession: process.env.TELEGRAM_SESSION, // Replace with your session string
   
   // Bot configuration
-  botToken: process.env.TELEGRAM_BOT_TOKEN || '7548908784:AAGOiQ2iOeaa9mMsBh7l0A68ndhIh24oy_I',
+  botToken: process.env.TELEGRAM_BOT_TOKEN,
   
   // Mode: 'userbot' or 'bot'
   mode: (process.env.TELEGRAM_MODE as 'bot' | 'userbot') || 'bot' // Default to userbot for backward compatibility
 };
+
 
 let currentStrategy: TelegramClientStrategy | null = null;
 let vectorService: VectorService | null = null;
