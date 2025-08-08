@@ -8,7 +8,7 @@
 		"watch:mcp": "nodemon --watch ./mcp-server.ts --ext ts --exec 'bun build ./mcp-server.ts --outdir=./build --target=bun'",
 		"gramjs-auth": "node gramjs-server/gramjs-auth.js",
 		"gramjs-server": "node gramjs-server/gramjs-server.js",
-		"gramjs-dev": "nodemon --watch gramjs-server/gramjs-server.js --exec \"node gramjs-server/gramjs-server.js\"",
+		"gramjs-dev": "nodemon --watch gramjs-server --ext js --exec \"node gramjs-server/gramjs-server.js\"",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"version": "node version-bump.mjs && git add manifest.json versions.json"
 	},
