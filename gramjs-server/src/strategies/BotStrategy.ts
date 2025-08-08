@@ -2,7 +2,7 @@
  * Bot strategy for Telegram operations
  * Handles regular bots created via @BotFather
  */
-import TelegramBot from 'node-telegram-bot-api';
+// @ts-ignore\nconst TelegramBot = require('node-telegram-bot-api');
 import TelegramClientStrategy, { 
   type TelegramConfig, 
   type UserInfo, 
@@ -13,7 +13,7 @@ import TelegramClientStrategy, {
 } from './TelegramClientStrategy.js';
 
 class BotStrategy extends TelegramClientStrategy {
-  declare protected client: TelegramBot;
+  declare protected client: any;
   
   constructor(config: TelegramConfig) {
     super(config);
@@ -37,7 +37,7 @@ class BotStrategy extends TelegramClientStrategy {
     console.log('[BotStrategy] Initializing bot client...');
     console.log('[BotStrategy] Bot token available:', !!this.config.botToken);
     
-    this.client = new TelegramBot(this.config.botToken, { polling: false });
+    // @ts-ignore\n    this.client = new TelegramBot(this.config.botToken, { polling: false });
     
     this.isConnected = true;
     
@@ -107,7 +107,7 @@ class BotStrategy extends TelegramClientStrategy {
       const opts: Record<string, any> = {};
       
       // Extract message and buttons from options (format matching gramjs-bridge)
-      const message = options.message || options;
+      const message = options.message || (typeof options === 'string' ? options : '');
       
       if (options.replyMarkup && options.replyMarkup.inline_keyboard) {
         // gramjs-server.js format

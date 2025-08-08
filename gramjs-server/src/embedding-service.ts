@@ -34,7 +34,7 @@ class EmbeddingService {
 
   constructor(config: EmbeddingConfig = {}) {
     this.config = {
-      apiKey: config.apiKey || process.env.OPENAI_API_KEY,
+      apiKey: config.apiKey || process.env.OPENAI_API_KEY || '',
       model: config.model || 'text-embedding-3-small',
       dimensions: config.dimensions || 1536, // Default for text-embedding-3-small
       maxTokens: config.maxTokens || 8000, // Safe limit for chunking

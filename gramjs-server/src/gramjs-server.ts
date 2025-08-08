@@ -209,7 +209,7 @@ app.post('/send_message', async (req: Request, res: Response) => {
     
     // Convert entities to proper GramJS format for custom emojis
     if (entities && entities.length > 0) {      
-      messageOptions.formattingEntities = entities.map(entity => {
+      messageOptions.formattingEntities = entities.map((entity: any) => {
         return new Api.MessageEntityCustomEmoji({
           offset: entity.offset,
           length: entity.length,
@@ -222,8 +222,8 @@ app.post('/send_message', async (req: Request, res: Response) => {
     const inlineButtons = createInlineKeyboard(buttons);
     if (inlineButtons) {
       messageOptions.replyMarkup = {
-        inline_keyboard: buttons.map(row => 
-            row.map(btn => ({
+        inline_keyboard: buttons.map((row: any) => 
+            row.map((btn: any) => ({
                 text: btn.text,
                 ...(btn.url ? { url: btn.url } : {}),
                 ...(btn.data ? { callback_data: btn.data } : {})

@@ -64,7 +64,7 @@ class VectorService {
       qdrantUrl: config.qdrantUrl || process.env.QDRANT_URL || 'http://localhost:6333',
       collectionName: config.collectionName || 'kora_content',
       vectorSize: config.vectorSize || 1536,
-      openaiApiKey: config.openaiApiKey || process.env.OPENAI_API_KEY,
+      openaiApiKey: config.openaiApiKey || process.env.OPENAI_API_KEY || '',
       ...config
     };
 
@@ -413,7 +413,7 @@ class VectorService {
 
       return {
         collection: this.config.collectionName,
-        totalPoints: info.points_count,
+        totalPoints: info.points_count || 0,
         vectorSize: (info.config.params as any).vectors.size as number,
         contentTypeBreakdown: contentTypes,
         status: info.status

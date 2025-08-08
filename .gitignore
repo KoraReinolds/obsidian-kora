@@ -25,3 +25,4 @@ mcp-obsidian
 build
 
 .env
+/gramjs-server/dist

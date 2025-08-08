@@ -38,7 +38,7 @@ export function renderGramJsSettings(containerEl: HTMLElement, plugin: KoraMcpPl
 					if (!plugin.settings.gramjs) {
 						plugin.settings.gramjs = {};
 					}
-					plugin.settings.gramjs.mode = value;
+					plugin.settings.gramjs.mode = value as 'bot' | 'userbot';
 					await plugin.saveSettings();
 					// Refresh the settings UI to show/hide relevant fields
 					renderGramJsSettings(containerEl, plugin);
