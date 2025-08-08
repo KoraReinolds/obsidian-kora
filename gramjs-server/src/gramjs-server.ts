@@ -128,7 +128,7 @@ async function initClient(): Promise<TelegramClientStrategy> {
     currentStrategy = StrategyFactory.createValidatedStrategy(CONFIG.mode, CONFIG);
     
     // Initialize the strategy
-    const userInfo = await currentStrategy.initialize();
+    await currentStrategy.initialize();
     
     console.log(`[initClient] Strategy initialized successfully: ${CONFIG.mode} mode`);
     return currentStrategy;

@@ -3,6 +3,7 @@
  * Handles regular bots created via @BotFather
  */
 // @ts-ignore\nconst TelegramBot = require('node-telegram-bot-api');
+import TelegramBot from 'node-telegram-bot-api';
 import TelegramClientStrategy, { 
   type TelegramConfig, 
   type UserInfo, 
@@ -37,7 +38,7 @@ class BotStrategy extends TelegramClientStrategy {
     console.log('[BotStrategy] Initializing bot client...');
     console.log('[BotStrategy] Bot token available:', !!this.config.botToken);
     
-    // @ts-ignore\n    this.client = new TelegramBot(this.config.botToken, { polling: false });
+    this.client = new TelegramBot(this.config.botToken, { polling: false });
     
     this.isConnected = true;
     
