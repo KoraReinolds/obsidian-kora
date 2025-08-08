@@ -3,12 +3,12 @@
   "version": "1.0.0",
   "description": "GramJS server for Obsidian Kora plugin",
   "type": "module",
-  "main": "dist/gramjs-server.js",
+  "main": "dist/server.js",
   "scripts": {
     "build": "tsc",
-    "dev": "concurrently \"tsc --watch\" \"nodemon dist/gramjs-server.js\" --names \"tsc,server\" --prefix-colors \"cyan,magenta\"",
+    "dev": "concurrently \"tsc --watch\" \"nodemon dist/server.js\" --names \"tsc,server\" --prefix-colors \"cyan,magenta\"",
     "watch": "tsc --watch",
-    "start": "node dist/gramjs-server.js",
+    "start": "node dist/server.js",
     "auth": "node dist/gramjs-auth.js"
   },
   "dependencies": {
