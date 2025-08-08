@@ -7,8 +7,12 @@
   "scripts": {
     "build": "tsc",
     "dev": "concurrently \"tsc --watch\" \"nodemon dist/server.js\" --names \"tsc,server\" --prefix-colors \"cyan,magenta\"",
+    "dev:userbot": "concurrently \"tsc --watch\" \"nodemon dist/server.js -- --port=8125 --mode=userbot\" --names \"tsc,userbot\" --prefix-colors \"cyan,green\"",
+    "dev:dual": "concurrently \"tsc --watch\" \"nodemon dist/server.js -- --port=8124 --mode=bot\" \"nodemon dist/server.js -- --port=8125 --mode=userbot\" --names \"tsc,bot,userbot\" --prefix-colors \"cyan,magenta,green\"",
     "watch": "tsc --watch",
     "start": "node dist/server.js",
+    "start:userbot": "node dist/server.js --port=8125 --mode=userbot",
+    "start:dual": "concurrently \"node dist/server.js --port=8124 --mode=bot\" \"node dist/server.js --port=8125 --mode=userbot\" --names \"bot,userbot\" --prefix-colors \"magenta,green\"",
     "auth": "node dist/gramjs-auth.js"
   },
   "dependencies": {

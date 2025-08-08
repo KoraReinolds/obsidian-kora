@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
 /**
- * Entry: GramJS server
+ * Entry: GramJS Server
  * Minimal Express bootstrap that wires modular routes and services.
+ * Supports both bot and userbot modes via command line arguments.
  */
 
 // Load environment variables ASAP
@@ -13,6 +14,15 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 configDotenv({ path: join(__dirname, '..', '.env') });
+
+// Parse command line arguments
+const args = process.argv.slice(2);
+const portArg = args.find(arg => arg.startsWith('--port='));
+const modeArg = args.find(arg => arg.startsWith('--mode='));
+
+const PORT = portArg ? parseInt(portArg.split('=')[1]) : 8124;
+const MODE = modeArg ? modeArg.split('=')[1] : 'bot';
+console.log(MODE, PORT);
 
 import express from 'express';
 import cors from 'cors';
@@ -38,7 +48,6 @@ import { getConfig } from './services/config-service.js';
 import { attachGracefulShutdown } from './services/shutdown-service.js';
 
 const app = express();
-const PORT = 8124;
 
 // Middlewares
 app.use(cors());
@@ -66,7 +75,7 @@ registerVectorHealthRoute(app);
 attachGracefulShutdown();
 
 app.listen(PORT, '127.0.0.1', () => {
-  const cfg = getConfig();
+  const cfg = getConfig(); 
   // eslint-disable-next-line no-console
   console.log(`GramJS server running on http://127.0.0.1:${PORT}`);
   // eslint-disable-next-line no-console
