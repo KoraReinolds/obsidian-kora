@@ -4,6 +4,7 @@
  */
 
 import { Notice } from 'obsidian';
+import { chunkNote } from './note-chunker/index.js';
 
 interface VectorBridgeConfig {
   host: string;
@@ -248,13 +249,41 @@ export class VectorBridge {
   }
 
   /**
-   * Vectorize current Obsidian note
+   * Vectorize current Obsidian note.
+   * If frontmatter/cache are available, splits the note into chunks and batch vectorizes them.
+   * Otherwise falls back to single-document vectorization.
+   *
+   * @param file - Note descriptor including path, content, title, optional metadata/frontmatter and optional cache
+   * @returns Batch result when chunked; otherwise single vectorize result
    */
-  async vectorizeNote(file: { path: string, content: string, title: string, metadata?: any }): Promise<any> {
-    const id = `obsidian_${file.path.replace(/[^a-zA-Z0-9]/g, '_')}`;
-    
+  async vectorizeNote(file: { originalId: string, path: string, content: string, title: string, metadata?: any, cache?: any }): Promise<any> {
+    const frontmatter = file?.metadata?.frontmatter ?? file?.metadata ?? {};
+    const tags = Array.isArray(frontmatter?.tags) ? frontmatter.tags : [];
+    const aliases = Array.isArray(frontmatter?.aliases) ? frontmatter.aliases : [];
+    const { originalId, title } = file
+
+
+    if (file.cache) {
+      // Chunk and batch vectorize
+      const chunks = chunkNote(
+        file.content,
+        { notePath: file.path, originalId, frontmatter, tags, aliases },
+        {},
+        file.cache as any
+      );
+      const batch = chunks.map((c) => ({
+        id: `${originalId}#${c.chunkId}`,
+        contentType: 'obsidian_note',
+        title,
+        content: c.contentRaw,
+        metadata: c.meta,
+      }));
+      return await this.batchVectorize(batch as any);
+    }
+
+    // Fallback: single vectorize
     return await this.vectorizeContent({
-      id,
+      id: originalId,
       contentType: 'obsidian_note',
       title: file.title,
       content: file.content,
@@ -264,7 +293,7 @@ export class VectorBridge {
           fileName: file.title,
           folder: file.path.substring(0, file.path.lastIndexOf('/')) || '/',
           modifiedAt: new Date().toISOString(),
-          createdAt: new Date().toISOString(),
+          createdAt: originalId,
           ...file.metadata
         }
       }

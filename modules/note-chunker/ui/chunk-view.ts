@@ -9,6 +9,7 @@ import type { Chunk } from '..';
 import { renderChunkList, setActiveChunkItem } from './chunk-list';
 import { findChunkIndexForLine, startCursorPolling } from './chunk-cursor';
 import { VectorBridge } from '../../vector-bridge';
+import { fetchAndRenderChunkDiff, loadBaselineForChunks } from './chunk-compare';
 
 export const CHUNK_VIEW_TYPE = 'kora-chunks';
 
@@ -64,7 +65,8 @@ export class ChunkView extends ItemView {
     const fm = cache?.frontmatter || {};
     const tags = Array.isArray(fm?.tags) ? fm.tags : [];
     const aliases = Array.isArray(fm?.aliases) ? fm.aliases : [];
-    const originalId = `obsidian:${file.path}`;
+    const createdRaw = this.getCreatedRawFromFrontmatter(fm);
+    const originalId = `${createdRaw}`;
     const chunks: Chunk[] = chunkNote(content, { notePath: file.path, originalId, frontmatter: fm, tags, aliases }, {}, cache as any);
 
     const header = container.createEl('div', { text: `🧩 Chunks (${Math.min(chunks.length, 50)})` });
@@ -75,24 +77,51 @@ export class ChunkView extends ItemView {
     btn.onclick = async () => {
       btn.disabled = true; btn.textContent = 'Vectorizing...';
       try {
-        const batch = chunks.slice(0, 50).map(c => ({
-          id: `${originalId}#${c.chunkId}`,
-          contentType: 'obsidian_note',
+        await this.vectorBridge.vectorizeNote({
+          originalId,
+          path: file.path,
+          content,
           title: file.basename,
-          content: c.contentRaw,
-          metadata: c.meta,
-        }));
-        await this.vectorBridge.batchVectorize(batch as any);
+          metadata: { frontmatter: fm, tags, aliases },
+          cache: cache as any,
+        });
       } finally {
         btn.disabled = false; btn.textContent = 'Vectorize chunks';
       }
     };
 
-    const { root, items } = renderChunkList(container, chunks.slice(0, 50));
+    const visibleChunks = chunks.slice(0, 50);
+    const { root, items } = renderChunkList(container, visibleChunks);
     root.dataset['koraChunkList'] = 'true';
     // Store refs for highlighting
     (this as any)._currentChunks = chunks;
     (this as any)._currentChunkItems = items;
+    // Auto-compare and render diffs for visible chunks
+    try {
+      await loadBaselineForChunks(this.vectorBridge, originalId, visibleChunks);
+      for (let i = 0; i < visibleChunks.length; i++) {
+        const item = items[i];
+        const mount = item?.querySelector('div.mt-2') as HTMLElement;
+        if (item && mount) await fetchAndRenderChunkDiff(this.vectorBridge, originalId, visibleChunks[i], mount);
+      }
+    } catch (e) {
+      console.error('Chunk diff rendering failed', e);
+    }
+  }
+
+  /**
+   * Extract created ISO from frontmatter keys like 'date created', 'created', 'dateCreated'.
+   */
+  private getCreatedRawFromFrontmatter(fm: any): string {
+    if (!fm) throw new Error('Note has no frontmatter');
+
+    const v = fm['date created'] ?? null;
+
+    if (!v) {
+      throw new Error('Note has no creation time');
+    }
+
+    return String(v);
   }
 
   private scheduleRender(delay: number) {

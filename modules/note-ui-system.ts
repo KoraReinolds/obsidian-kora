@@ -266,7 +266,6 @@ class TelegramChannelRenderer implements NoteUIRenderer {
   }
 
   private async vectorizeMessages(context: NoteUIContext, channelId: string) {
-    debugger
     const { vectorBridge, frontmatter } = context;
     
     try {
