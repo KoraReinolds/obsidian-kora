@@ -58,6 +58,8 @@ export interface Chunk {
   parentItemText?: string;
   contentRaw: string;
   meta: ChunkPayloadMeta;
+  // Optional position info for editor mapping
+  position?: import('./cache-types').TGap;
 }
 
 /**

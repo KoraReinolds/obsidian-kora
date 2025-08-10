@@ -72,6 +72,7 @@ export function chunkNote(markdown: string, context: ChunkNoteContext, options: 
       section,
       contentRaw: b.text,
       meta,
+      position: (b as any).position,
     });
   }
 

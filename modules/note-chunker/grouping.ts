@@ -37,7 +37,11 @@ export function groupShortListItems(blocks: ParsedBlock[], options: Required<Chu
         headingPath: [...(b.headingPath || [])],
         listDepth: b.listDepth,
         parentItemText: parent,
-        itemIndex: group[0].itemIndex
+        itemIndex: group[0].itemIndex,
+        position: {
+          start: group[0].position.start,
+          end: group[group.length - 1].position.end,
+        } as any,
       } as ParsedBlock);
       i = j - 1;
     } else {

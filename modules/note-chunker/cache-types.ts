@@ -3,8 +3,8 @@
  * Description: Minimal Obsidian cache typings and helpers to resolve heading paths.
  */
 
-type TLine = { line: number; col?: number; offset: number };
-type TGap = { start: TLine; end: TLine };
+export type TLine = { line: number; col?: number; offset: number };
+export type TGap = { start: TLine; end: TLine };
 
 /** Minimal but extended subset of Obsidian CachedMetadata for reuse. */
 export interface CachedMetadataLike {

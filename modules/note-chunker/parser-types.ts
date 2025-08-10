@@ -4,6 +4,7 @@
  */
 
 import type { ChunkType } from './types';
+import type { TGap } from './cache-types';
 
 /**
  * A structural block parsed from markdown with heading context.
@@ -15,6 +16,8 @@ export interface ParsedBlock {
   listDepth?: number;
   parentItemText?: string;
   itemIndex?: number;
+  // Position info in source note
+  position: TGap;
 }
 
 

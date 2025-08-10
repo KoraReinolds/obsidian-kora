@@ -66,6 +66,7 @@ export function buildBlocksFromCache(markdown: string, cache: CachedMetadataLike
           listDepth: depth,
           parentItemText: parent,
           itemIndex: itemIndexByDepth[depth],
+          position: li.position,
         });
         listPtr++;
       }
@@ -75,7 +76,10 @@ export function buildBlocksFromCache(markdown: string, cache: CachedMetadataLike
     if (type === 'paragraph') {
       const text = sliceByOffsets(markdown, startOffset, endOffset).trim();
       if (text) {
-        blocks.push({ type: 'paragraph', text, headingPath: getHeadingPathForLine(startLine) });
+        blocks.push({
+          type: 'paragraph', text, headingPath: getHeadingPathForLine(startLine),
+          position: { start: { line: startLine, offset: startOffset }, end: { line: endLine, offset: endOffset } } as any,
+        });
       }
       continue;
     }
@@ -83,13 +87,19 @@ export function buildBlocksFromCache(markdown: string, cache: CachedMetadataLike
     if (type === 'code' || type === 'table' || type === 'blockquote' || type === 'quote') {
       const text = sliceByOffsets(markdown, startOffset, endOffset);
       const mappedType = type === 'blockquote' ? 'quote' : (type as ParsedBlock['type']);
-      blocks.push({ type: mappedType, text, headingPath: getHeadingPathForLine(startLine) } as ParsedBlock);
+      blocks.push({
+        type: mappedType, text, headingPath: getHeadingPathForLine(startLine),
+        position: { start: { line: startLine, offset: startOffset }, end: { line: endLine, offset: endOffset } } as any,
+      } as ParsedBlock);
       continue;
     }
 
     // Fallback: treat any other section as paragraph
     const text = sliceByOffsets(markdown, startOffset, endOffset).trim();
-    if (text) blocks.push({ type: 'paragraph', text, headingPath: getHeadingPathForLine(startLine) });
+    if (text) blocks.push({
+      type: 'paragraph', text, headingPath: getHeadingPathForLine(startLine),
+      position: { start: { line: startLine, offset: startOffset }, end: { line: endLine, offset: endOffset } } as any,
+    });
   }
 
   return blocks;

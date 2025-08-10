@@ -6,6 +6,8 @@
 import { App, ItemView, TFile, WorkspaceLeaf } from 'obsidian';
 import { chunkNote } from './note-chunker';
 import type { Chunk } from './note-chunker';
+import { renderChunkList, setActiveChunkItem } from './chunk-list';
+import { findChunkIndexForLine, startCursorPolling } from './chunk-cursor';
 import { VectorBridge } from './vector-bridge';
 
 export const CHUNK_VIEW_TYPE = 'kora-chunks';
@@ -13,6 +15,7 @@ export const CHUNK_VIEW_TYPE = 'kora-chunks';
 export class ChunkView extends ItemView {
   private vectorBridge: VectorBridge;
   private refreshTimer: number | null = null;
+  private stopPolling: (() => void) | null = null;
 
   constructor(leaf: WorkspaceLeaf, app: App, vectorBridge: VectorBridge) {
     // @ts-ignore ItemView expects app from super(leaf)
@@ -41,6 +44,10 @@ export class ChunkView extends ItemView {
       }
     }));
     await this.renderForActiveFile();
+    // Start listening to cursor after initial render
+    if (!this.stopPolling) {
+      this.stopPolling = startCursorPolling(this.app, (line) => this.highlightByCursorLine(line));
+    }
   }
 
   async renderForActiveFile(): Promise<void> {
@@ -72,7 +79,7 @@ export class ChunkView extends ItemView {
           id: `${originalId}#${c.chunkId}`,
           contentType: 'obsidian_note',
           title: file.basename,
-          content: c.contentForEmbedding,
+          content: c.contentRaw,
           metadata: c.meta,
         }));
         await this.vectorBridge.batchVectorize(batch as any);
@@ -81,14 +88,11 @@ export class ChunkView extends ItemView {
       }
     };
 
-    const list = container.createEl('div');
-    list.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin-top:8px;';
-    chunks.slice(0, 50).forEach(c => {
-      const item = list.createEl('div');
-      item.style.cssText = 'border:1px solid var(--background-modifier-border);border-radius:6px;padding:8px;background:var(--background-secondary);';
-      item.createEl('div', { text: `${c.chunkType} — ${c.headingsPath.join(' > ')}` }).style.cssText = 'font-size:12px;color:var(--text-muted);margin-bottom:4px;';
-      item.createEl('div', { text: c.contentForEmbedding.slice(0, 220) + (c.contentForEmbedding.length > 220 ? '…' : '') }).style.cssText = 'font-size:12px;';
-    });
+    const { root, items } = renderChunkList(container, chunks.slice(0, 50));
+    root.dataset['koraChunkList'] = 'true';
+    // Store refs for highlighting
+    (this as any)._currentChunks = chunks;
+    (this as any)._currentChunkItems = items;
   }
 
   private scheduleRender(delay: number) {
@@ -100,10 +104,22 @@ export class ChunkView extends ItemView {
     }, Math.max(0, delay));
   }
 
+  private highlightByCursorLine(line: number) {
+    const chunks: Array<Chunk> = (this as any)._currentChunks || [];
+    const items: HTMLElement[] = (this as any)._currentChunkItems || [];
+    if (!chunks.length || !items.length) return;
+    const idx = findChunkIndexForLine(chunks, line);
+    if (idx >= 0) setActiveChunkItem(items, idx);
+  }
+
   async onClose(): Promise<void> {
     if (this.refreshTimer) {
       window.clearTimeout(this.refreshTimer);
       this.refreshTimer = null;
+    }
+    if (this.stopPolling) {
+      this.stopPolling();
+      this.stopPolling = null;
     }
   }
 }
