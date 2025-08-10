@@ -3,7 +3,7 @@
  * Description: Render chunk list and allow active item highlighting.
  */
 
-import type { Chunk } from './note-chunker';
+import type { Chunk } from '..';
 
 export interface ChunkListRefs {
   root: HTMLElement;

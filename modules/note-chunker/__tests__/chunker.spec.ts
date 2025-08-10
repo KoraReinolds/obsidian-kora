@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { chunkNote } from '../chunker.js';
+import { chunkNote } from '../model/chunker.js';
 import { makeCacheFromMarkdown } from './cache-fixtures';
 import { readFixture } from './helpers';
 

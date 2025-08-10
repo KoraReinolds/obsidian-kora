@@ -1,5 +1,5 @@
 import { Notice, Plugin, TFile, WorkspaceLeaf } from 'obsidian';
-import { CHUNK_VIEW_TYPE, ChunkView } from './modules/chunk-view';
+import { CHUNK_VIEW_TYPE, ChunkView } from './modules/note-chunker/ui/chunk-view';
 import * as http from 'http';
 import { AddressInfo } from 'net';
 import {

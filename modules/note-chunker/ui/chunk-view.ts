@@ -4,11 +4,11 @@
  */
 
 import { App, ItemView, TFile, WorkspaceLeaf } from 'obsidian';
-import { chunkNote } from './note-chunker';
-import type { Chunk } from './note-chunker';
+import { chunkNote } from '..';
+import type { Chunk } from '..';
 import { renderChunkList, setActiveChunkItem } from './chunk-list';
 import { findChunkIndexForLine, startCursorPolling } from './chunk-cursor';
-import { VectorBridge } from './vector-bridge';
+import { VectorBridge } from '../../vector-bridge';
 
 export const CHUNK_VIEW_TYPE = 'kora-chunks';
 

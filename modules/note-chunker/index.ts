@@ -3,12 +3,12 @@
  * Description: Exports chunker functions and types.
  */
 
-export * from './types.js';
-export * from './utils.js';
-export * from './chunker.js';
-export * from './parser-types.js';
-export * from './cache-blocks.js';
-export * from './cache-types.js';
-export * from './obsidian-cache.js';
+export * from './model/types.js';
+export * from './model/utils.js';
+export * from './model/chunker.js';
+export * from './model/parser-types.js';
+export * from './model/cache-blocks.js';
+export * from './model/cache-types.js';
+export * from './model/obsidian-cache.js';
 
 

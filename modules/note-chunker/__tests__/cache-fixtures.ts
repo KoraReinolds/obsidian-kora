@@ -3,7 +3,7 @@
  * Description: Build a minimal CachedMetadataLike from raw markdown for tests.
  */
 
-import type { CachedMetadataLike } from '../cache-types.js';
+import type { CachedMetadataLike } from '../model/cache-types.js';
 
 function lineStarts(md: string): number[] {
   const starts = [0];

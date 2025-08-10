@@ -4,7 +4,7 @@
  */
 
 import { App, MarkdownView } from 'obsidian';
-import type { Chunk } from './note-chunker';
+import type { Chunk } from '..';
 
 /**
  * Find the index of the chunk that contains the given cursor line.
