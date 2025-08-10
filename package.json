@@ -12,6 +12,7 @@
 		"gramjs-dev": "cd gramjs-server && npm run dev:dual",
 		"dev-all": "concurrently \"npm run dev\" \"npm run watch:mcp\" \"npm run gramjs-dev\" --names \"obsidian,mcp,gramjs\" --prefix-colors \"blue,green,yellow\"",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+		"test": "vitest run",
 		"version": "node version-bump.mjs && git add manifest.json versions.json"
 	},
 	"keywords": [],
@@ -27,7 +28,8 @@
 		"nodemon": "^3.1.10",
 		"obsidian": "latest",
 		"tslib": "2.4.0",
-		"typescript": "4.7.4"
+		"typescript": "4.7.4",
+		"vitest": "^1.6.1"
 	},
 	"dependencies": {
 		"@modelcontextprotocol/sdk": "^1.12.3",
@@ -41,6 +43,15 @@
 		"openai": "^4.68.4",
 		"telegram": "^2.22.2",
 		"uuid": "^11.1.0",
-		"zod": "^3.25.67"
-	}
+    "zod": "^3.25.67"
+  },
+  "vitest": {
+    "include": [
+      "modules/note-chunker/__tests__/**/*.spec.ts"
+    ],
+    "exclude": [
+      "mcp-obsidian/**",
+      "gramjs-server/**"
+    ]
+  }
 }
