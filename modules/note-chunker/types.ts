@@ -1,10 +1,31 @@
 /**
  * Types for Obsidian note chunking
- * Description: Strongly-typed interfaces describing chunks and options.
+ * Description: Strongly-typed interfaces describing chunks and options used across the chunker.
  */
 
+/**
+ * Discrete content block categories produced by the parser.
+ * - paragraph: Free-form text paragraph
+ * - list_item: Single list item (ordered or unordered)
+ * - list_group: Grouped short list items merged into one block
+ * - code: Fenced code block (```/~~~)
+ * - table: Markdown table block
+ * - quote: Blockquote (>
+ */
 export type ChunkType = 'paragraph' | 'list_item' | 'list_group' | 'code' | 'table' | 'quote';
 
+/**
+ * Detailed metadata persisted alongside each chunk for search and traceability.
+ * Key fields:
+ * - originalId: Stable id of the source note (e.g., obsidian:path)
+ * - chunkId: Content-addressable or explicit block id used to reference this chunk
+ * - noteHash/contentHash: SHA256 hashes of normalized note and raw chunk content
+ * - contentType: Source content type (obsidian_note)
+ * - chunkType: Category of the chunk (see ChunkType)
+ * - section/headingsPath: Current section name and full heading path context
+ * - listDepth/itemIndex/parentItemText: List-specific metadata
+ * - obsidian: Source path and optional tags/aliases
+ */
 export interface ChunkPayloadMeta {
   originalId: string;
   chunkId: string;
@@ -12,15 +33,9 @@ export interface ChunkPayloadMeta {
   contentHash: string;
   contentType: 'obsidian_note';
   chunkType: ChunkType;
-  chunkIndex: number;
   section: string;
   headingsPath: string[];
-  listDepth?: number;
-  itemIndex?: number;
-  itemIndexRange?: [number, number];
   parentItemText?: string;
-  prevChunkId?: string | null;
-  nextChunkId?: string | null;
   obsidian: {
     path: string;
     tags?: string[];
@@ -28,29 +43,29 @@ export interface ChunkPayloadMeta {
   };
   createdAtTs?: number;
   updatedAtTs?: number;
-  language?: string;
-  area?: string;
-  project?: string;
-  status?: string;
-  vectorizedAt?: string;
-  embeddingModel?: string;
-  dimensions?: number;
 }
 
+/**
+ * A single content unit extracted from a note.
+ * - contentRaw: Raw block text as parsed (may include code fences, bullets, etc.)
+ * - meta: Rich metadata enabling navigation, deduplication, and search
+*/
 export interface Chunk {
   chunkId: string;
   chunkType: ChunkType;
   headingsPath: string[];
   section: string;
-  listDepth?: number;
-  itemIndex?: number;
-  itemIndexRange?: [number, number];
   parentItemText?: string;
   contentRaw: string;
-  contentForEmbedding: string;
   meta: ChunkPayloadMeta;
 }
 
+/**
+ * Context about the source note used when building chunks and metadata.
+ * - notePath/originalId: File system path and external id for provenance
+ * - frontmatter: Arbitrary frontmatter key/values
+ * - tags/aliases: Optional Obsidian note attributes
+ */
 export interface ChunkNoteContext {
   notePath: string;
   originalId: string;
@@ -59,12 +74,19 @@ export interface ChunkNoteContext {
   aliases?: string[];
 }
 
+/**
+ * Tuning parameters controlling the size and grouping behavior of chunks.
+ * - longParagraphWordThreshold: Split paragraphs exceeding this word count (default ~300)
+ * - listShortCharThreshold: Char length under which list items are considered short (default ~120)
+ * - listGroupMin/listGroupMax: Min/Max items to merge into one list_group (defaults 3..7)
+ * - maxChunksSoft: Soft cap on returned chunks for UI/perf (default 50)
+ */
 export interface ChunkOptions {
-  longParagraphWordThreshold?: number; // default ~300
-  listShortCharThreshold?: number; // default ~120
-  listGroupMin?: number; // default 3
-  listGroupMax?: number; // default 7
-  maxChunksSoft?: number; // default 50
+  longParagraphWordThreshold?: number;
+  listShortCharThreshold?: number;
+  listGroupMin?: number;
+  listGroupMax?: number;
+  maxChunksSoft?: number;
 }
 
 

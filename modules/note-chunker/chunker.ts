@@ -54,11 +54,8 @@ export function chunkNote(markdown: string, context: ChunkNoteContext, options: 
       contentHash,
       contentType: 'obsidian_note',
       chunkType: b.type as any,
-      chunkIndex: i,
       section,
       headingsPath: b.headingPath || [],
-      listDepth: (b as any).listDepth,
-      itemIndex: (b as any).itemIndex,
       obsidian: {
         path: context.notePath,
         tags: context.tags || [],
@@ -66,7 +63,6 @@ export function chunkNote(markdown: string, context: ChunkNoteContext, options: 
       },
       createdAtTs: Date.now(),
       updatedAtTs: Date.now(),
-      language: context.frontmatter?.language || undefined,
     };
 
     chunks.push({
@@ -74,17 +70,9 @@ export function chunkNote(markdown: string, context: ChunkNoteContext, options: 
       chunkType: b.type as any,
       headingsPath: b.headingPath || [],
       section,
-      listDepth: (b as any).listDepth,
-      itemIndex: (b as any).itemIndex,
       contentRaw: b.text,
-      contentForEmbedding,
       meta,
     });
-  }
-
-  for (let i = 0; i < chunks.length; i++) {
-    chunks[i].meta.prevChunkId = i > 0 ? chunks[i - 1].chunkId : null;
-    chunks[i].meta.nextChunkId = i < chunks.length - 1 ? chunks[i + 1].chunkId : null;
   }
 
   return chunks.length > merged.maxChunksSoft ? chunks.slice(0, merged.maxChunksSoft) : chunks;
