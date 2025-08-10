@@ -12,6 +12,7 @@ export const CHUNK_VIEW_TYPE = 'kora-chunks';
 
 export class ChunkView extends ItemView {
   private vectorBridge: VectorBridge;
+  private refreshTimer: number | null = null;
 
   constructor(leaf: WorkspaceLeaf, app: App, vectorBridge: VectorBridge) {
     // @ts-ignore ItemView expects app from super(leaf)
@@ -25,7 +26,20 @@ export class ChunkView extends ItemView {
   getIcon(): string { return 'blocks'; }
 
   async onOpen(): Promise<void> {
-    this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.renderForActiveFile()));
+    this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.scheduleRender(0)));
+    this.registerEvent(this.app.workspace.on('file-open', () => this.scheduleRender(0)));
+    this.registerEvent(this.app.vault.on('modify', (file) => {
+      const active = this.app.workspace.getActiveFile();
+      if (active && file instanceof TFile && file.path === active.path) {
+        this.scheduleRender(200);
+      }
+    }));
+    this.registerEvent(this.app.metadataCache.on('changed', (file) => {
+      const active = this.app.workspace.getActiveFile();
+      if (active && file instanceof TFile && file.path === active.path) {
+        this.scheduleRender(200);
+      }
+    }));
     await this.renderForActiveFile();
   }
 
@@ -75,6 +89,22 @@ export class ChunkView extends ItemView {
       item.createEl('div', { text: `${c.chunkType} — ${c.headingsPath.join(' > ')}` }).style.cssText = 'font-size:12px;color:var(--text-muted);margin-bottom:4px;';
       item.createEl('div', { text: c.contentForEmbedding.slice(0, 220) + (c.contentForEmbedding.length > 220 ? '…' : '') }).style.cssText = 'font-size:12px;';
     });
+  }
+
+  private scheduleRender(delay: number) {
+    if (this.refreshTimer) {
+      window.clearTimeout(this.refreshTimer);
+    }
+    this.refreshTimer = window.setTimeout(() => {
+      this.renderForActiveFile();
+    }, Math.max(0, delay));
+  }
+
+  async onClose(): Promise<void> {
+    if (this.refreshTimer) {
+      window.clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
+    }
   }
 }
 
