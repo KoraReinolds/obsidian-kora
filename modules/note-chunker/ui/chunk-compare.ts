@@ -26,13 +26,14 @@ export function buildChunkContentId(originalId: string, chunk: Chunk): string {
  */
 export async function fetchStoredChunkContent(vectorBridge: VectorBridge, id: string): Promise<string | null> {
   try {
-    const content = await vectorBridge.getContent(id);
+    const content: { qdrantId: string; payload: any } | null = await vectorBridge.getContent(id);
+
     if (!content || typeof content !== 'object') {
       // Some servers may return raw string
       return typeof content === 'string' ? content : null;
     }
     // Expect payload shape { content: string } or similar
-    return (content.content ?? content.text ?? null) as string | null;
+    return (content.payload.content ?? content.payload.text ?? null) as string | null;
   } catch {
     return null;
   }

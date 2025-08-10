@@ -13,7 +13,7 @@ export function registerContentRoutes(app: Express): void {
       if (!vectorService) return res.status(503).json({ error: 'Vector service not available' });
 
       const { id } = req.params;
-      const content = await vectorService.getContent(id);
+      const content: { qdrantId: string; payload: any } | null = await vectorService.getContentByOriginalId(id);
       if (!content) return res.status(404).json({ error: 'Content not found' });
       res.json({ success: true, content });
     } catch (error: any) {

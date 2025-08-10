@@ -299,7 +299,7 @@ class VectorService {
         filter: {
           must: [{
             key: 'originalId',
-            match: { value: originalId }
+            match: { value: 'Saturday, June 21st 2025, 6:04:31 pm' }
           }]
         },
         limit: 1,
