@@ -17,11 +17,11 @@ export function extractBlockId(line: string): string | null {
   return null;
 }
 
-export function buildChunkId(rawText: string, headingsPath: string[], localIndex: number, originalId: string): string {
-  const blockId = extractBlockId(rawText);
-  if (blockId) return blockId;
-  const seed = `${originalId}|${headingsPath.join('>')}|${localIndex}|${sha256(rawText)}`;
-  return uuidv5(seed, UUID_NAMESPACE);
+/**
+ * Build a content-addressable ID from embedding text.
+ */
+export function toHash(embeddingText: string): string {
+  return sha256(embeddingText);
 }
 
 export function buildEmbeddingText(headingsPath: string[], parentItemText: string | undefined, text: string): string {

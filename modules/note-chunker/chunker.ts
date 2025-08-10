@@ -6,7 +6,7 @@
 import { parseBlocks } from './parser';
 import { groupShortListItems } from './grouping';
 import { splitLongParagraphs } from './splitting';
-import { buildChunkId, buildEmbeddingText } from './id';
+import { extractBlockId, toHash, buildEmbeddingText } from './id';
 import { normalizeMarkdown, sha256 } from './utils';
 import type { Chunk, ChunkOptions, ChunkNoteContext, ChunkPayloadMeta } from './types';
 
@@ -28,17 +28,18 @@ export function chunkNote(markdown: string, context: ChunkNoteContext, options: 
   const grouped = groupShortListItems(blocks, merged);
   const splitted = splitLongParagraphs(grouped, merged);
 
-  const noteHash = sha256(normalized);
+  const noteHash = toHash(normalized);
 
   const chunks: Chunk[] = [];
   for (let i = 0; i < splitted.length; i++) {
     const b = splitted[i];
-    const localIndex = i;
-    const chunkId = buildChunkId(b.text, b.headingPath || [], localIndex, context.originalId);
-    const contentHash = sha256(b.text);
-    const section = (b.headingPath || []).slice(-1)[0] || '';
-
     const contentForEmbedding = buildEmbeddingText(b.headingPath || [], (b as any).parentItemText, b.text);
+    const explicitBlockId = extractBlockId(b.text);
+    const contentIdHash = toHash(contentForEmbedding);
+    const chunkId = explicitBlockId ? explicitBlockId : contentIdHash;
+    const contentHash = toHash(b.text);
+    const section = (b.headingPath || []).slice(-1)[0] || '';
+ 
 
     const meta: ChunkPayloadMeta = {
       originalId: context.originalId,
