@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(ls:*)",
-      "Bash(tsc -noEmit -skipLibCheck)"
+      "Bash(tsc -noEmit -skipLibCheck)",
+      "Bash(rm:*)"
     ],
     "deny": []
   }

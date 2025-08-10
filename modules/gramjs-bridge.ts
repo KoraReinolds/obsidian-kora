@@ -38,20 +38,6 @@ interface SendFileRequest {
   caption?: string;
 }
 
-interface SendNoteAsImageRequest {
-  peer: string;
-  content: string;
-  title?: string;
-  buttons?: InlineButton[][];
-}
-
-interface GetMessagesRequest {
-  peer: string;
-  startDate?: string;
-  endDate?: string;
-  limit?: number;
-}
-
 interface Channel {
   id: string;
   title: string;
@@ -163,30 +149,6 @@ export class GramJSBridge {
     } catch (error) {
       console.error('Error sending file via GramJS:', error);
       new Notice(`Ошибка отправки файла: ${error.message}`);
-      return false;
-    }
-  }
-
-  /**
-   * Send note content as image via GramJS userbot
-   */
-  async sendNoteAsImage(peer: string, content: string, title?: string, buttons?: InlineButton[][]): Promise<boolean> {
-    try {
-      const response = await fetch(`${this.baseUrl}/send_note_as_image`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ peer, content, title, buttons } as SendNoteAsImageRequest),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to send note as image');
-      }
-
-      return true;
-    } catch (error) {
-      console.error('Error sending note as image via GramJS:', error);
-      new Notice(`Ошибка отправки заметки как изображения: ${error.message}`);
       return false;
     }
   }

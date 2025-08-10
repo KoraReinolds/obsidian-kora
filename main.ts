@@ -1,4 +1,5 @@
 import { Notice, Plugin, TFile, WorkspaceLeaf } from 'obsidian';
+import { CHUNK_VIEW_TYPE, ChunkView } from './modules/chunk-view';
 import * as http from 'http';
 import { AddressInfo } from 'net';
 import {
@@ -106,6 +107,12 @@ export default class KoraMcpPlugin extends Plugin {
 
 		this.startServer();
 
+		// Register right panel view for chunks
+		this.registerView(CHUNK_VIEW_TYPE, (leaf) => new ChunkView(leaf, this.app, this.vectorBridge));
+		this.addRibbonIcon('blocks', 'Open Chunks', () => {
+			this.activateChunkView();
+		});
+
 		// Регистрируем команды
 		this.pluginCommands.getCommands().forEach(command => {
 			this.addCommand(command);
@@ -153,6 +160,13 @@ export default class KoraMcpPlugin extends Plugin {
 		this.stopServer();
 		this.uiManager?.cleanup();
 	}
+
+		async activateChunkView() {
+			const leaf = this.app.workspace.getRightLeaf(false);
+			if (!leaf) return;
+			await leaf.setViewState({ type: CHUNK_VIEW_TYPE, active: true });
+			this.app.workspace.revealLeaf(leaf);
+		}
 
 	async loadSettings() {
     const data: any = await this.loadData();

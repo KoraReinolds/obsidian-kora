@@ -45,11 +45,6 @@ export class PluginCommands {
         callback: () => this.sendNoteViaGramJS(),
       },
       {
-        id: 'send-note-gramjs-image',
-        name: 'Send note as image via GramJS userbot',
-        callback: () => this.sendNoteAsImageViaGramJS(),
-      },
-      {
         id: 'test-gramjs-connection',
         name: 'Test GramJS connection',
         callback: () => this.testGramJSConnection(),
@@ -86,30 +81,6 @@ export class PluginCommands {
     const success = await this.gramjsBridge.sendMessage(peer, processedText);
     if (success) {
       new Notice('Заметка отправлена через GramJS!');
-    }
-  }
-
-  /**
-   * Send note as image via GramJS userbot
-   */
-  private async sendNoteAsImageViaGramJS(): Promise<void> {
-    const file = this.app.workspace.getActiveFile();
-    if (!file) {
-      new Notice('No active file');
-      return;
-    }
-
-    const content = await this.app.vault.read(file);
-    const peer = this.settings.gramjs?.chatId || this.settings.telegram.chatId;
-    
-    if (!peer) {
-      new Notice('Chat ID не настроен');
-      return;
-    }
-
-    const success = await this.gramjsBridge.sendNoteAsImage(peer, content, file.basename);
-    if (success) {
-      new Notice('Заметка отправлена как изображение!');
     }
   }
 

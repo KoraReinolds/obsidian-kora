@@ -104,6 +104,30 @@ export class VectorBridge {
   }
 
   /**
+   * Vectorize multiple contents in batch
+   */
+  async batchVectorize(contents: VectorizeRequest[]): Promise<any> {
+    try {
+      const response = await fetch(`${this.baseUrl}/vectorize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ batch: contents }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to batch vectorize content');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error batch vectorizing content:', error);
+      new Notice(`Ошибка батч-векторизации: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
    * Vectorize Telegram messages from channel
    */
   async vectorizeMessages(request: VectorizeMessagesRequest): Promise<any> {

@@ -135,14 +135,6 @@ export class UIManager {
 
     // GramJS Post button (only if GramJS is enabled)
     if (this.settings.useGramJsUserbot) {
-      const buttonGramJS = this.createButton(
-        '🚀 GramJS Post',
-        'kora-gramjs-post',
-        () => this.sendNoteAsImage(leaf),
-        { backgroundColor: '#229954' }
-      );
-      buttons.push(buttonGramJS);
-
       // GramJS Text button
       const buttonGramJSText = this.createButton(
         '📤 GramJS Text',
@@ -156,7 +148,7 @@ export class UIManager {
     return buttons;
   }
 
-  /**
+  /*
    * Create a button element
    */
   private createButton(
@@ -178,7 +170,7 @@ export class UIManager {
       color: 'white',
       cursor: 'pointer',
       fontSize: '12px',
-      backgroundColor: '#666'
+      backgroundColor: '#6b7280'
     };
 
     // Apply styles
@@ -186,33 +178,6 @@ export class UIManager {
 
     button.onclick = onClick;
     return button;
-  }
-
-  /**
-   * Send note as image via GramJS
-   */
-  private async sendNoteAsImage(leaf: WorkspaceLeaf): Promise<void> {
-    const file = (leaf.view as any).file as TFile;
-    if (!file) {
-      new Notice('Нет активного файла');
-      return;
-    }
-
-    const content = await this.getFileContent(file);
-    const peer = this.settings.gramjs?.chatId || this.settings.telegram.chatId;
-    
-    if (!peer) {
-      new Notice('Chat ID не настроен');
-      return;
-    }
-
-    // Create navigation buttons for the post
-    const navigationButtons = this.createNavigationButtons(file);
-
-    const success = await this.gramjsBridge.sendNoteAsImage(peer, content, file.basename, navigationButtons);
-    if (success) {
-      new Notice('Заметка отправлена как изображение с навигационными кнопками!');
-    }
   }
 
   /**

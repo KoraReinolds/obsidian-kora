@@ -128,7 +128,7 @@ class VectorService {
    * Create indexes for efficient filtering
    */
   async createIndexes(): Promise<void> {
-    try {
+    try{
       const indexFields = [
         'contentType',
         'originalId', // Add index for original ID lookup

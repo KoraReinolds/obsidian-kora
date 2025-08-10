@@ -99,7 +99,6 @@ The GramJS server runs as a separate Node.js process and provides:
 
 - `POST /send_message` - Send text message via userbot
 - `POST /send_file` - Send file via userbot  
-- `POST /send_note_as_image` - Send note content as HTML image
 - `GET /me` - Get current user info
 - `GET /health` - Health check endpoint
 - `GET /channels` - Get all channels, groups, and chats

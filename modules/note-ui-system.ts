@@ -42,6 +42,8 @@ export class NoteUISystem {
     
     // Vector Stats Renderer для заметок с vector: true
     this.registerRenderer(new VectorStatsRenderer());
+
+    // Note: chunk preview moved to native sidebar view (ChunkView)
   }
 
   /**
@@ -78,7 +80,7 @@ export class NoteUISystem {
       try {
         if (renderer.shouldRender(context)) {
           // Создание контейнера для этого рендерера
-          const rendererContainer = containerEl.createDiv({
+      const rendererContainer = containerEl.createDiv({
             cls: `note-ui-renderer note-ui-${rendererId}`
           });
           rendererContainer.setAttribute('data-renderer-id', rendererId);
@@ -368,3 +370,5 @@ class VectorStatsRenderer implements NoteUIRenderer {
     }
   }
 }
+
+// Chunk preview renderer removed from in-note UI
