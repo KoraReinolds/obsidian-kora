@@ -3,9 +3,9 @@
  * Description: Split long paragraphs into multiple paragraph blocks with overlap.
  */
 
-import { splitIntoSentences, roughTokenCount } from './utils';
-import type { ChunkOptions } from './types';
-import type { ParsedBlock } from './parser';
+import { splitIntoSentences, roughTokenCount } from './utils.js';
+import type { ChunkOptions } from './types.js';
+import type { ParsedBlock } from './parser-types.js';
 
 export function splitLongParagraphs(blocks: ParsedBlock[], options: Required<ChunkOptions>): ParsedBlock[] {
   const result: ParsedBlock[] = [];

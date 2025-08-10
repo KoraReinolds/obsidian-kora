@@ -3,10 +3,7 @@
  * Description: Create stable IDs and embedding text prefixes.
  */
 
-import { v5 as uuidv5 } from 'uuid';
-import { sha256 } from './utils';
-
-const UUID_NAMESPACE = '6ba7b811-9dad-11d1-80b4-00c04fd430c8';
+import { sha256 } from './utils.js';
 
 export function extractBlockId(line: string): string | null {
   // Support both ^(abc123) and ^abc123 appearing anywhere in the block

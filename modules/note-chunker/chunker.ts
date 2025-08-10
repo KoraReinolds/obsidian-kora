@@ -3,17 +3,18 @@
  * Description: High-level function that composes parsing, grouping, splitting and builds final chunks.
  */
 
-import { parseBlocks } from './parser';
-import { groupShortListItems } from './grouping';
-import { splitLongParagraphs } from './splitting';
-import { extractBlockId, toHash, buildEmbeddingText } from './id';
-import { normalizeMarkdown, sha256 } from './utils';
-import type { Chunk, ChunkOptions, ChunkNoteContext, ChunkPayloadMeta } from './types';
+import type { CachedMetadataLike } from './cache-types.js';
+import { groupShortListItems } from './grouping.js';
+import { splitLongParagraphs } from './splitting.js';
+import { extractBlockId, toHash, buildEmbeddingText } from './id.js';
+import { normalizeMarkdown, sha256 } from './utils.js';
+import type { Chunk, ChunkOptions, ChunkNoteContext, ChunkPayloadMeta } from './types.js';
+import { buildBlocksFromCache } from './cache-blocks.js';
 
 /**
  * Chunk a markdown note according to the specification.
  */
-export function chunkNote(markdown: string, context: ChunkNoteContext, options: ChunkOptions = {}): Chunk[] {
+export function chunkNote(markdown: string, context: ChunkNoteContext, options: ChunkOptions = {}, cache: CachedMetadataLike): Chunk[] {
   const merged: Required<ChunkOptions> = {
     longParagraphWordThreshold: 300,
     listShortCharThreshold: 120,
@@ -23,8 +24,10 @@ export function chunkNote(markdown: string, context: ChunkNoteContext, options: 
     ...options
   };
 
+  // Use original markdown for cache-based parsing (positions/offsets must match original).
+  const blocks = buildBlocksFromCache(markdown, cache);
+  // Normalize only for hashing/embedding text.
   const normalized = normalizeMarkdown(markdown);
-  const blocks = parseBlocks(normalized);
   const grouped = groupShortListItems(blocks, merged);
   const splitted = splitLongParagraphs(grouped, merged);
 
@@ -33,10 +36,13 @@ export function chunkNote(markdown: string, context: ChunkNoteContext, options: 
   const chunks: Chunk[] = [];
   for (let i = 0; i < splitted.length; i++) {
     const b = splitted[i];
-    const contentForEmbedding = buildEmbeddingText(b.headingPath || [], (b as any).parentItemText, b.text);
+    const contentForEmbedding = buildEmbeddingText(
+      b.headingPath || [],
+      (b as any).parentItemText,
+      normalizeMarkdown(b.text)
+    );
     const explicitBlockId = extractBlockId(b.text);
-    const contentIdHash = toHash(contentForEmbedding);
-    const chunkId = explicitBlockId ? explicitBlockId : contentIdHash;
+    const chunkId = explicitBlockId || toHash(contentForEmbedding);
     const contentHash = toHash(b.text);
     const section = (b.headingPath || []).slice(-1)[0] || '';
  

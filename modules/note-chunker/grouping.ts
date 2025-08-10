@@ -3,8 +3,8 @@
  * Description: Group short list items into list_group blocks.
  */
 
-import type { ChunkOptions } from './types';
-import type { ParsedBlock } from './parser';
+import type { ChunkOptions } from './types.js';
+import type { ParsedBlock } from './parser-types.js';
 
 export function groupShortListItems(blocks: ParsedBlock[], options: Required<ChunkOptions>): ParsedBlock[] {
   const result: ParsedBlock[] = [];

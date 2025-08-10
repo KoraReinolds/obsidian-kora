@@ -58,7 +58,7 @@ export class ChunkView extends ItemView {
     const tags = Array.isArray(fm?.tags) ? fm.tags : [];
     const aliases = Array.isArray(fm?.aliases) ? fm.aliases : [];
     const originalId = `obsidian:${file.path}`;
-    const chunks: Chunk[] = chunkNote(content, { notePath: file.path, originalId, frontmatter: fm, tags, aliases });
+    const chunks: Chunk[] = chunkNote(content, { notePath: file.path, originalId, frontmatter: fm, tags, aliases }, {}, cache as any);
 
     const header = container.createEl('div', { text: `🧩 Chunks (${Math.min(chunks.length, 50)})` });
     header.style.cssText = 'font-weight:600;margin:8px 0;';
