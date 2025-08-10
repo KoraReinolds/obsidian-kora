@@ -5,6 +5,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { chunkNote } from '../chunker';
+import { readFixture } from './helpers';
 
 const baseContext = {
   notePath: 'Data/Notes/test.md',
@@ -16,7 +17,7 @@ const baseContext = {
 
 describe('chunkNote', () => {
   it('splits by paragraphs and preserves headingsPath', () => {
-    const md = `# Food\n\n## Fats\n\nOlive oil is healthy.\n\n## Proteins\n\nEggs are complete.\n`;
+    const md = readFixture('simple.md');
     const chunks = chunkNote(md, baseContext);
     const texts = chunks.map(c => c.contentRaw);
     expect(texts).toContain('Olive oil is healthy.');
@@ -42,7 +43,7 @@ describe('chunkNote', () => {
   });
 
   it('groups short list items and keeps long items separate', () => {
-    const md = `# List\n- aa\n- bb\n- cc\n- this is a considerably longer list item that should not be grouped because it exceeds threshold.`;
+    const md = readFixture('list.md');
     const chunks = chunkNote(md, baseContext, { listShortCharThreshold: 10, listGroupMin: 3, listGroupMax: 7 });
     const group = chunks.find(c => c.chunkType === 'list_group');
     const longItem = chunks.find(c => c.chunkType === 'list_item' && c.contentRaw.startsWith('this is a considerably'));
@@ -52,7 +53,7 @@ describe('chunkNote', () => {
   });
 
   it('splits long paragraphs by sentences with overlap', () => {
-    const md = `# Long\n${'Sentence. '.repeat(120)}`; // ~120 sentences
+    const md = `# Long\n${'Sentence. '.repeat(120)}`; // keep synthetic for volume
     const chunks = chunkNote(md, baseContext, { longParagraphWordThreshold: 10 });
     const parts = chunks.filter(c => c.chunkType === 'paragraph');
     expect(parts.length).toBeGreaterThan(1);
