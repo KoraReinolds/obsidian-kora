@@ -101,7 +101,7 @@ export class ChunkView extends ItemView {
       await loadBaselineForChunks(this.vectorBridge, originalId, visibleChunks);
       for (let i = 0; i < visibleChunks.length; i++) {
         const item = items[i];
-        const mount = item?.querySelector('div.mt-2') as HTMLElement;
+        const mount = item?.querySelector('div[data-kora-diff-mount], div[data-koraDiffMount], div[data-koradiffmount]') as HTMLElement || (item?.lastElementChild as HTMLElement);
         if (item && mount) await fetchAndRenderChunkDiff(this.vectorBridge, originalId, visibleChunks[i], mount);
       }
     } catch (e) {

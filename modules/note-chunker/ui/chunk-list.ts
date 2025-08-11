@@ -34,7 +34,8 @@ export function renderChunkList(container: HTMLElement, chunks: Chunk[], _option
     const preview = item.createEl('div', { text: c.contentRaw.slice(0, 220) + (c.contentRaw.length > 220 ? '…' : '') });
     preview.style.cssText = 'font-size:12px;';
     const diffMount = item.createEl('div');
-    diffMount.className = 'mt-2';
+    diffMount.style.cssText = 'margin-top:8px;';
+    (diffMount as any).dataset['koraDiffMount'] = 'true';
     items.push(item);
   }
   return { root: list, items };

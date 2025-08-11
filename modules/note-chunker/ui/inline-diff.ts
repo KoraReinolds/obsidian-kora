@@ -59,7 +59,7 @@ export function diffWords(oldText: string, newText: string): DiffPart[] {
  */
 export function renderInlineDiff(oldText: string, newText: string): HTMLElement {
   const root = document.createElement('div');
-  root.className = 'text-xs leading-5';
+  root.style.cssText = 'font-size:12px;line-height:1.4;';
   const parts = diffWords(oldText, newText);
   for (const p of parts) {
     const span = document.createElement('span');
@@ -67,10 +67,10 @@ export function renderInlineDiff(oldText: string, newText: string): HTMLElement 
       span.textContent = p.text;
     } else if (p.type === 'add') {
       span.textContent = p.text;
-      span.className = 'bg-green-500/20 text-green-600 dark:text-green-400 rounded px-0.5';
+      span.style.cssText = 'background:rgba(16,185,129,0.20);color:var(--color-green,#059669);border-radius:4px;padding:0 2px;';
     } else {
       span.textContent = p.text;
-      span.className = 'bg-red-500/20 text-red-600 dark:text-red-400 line-through rounded px-0.5';
+      span.style.cssText = 'background:rgba(239,68,68,0.20);color:var(--color-red,#dc2626);text-decoration:line-through;border-radius:4px;padding:0 2px;';
     }
     root.appendChild(span);
   }
