@@ -15,18 +15,11 @@ export interface ChunkCompareResult {
 }
 
 /**
- * Build vector content id for a chunk.
- */
-export function buildChunkContentId(originalId: string, chunk: Chunk): string {
-  return `${originalId}#${chunk.chunkId}`;
-}
-
-/**
  * Fetch stored content for a chunk.
  */
 export async function fetchStoredChunkContent(vectorBridge: VectorBridge, id: string): Promise<string | null> {
   try {
-    const content: { qdrantId: string; payload: any } | null = await vectorBridge.getContent(id);
+    const content: { qdrantId: string; payload: any } | null = await vectorBridge.getContent(id, 'chunkId');
 
     if (!content || typeof content !== 'object') {
       // Some servers may return raw string
@@ -44,11 +37,9 @@ export async function fetchStoredChunkContent(vectorBridge: VectorBridge, id: st
  */
 export async function compareChunk(
   vectorBridge: VectorBridge,
-  originalId: string,
   chunk: Chunk
 ): Promise<ChunkCompareResult> {
-  const id = buildChunkContentId(originalId, chunk);
-  const prev = await fetchStoredChunkContent(vectorBridge, id);
+  const prev = await fetchStoredChunkContent(vectorBridge, chunk.chunkId);
   if (prev == null) return { exists: false, changed: true, previous: null };
   const changed = prev !== chunk.contentRaw;
   return { exists: true, changed, previous: prev };
@@ -60,13 +51,11 @@ export async function compareChunk(
  */
 export async function loadBaselineForChunks(
   vectorBridge: VectorBridge,
-  originalId: string,
   chunks: Chunk[]
 ): Promise<Map<string, string | null>> {
   const entries = await Promise.all(
     chunks.map(async (c) => {
-      const id = buildChunkContentId(originalId, c);
-      const prev = await fetchStoredChunkContent(vectorBridge, id);
+      const prev = await fetchStoredChunkContent(vectorBridge, c.chunkId);
       return [c.chunkId, prev] as const;
     })
   );
@@ -78,14 +67,13 @@ export async function loadBaselineForChunks(
  */
 export async function fetchAndRenderChunkDiff(
   vectorBridge: VectorBridge,
-  originalId: string,
   chunk: Chunk,
   mountEl: HTMLElement
 ): Promise<void> {
   mountEl.empty();
   const spinner = mountEl.createEl('div', { text: 'Comparing…' });
   spinner.className = 'text-[11px] text-muted';
-  const res = await compareChunk(vectorBridge, originalId, chunk);
+  const res = await compareChunk(vectorBridge, chunk);
   mountEl.empty();
   if (!res.exists) {
     mountEl.createEl('div', { text: 'No indexed content yet.' }).className = 'text-[11px] text-muted';

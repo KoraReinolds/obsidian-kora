@@ -98,11 +98,11 @@ export class ChunkView extends ItemView {
     (this as any)._currentChunkItems = items;
     // Auto-compare and render diffs for visible chunks
     try {
-      await loadBaselineForChunks(this.vectorBridge, originalId, visibleChunks);
+      await loadBaselineForChunks(this.vectorBridge, visibleChunks);
       for (let i = 0; i < visibleChunks.length; i++) {
         const item = items[i];
         const mount = item?.querySelector('div[data-kora-diff-mount], div[data-koraDiffMount], div[data-koradiffmount]') as HTMLElement || (item?.lastElementChild as HTMLElement);
-        if (item && mount) await fetchAndRenderChunkDiff(this.vectorBridge, originalId, visibleChunks[i], mount);
+        if (item && mount) await fetchAndRenderChunkDiff(this.vectorBridge, visibleChunks[i], mount);
       }
     } catch (e) {
       console.error('Chunk diff rendering failed', e);

@@ -178,7 +178,7 @@ class VectorService {
       console.log(`[VectorService] Vectorizing content: ${id} (${contentType})`);
 
       // Check if content already exists and unchanged
-      const existingResult = await this.getContentByOriginalId(id);
+      const existingResult = await this.getContentBy('originalId', id);
       const contentHash = this.embeddingService.generateContentHash(content);
       
       if (existingResult && existingResult.payload.contentHash === contentHash) {
@@ -289,17 +289,30 @@ class VectorService {
   }
 
   /**
-   * Get content by original ID (searches by originalId in payload)
+   * Get content by any key
+   * - key 'id' or 'qdrantId' will search by Qdrant point id via retrieve
+   * - otherwise searches by payload field equality via scroll filter
    */
-  async getContentByOriginalId(originalId: string): Promise<{ qdrantId: string; payload: any } | null> {
+  async getContentBy(key: string, value: string): Promise<{ qdrantId: string; payload: any } | null> {
     await this.initialize();
 
     try {
+      if (key === 'id' || key === 'qdrantId') {
+        const points = await this.client.retrieve(this.config.collectionName, {
+          ids: [value],
+          with_payload: true,
+          with_vector: false
+        });
+        return points.length > 0
+          ? { qdrantId: points[0].id.toString(), payload: points[0].payload }
+          : null;
+      }
+
       const searchResult = await this.client.scroll(this.config.collectionName, {
         filter: {
           must: [{
-            key: 'originalId',
-            match: { value: 'Saturday, June 21st 2025, 6:04:31 pm' }
+            key,
+            match: { value }
           }]
         },
         limit: 1,
@@ -307,12 +320,11 @@ class VectorService {
         with_vector: false
       });
 
-      return searchResult.points.length > 0 ? {
-        qdrantId: searchResult.points[0].id.toString(),
-        payload: searchResult.points[0].payload
-      } : null;
+      return searchResult.points.length > 0
+        ? { qdrantId: searchResult.points[0].id.toString(), payload: searchResult.points[0].payload }
+        : null;
     } catch (error) {
-      console.error(`[VectorService] Error getting content by original ID ${originalId}:`, error);
+      console.error(`[VectorService] Error getting content by ${key}=${value}:`, error);
       return null;
     }
   }
@@ -324,24 +336,10 @@ class VectorService {
     await this.initialize();
 
     try {
-      // First try as Qdrant ID
-      try {
-        const points = await this.client.retrieve(this.config.collectionName, {
-          ids: [id],
-          with_payload: true,
-          with_vector: false
-        });
-
-        if (points.length > 0) {
-          return points[0].payload;
-        }
-      } catch (error) {
-        // If ID format is invalid for Qdrant, fall through to original ID search
-      }
-
-      // If not found or invalid format, try as original ID
-      const result = await this.getContentByOriginalId(id);
-      return result ? result.payload : null;
+      const byId = await this.getContentBy('id', id);
+      if (byId) return byId.payload;
+      const byOriginal = await this.getContentBy('originalId', id);
+      return byOriginal ? byOriginal.payload : null;
       
     } catch (error) {
       console.error(`[VectorService] Error getting content ${id}:`, error);
@@ -365,7 +363,7 @@ class VectorService {
         });
       } catch (error) {
         // If ID format is invalid, try to find by original ID
-        const existingResult = await this.getContentByOriginalId(id as string);
+        const existingResult = await this.getContentBy('originalId', id as string);
         if (existingResult) {
           qdrantId = existingResult.qdrantId;
           await this.client.delete(this.config.collectionName, {

@@ -179,9 +179,11 @@ export class VectorBridge {
   /**
    * Get content by ID
    */
-  async getContent(id: string): Promise<any> {
+  async getContent(id: string, by?: string): Promise<any> {
     try {
-      const response = await fetch(`${this.baseUrl}/content/${encodeURIComponent(id)}`, {
+      const url = by ? `${this.baseUrl}/content/${encodeURIComponent(id)}?by=${encodeURIComponent(by)}`
+                     : `${this.baseUrl}/content/${encodeURIComponent(id)}`;
+      const response = await fetch(url, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       });
