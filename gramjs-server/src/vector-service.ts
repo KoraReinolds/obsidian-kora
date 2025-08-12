@@ -330,6 +330,33 @@ class VectorService {
   }
 
   /**
+   * Get multiple contents by payload key equality (or by Qdrant ID array when key is 'id'/'qdrantId').
+   */
+  async getContentsBy(key: string, value: string, limit = 2048): Promise<Array<{ qdrantId: string; payload: any }>> {
+    await this.initialize();
+    try {
+      if (key === 'id' || key === 'qdrantId') {
+        const points = await this.client.retrieve(this.config.collectionName, {
+          ids: [value],
+          with_payload: true,
+          with_vector: false
+        });
+        return points.map(p => ({ qdrantId: p.id.toString(), payload: p.payload }));
+      }
+      const result = await this.client.scroll(this.config.collectionName, {
+        filter: { must: [{ key, match: { value } }] },
+        limit,
+        with_payload: true,
+        with_vector: false
+      });
+      return result.points.map(pt => ({ qdrantId: pt.id.toString(), payload: pt.payload }));
+    } catch (error) {
+      console.error(`[VectorService] Error getting contents by ${key}=${value}:`, error);
+      return [];
+    }
+  }
+
+  /**
    * Get content by ID (backwards compatibility - tries Qdrant ID first, then original ID)
    */
   async getContent(id: string): Promise<any> {
@@ -347,36 +374,62 @@ class VectorService {
     }
   }
 
-  /**
-   * Delete content by ID (supports both original ID and Qdrant UUID)
-   */
-  async deleteContent(id: string): Promise<{ id: string; qdrantId: string; status: string }> {
-    await this.initialize();
+  // Legacy deleteContent(id) removed in favor of deleteBy(key, value, opts)
 
+  /**
+   * Delete many contents by payload key/value filter.
+   * Optionally keep points whose chunkId is in keepChunkIds.
+   * Returns an approximate count of deleted points (pre-delete match count).
+   */
+  async deleteBy(
+    key: string,
+    value: string,
+    options?: { keepChunkIds?: string[]; preCountLimit?: number }
+  ): Promise<{ deleted: number }> {
+    await this.initialize();
     try {
-      let qdrantId = id;
-      
-      // Try to find by original ID if direct deletion fails
-      try {
-        await this.client.delete(this.config.collectionName, {
-          points: [id]
-        });
-      } catch (error) {
-        // If ID format is invalid, try to find by original ID
-        const existingResult = await this.getContentBy('originalId', id as string);
-        if (existingResult) {
-          qdrantId = existingResult.qdrantId;
-          await this.client.delete(this.config.collectionName, {
-            points: [qdrantId]
-          });
-        } else {
-          throw new Error(`Content not found: ${id}`);
-        }
+      const keep = options?.keepChunkIds?.filter(Boolean) ?? [];
+      const preCountLimit = options?.preCountLimit ?? 5000;
+
+      const filter: any = {
+        must: [
+          {
+            key,
+            match: { value }
+          }
+        ]
+      };
+      if (keep.length > 0) {
+        (filter as any).must_not = [
+          {
+            key: 'chunkId',
+            match: { any: keep }
+          }
+        ];
       }
 
-      return { id, qdrantId, status: 'deleted' };
+      // Pre-count matches (best-effort)
+      let deleted = 0;
+      try {
+        const scroll = await this.client.scroll(this.config.collectionName, {
+          filter,
+          limit: preCountLimit,
+          with_payload: false,
+          with_vector: false
+        });
+        deleted = scroll.points.length;
+      } catch {
+        // ignore count errors
+      }
+
+      // Delete by filter
+      await this.client.delete(this.config.collectionName, {
+        filter
+      } as any);
+
+      return { deleted };
     } catch (error) {
-      console.error(`[VectorService] Error deleting content ${id}:`, error);
+      console.error(`[VectorService] Error deleting by ${key}=${value}:`, error);
       throw error;
     }
   }

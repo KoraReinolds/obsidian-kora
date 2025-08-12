@@ -7,34 +7,55 @@ import type { Express, Request, Response } from 'express';
 import { getVectorService } from '../services/vector-service-singleton.js';
 
 export function registerContentRoutes(app: Express): void {
-  app.get('/content/:id', async (req: Request, res: Response) => {
+  // Unified content getter via query (single or multiple)
+  app.get('/content', async (req: Request, res: Response) => {
     try {
       const vectorService = getVectorService();
       if (!vectorService) return res.status(503).json({ error: 'Vector service not available' });
 
-      const { id } = req.params;
       const by = (req.query.by as string) || 'originalId';
-      const content: { qdrantId: string; payload: any } | null = await vectorService.getContentBy(by, id);
-      if (!content) return res.status(404).json({ error: 'Content not found' });
-      res.json({ success: true, content });
+      const value = (req.query.value as string) || '';
+      const multiple = String(req.query.multiple || 'false') === 'true';
+      const limit = parseInt((req.query.limit as string) || '2048', 10);
+      if (!value) return res.status(400).json({ error: 'Missing value parameter' });
+
+      if (multiple) {
+        const contents = await vectorService.getContentsBy(by, value, limit);
+        res.json({ success: true, contents });
+      } else {
+        const content = await vectorService.getContentBy(by, value);
+        if (!content) return res.status(404).json({ error: 'Content not found' });
+        res.json({ success: true, content });
+      }
     } catch (error: any) {
       // eslint-disable-next-line no-console
-      console.error(`[GET /content/:id] Error:`, error);
+      console.error(`[GET /content] Error:`, error);
       res.status(500).json({ error: error.message });
     }
   });
 
-  app.delete('/content/:id', async (req: Request, res: Response) => {
+  // Universal delete-by filter: /content?by=originalId&value=...&keepChunkIds=a,b,c
+  app.delete('/content', async (req: Request, res: Response) => {
     try {
       const vectorService = getVectorService();
       if (!vectorService) return res.status(503).json({ error: 'Vector service not available' });
 
-      const { id } = req.params;
-      const result = await vectorService.deleteContent(id);
+      const by = (req.query.by as string) || 'originalId';
+      const value = (req.query.value as string) || '';
+      if (!value) return res.status(400).json({ error: 'Missing value parameter' });
+
+      const keepChunkIdsRaw = (req.query.keepChunkIds as string) || '';
+      const keepChunkIds = keepChunkIdsRaw
+        ? keepChunkIdsRaw.split(',').map(s => s.trim()).filter(Boolean)
+        : [];
+
+      const result = await vectorService.deleteBy(by, value, {
+        keepChunkIds
+      });
       res.json({ success: true, ...result });
     } catch (error: any) {
       // eslint-disable-next-line no-console
-      console.error(`[DELETE /content/:id] Error:`, error);
+      console.error(`[DELETE /content] Error:`, error);
       res.status(500).json({ error: error.message });
     }
   });

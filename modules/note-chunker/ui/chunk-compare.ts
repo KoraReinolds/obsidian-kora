@@ -19,14 +19,9 @@ export interface ChunkCompareResult {
  */
 export async function fetchStoredChunkContent(vectorBridge: VectorBridge, id: string): Promise<string | null> {
   try {
-    const content: { qdrantId: string; payload: any } | null = await vectorBridge.getContent(id, 'chunkId');
-
-    if (!content || typeof content !== 'object') {
-      // Some servers may return raw string
-      return typeof content === 'string' ? content : null;
-    }
-    // Expect payload shape { content: string } or similar
-    return (content.payload.content ?? content.payload.text ?? null) as string | null;
+    const content = await vectorBridge.getContentBy({ by: 'chunkId', value: id, multiple: false });
+    if (!content || typeof content !== 'object' || Array.isArray(content)) return null;
+    return (content.payload?.content ?? content.payload?.text ?? null) as string | null;
   } catch {
     return null;
   }
@@ -49,17 +44,35 @@ export async function compareChunk(
  * Load baseline stored content for a list of chunks.
  * Returns a Map keyed by chunkId with previous text or null if not indexed.
  */
-export async function loadBaselineForChunks(
+export async function loadBaselineForChunksByOriginalId(
   vectorBridge: VectorBridge,
-  chunks: Chunk[]
-): Promise<Map<string, string | null>> {
-  const entries = await Promise.all(
-    chunks.map(async (c) => {
-      const prev = await fetchStoredChunkContent(vectorBridge, c.chunkId);
-      return [c.chunkId, prev] as const;
-    })
-  );
-  return new Map(entries);
+  originalId: string,
+  currentChunks: Chunk[]
+): Promise<{ baselineByChunkId: Map<string, string>, statusByChunkId: Map<string, 'new' | 'deleted' | 'modified' | 'unchanged'> }>{
+  const res = await vectorBridge.getContentBy({ by: 'originalId', value: originalId, multiple: true, limit: 5000 });
+  const points = Array.isArray(res) ? res : [];
+  const baselineByChunkId = new Map<string, string>();
+  for (const p of points) {
+    const payload = p.payload || {};
+    const meta = payload.metadata || payload.meta || {};
+    const chunkId = meta.chunkId || payload.chunkId || null;
+    const content = payload.content || payload.text || '';
+    if (chunkId) baselineByChunkId.set(String(chunkId), String(content));
+  }
+  // Determine statuses by comparing current vs baseline
+  const statusByChunkId = new Map<string, 'new' | 'deleted' | 'modified' | 'unchanged'>();
+  const currentIds = new Set(currentChunks.map(c => c.chunkId));
+  for (const c of currentChunks) {
+    const prev = baselineByChunkId.get(c.chunkId);
+    if (prev == null) statusByChunkId.set(c.chunkId, 'new');
+    else if (prev === c.contentRaw) statusByChunkId.set(c.chunkId, 'unchanged');
+    else statusByChunkId.set(c.chunkId, 'modified');
+  }
+  // Mark deleted (present in baseline but not in current)
+  for (const [chunkId] of baselineByChunkId.entries()) {
+    if (!currentIds.has(chunkId)) statusByChunkId.set(chunkId, 'deleted');
+  }
+  return { baselineByChunkId, statusByChunkId };
 }
 
 /**
@@ -71,20 +84,11 @@ export async function fetchAndRenderChunkDiff(
   mountEl: HTMLElement
 ): Promise<void> {
   mountEl.empty();
-  const spinner = mountEl.createEl('div', { text: 'Comparing…' });
-  spinner.className = 'text-[11px] text-muted';
   const res = await compareChunk(vectorBridge, chunk);
   mountEl.empty();
-  if (!res.exists) {
-    mountEl.createEl('div', { text: 'No indexed content yet.' }).className = 'text-[11px] text-muted';
-    return;
-  }
-  if (!res.changed) {
-    mountEl.createEl('div', { text: 'No changes.' }).className = 'text-[11px] text-green-500';
-    return;
-  }
+  if (!res.exists || !res.changed) return;
   const view = renderInlineDiff(res.previous || '', chunk.contentRaw || '');
-  view.classList.add('mt-1', 'rounded', 'p-2', 'border', 'border-[var(--background-modifier-border)]');
+  view.style.cssText = 'margin-top:4px;border:1px solid var(--background-modifier-border);border-radius:6px;padding:6px;';
   mountEl.appendChild(view);
 }
 

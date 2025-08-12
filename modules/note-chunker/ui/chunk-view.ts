@@ -9,7 +9,7 @@ import type { Chunk } from '..';
 import { renderChunkList, setActiveChunkItem } from './chunk-list';
 import { findChunkIndexForLine, startCursorPolling } from './chunk-cursor';
 import { VectorBridge } from '../../vector-bridge';
-import { fetchAndRenderChunkDiff, loadBaselineForChunks } from './chunk-compare';
+import { fetchAndRenderChunkDiff, loadBaselineForChunksByOriginalId } from './chunk-compare';
 
 export const CHUNK_VIEW_TYPE = 'kora-chunks';
 
@@ -98,11 +98,33 @@ export class ChunkView extends ItemView {
     (this as any)._currentChunkItems = items;
     // Auto-compare and render diffs for visible chunks
     try {
-      await loadBaselineForChunks(this.vectorBridge, visibleChunks);
+      const { baselineByChunkId, statusByChunkId } = await loadBaselineForChunksByOriginalId(this.vectorBridge, originalId, chunks);
+
       for (let i = 0; i < visibleChunks.length; i++) {
+        const chunk = visibleChunks[i];
         const item = items[i];
         const mount = item?.querySelector('div[data-kora-diff-mount], div[data-koraDiffMount], div[data-koradiffmount]') as HTMLElement || (item?.lastElementChild as HTMLElement);
-        if (item && mount) await fetchAndRenderChunkDiff(this.vectorBridge, visibleChunks[i], mount);
+        // Status badge
+        const status = statusByChunkId.get(chunk.chunkId) || 'new';
+        const badge = document.createElement('span');
+        badge.style.cssText = 'font-size:10px;border-radius:8px;padding:2px 6px;margin-left:6px;vertical-align:middle;border:1px solid var(--background-modifier-border);';
+        if (status === 'new') { badge.textContent = 'NEW'; badge.style.background = 'rgba(16,185,129,0.15)'; badge.style.color = 'var(--color-green,#059669)'; }
+        if (status === 'modified') { badge.textContent = 'CHANGED'; badge.style.background = 'rgba(234,179,8,0.15)'; badge.style.color = '#a16207'; }
+        if (status === 'unchanged') { badge.textContent = 'OK'; badge.style.background = 'var(--background-modifier-hover)'; badge.style.color = 'var(--text-muted)'; }
+        const headerEl = item.firstElementChild as HTMLElement;
+        if (headerEl) headerEl.appendChild(badge);
+        // Render inline diff only for modified
+        if (item && mount && status === 'modified') {
+          const previous = baselineByChunkId.get(chunk.chunkId) || '';
+          mount.empty();
+          const view = document.createElement('div');
+          view.style.cssText = 'margin-top:4px;border:1px solid var(--background-modifier-border);border-radius:6px;padding:6px;';
+          const diffEl = (await import('./inline-diff')).renderInlineDiff(previous, chunk.contentRaw || '');
+          view.appendChild(diffEl);
+          mount.appendChild(view);
+        } else if (mount) {
+          mount.empty();
+        }
       }
     } catch (e) {
       console.error('Chunk diff rendering failed', e);

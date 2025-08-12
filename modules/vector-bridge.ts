@@ -179,16 +179,22 @@ export class VectorBridge {
   /**
    * Get content by ID
    */
-  async getContent(id: string, by?: string): Promise<any> {
+  /**
+   * Universal content getter.
+   * - When multiple=true, returns an array; otherwise returns a single item or null.
+   */
+  async getContentBy(params: { by: string; value: string; multiple?: boolean; limit?: number }): Promise<
+    { qdrantId: string; payload: any } | Array<{ qdrantId: string; payload: any }> | null
+  > {
+    const { by, value, multiple = false, limit = 2048 } = params;
     try {
-      const url = by ? `${this.baseUrl}/content/${encodeURIComponent(id)}?by=${encodeURIComponent(by)}`
-                     : `${this.baseUrl}/content/${encodeURIComponent(id)}`;
-      const response = await fetch(url, {
+      const qs = new URLSearchParams({ by, value, multiple: String(multiple), limit: String(limit) });
+      const response = await fetch(`${this.baseUrl}/content?${qs.toString()}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       });
 
-      if (response.status === 404) {
+      if (!multiple && response.status === 404) {
         return null;
       }
 
@@ -198,7 +204,7 @@ export class VectorBridge {
       }
 
       const result = await response.json();
-      return result.content;
+      return multiple ? (result.contents || []) : (result.content || null);
     } catch (error) {
       console.error('Error getting content:', error);
       throw error;
@@ -206,25 +212,28 @@ export class VectorBridge {
   }
 
   /**
-   * Delete content by ID
+   * Delete all vectors for a given originalId. Optionally keep specific chunkIds.
+   * Returns number of deleted points.
    */
-  async deleteContent(id: string): Promise<any> {
+  async deleteByOriginalId(originalId: string, options?: { exceptChunkIds?: Set<string> }): Promise<number> {
     try {
-      const response = await fetch(`${this.baseUrl}/content/${encodeURIComponent(id)}`, {
+      // Prefer server-side filtered delete to minimize roundtrips
+      const keep = Array.from(options?.exceptChunkIds ?? []).join(',');
+      const qs = new URLSearchParams({ by: 'originalId', value: originalId });
+      if (keep) qs.set('keepChunkIds', keep);
+      const response = await fetch(`${this.baseUrl}/content?${qs.toString()}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
       });
-
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Failed to delete content');
+        throw new Error(error.error || 'Failed to delete content by originalId');
       }
-
-      return await response.json();
+      const result = await response.json();
+      return Number(result.deleted || 0);
     } catch (error) {
-      console.error('Error deleting content:', error);
-      new Notice(`Ошибка удаления: ${error.message}`);
-      throw error;
+      console.error('Error deleting by originalId:', error);
+      return 0;
     }
   }
 
@@ -259,11 +268,11 @@ export class VectorBridge {
    * @returns Batch result when chunked; otherwise single vectorize result
    */
   async vectorizeNote(file: { originalId: string, path: string, content: string, title: string, metadata?: any, cache?: any }): Promise<any> {
+    debugger
     const frontmatter = file?.metadata?.frontmatter ?? file?.metadata ?? {};
     const tags = Array.isArray(frontmatter?.tags) ? frontmatter.tags : [];
     const aliases = Array.isArray(frontmatter?.aliases) ? frontmatter.aliases : [];
     const { originalId, title } = file
-
 
     if (file.cache) {
       // Chunk and batch vectorize
@@ -273,6 +282,13 @@ export class VectorBridge {
         {},
         file.cache as any
       );
+      // Delete old vectors for chunks that no longer exist
+      try {
+        const currentChunkIds = new Set(chunks.map((c) => String(c.chunkId)));
+        await this.deleteByOriginalId(originalId, { exceptChunkIds: currentChunkIds });
+      } catch (err) {
+        console.warn('Failed to delete old vectors before re-indexing (continuing):', (err as any)?.message ?? err);
+      }
       const batch = chunks.map((c) => ({
         id: `${originalId}#${c.chunkId}`,
         contentType: 'obsidian_note',
@@ -284,6 +300,12 @@ export class VectorBridge {
     }
 
     // Fallback: single vectorize
+    try {
+      // Ensure any previously chunked or single entries for this note are removed
+      await this.deleteByOriginalId(originalId);
+    } catch (err) {
+      console.warn('Failed to delete previous vectors for single-note mode:', (err as any)?.message ?? err);
+    }
     return await this.vectorizeContent({
       id: originalId,
       contentType: 'obsidian_note',
