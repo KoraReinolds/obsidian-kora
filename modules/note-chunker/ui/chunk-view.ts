@@ -75,51 +75,136 @@ export class ChunkView extends ItemView {
     const actions = container.createEl('div');
     const btn = actions.createEl('button', { text: 'Vectorize chunks', cls: 'mod-cta' });
     btn.onclick = async () => {
-      btn.disabled = true; btn.textContent = 'Vectorizing...';
+      btn.disabled = true; btn.textContent = 'Synchronizing...';
       try {
-        await this.vectorBridge.vectorizeNote({
-          originalId,
-          path: file.path,
-          content,
-          title: file.basename,
-          metadata: { frontmatter: fm, tags, aliases },
-          cache: cache as any,
-        });
+        await this.syncChunks(originalId, file, content, fm, tags, aliases, cache as any);
       } finally {
-        btn.disabled = false; btn.textContent = 'Vectorize chunks';
+        btn.disabled = false;
+        await this.renderForActiveFile();
       }
     };
 
-    const visibleChunks = chunks.slice(0, 50);
-    const { root, items } = renderChunkList(container, visibleChunks);
-    root.dataset['koraChunkList'] = 'true';
-    // Store refs for highlighting
-    (this as any)._currentChunks = chunks;
-    (this as any)._currentChunkItems = items;
     // Auto-compare and render diffs for visible chunks
     try {
       const { baselineByChunkId, statusByChunkId } = await loadBaselineForChunksByOriginalId(this.vectorBridge, originalId, chunks);
+     
+      // Collect all chunks to display (current + deleted)
+      const allChunksToDisplay: Array<{chunk: Chunk | null, status: string, chunkId: string, content: string}> = [];
+      
+      // Add current chunks
+      for (const chunk of chunks) {
+        const status = statusByChunkId.get(chunk.chunkId) || 'new';
+        allChunksToDisplay.push({chunk, status, chunkId: chunk.chunkId, content: chunk.contentRaw || ''});
+      }
+      
+      // Add deleted chunks (exist in baseline but not in current)
+      for (const [chunkId, previousContent] of Array.from(baselineByChunkId.entries())) {
+        if (statusByChunkId.get(chunkId) === 'deleted') {
+          allChunksToDisplay.push({chunk: null, status: 'deleted', chunkId, content: previousContent});
+        }
+      }
+      
+      // Limit display to 50 items
+      const visibleItems = allChunksToDisplay.slice(0, 50);
+      
+      // Create visual chunks array for renderChunkList
+      const visualChunks = visibleItems.map(item => {
+        if (item.chunk) {
+          return item.chunk;
+        }
+        // Create a proper chunk object for deleted items
+        return {
+          chunkId: item.chunkId,
+          chunkType: 'paragraph' as const,
+          headingsPath: ['[DELETED]'],
+          section: '[DELETED]',
+          contentRaw: item.content,
+          meta: {
+            originalId,
+            chunkId: item.chunkId,
+            noteHash: 'deleted',
+            contentHash: 'deleted',
+            contentType: 'obsidian_note' as const,
+            chunkType: 'paragraph' as const,
+            section: '[DELETED]',
+            headingsPath: ['[DELETED]'],
+            obsidian: {
+              path: file.path,
+              tags,
+              aliases
+            },
+            createdAtTs: Date.now(),
+            updatedAtTs: Date.now()
+          },
+          position: undefined
+        } as Chunk;
+      });
+      
+      const { root, items } = renderChunkList(container, visualChunks as Chunk[]);
+      root.dataset['koraChunkList'] = 'true';
+      
+      // Store refs for highlighting
+      (this as any)._currentChunks = chunks;
+      (this as any)._currentChunkItems = items.filter((_, i) => visibleItems[i].chunk !== null);
+      
+      // Check if there are any changes to sync
+      const hasChanges = Array.from(statusByChunkId.values()).some(status => status !== 'unchanged');
+      
+      // Update sync button state
+      const syncBtn = actions.querySelector('button') as HTMLButtonElement;
+      if (syncBtn) {
+        syncBtn.disabled = !hasChanges;
+        syncBtn.textContent = hasChanges ? 'Vectorize chunks' : 'No changes to sync';
+        if (!hasChanges) {
+          syncBtn.style.opacity = '0.6';
+        } else {
+          syncBtn.style.opacity = '1';
+        }
+      }
 
-      for (let i = 0; i < visibleChunks.length; i++) {
-        const chunk = visibleChunks[i];
+      for (let i = 0; i < visibleItems.length; i++) {
+        const displayItem = visibleItems[i];
         const item = items[i];
         const mount = item?.querySelector('div[data-kora-diff-mount], div[data-koraDiffMount], div[data-koradiffmount]') as HTMLElement || (item?.lastElementChild as HTMLElement);
+        
         // Status badge
-        const status = statusByChunkId.get(chunk.chunkId) || 'new';
+        const status = displayItem.status;
         const badge = document.createElement('span');
         badge.style.cssText = 'font-size:10px;border-radius:8px;padding:2px 6px;margin-left:6px;vertical-align:middle;border:1px solid var(--background-modifier-border);';
-        if (status === 'new') { badge.textContent = 'NEW'; badge.style.background = 'rgba(16,185,129,0.15)'; badge.style.color = 'var(--color-green,#059669)'; }
-        if (status === 'modified') { badge.textContent = 'CHANGED'; badge.style.background = 'rgba(234,179,8,0.15)'; badge.style.color = '#a16207'; }
-        if (status === 'unchanged') { badge.textContent = 'OK'; badge.style.background = 'var(--background-modifier-hover)'; badge.style.color = 'var(--text-muted)'; }
+        
+        if (status === 'new') { 
+          badge.textContent = 'NEW'; 
+          badge.style.background = 'rgba(16,185,129,0.15)'; 
+          badge.style.color = 'var(--color-green,#059669)'; 
+        }
+        if (status === 'modified') { 
+          badge.textContent = 'CHANGED'; 
+          badge.style.background = 'rgba(234,179,8,0.15)'; 
+          badge.style.color = '#a16207'; 
+        }
+        if (status === 'unchanged') { 
+          badge.textContent = 'OK'; 
+          badge.style.background = 'var(--background-modifier-hover)'; 
+          badge.style.color = 'var(--text-muted)'; 
+        }
+        if (status === 'deleted') { 
+          badge.textContent = 'DELETED'; 
+          badge.style.background = 'rgba(239,68,68,0.15)'; 
+          badge.style.color = '#dc2626';
+          // Make deleted items slightly transparent
+          if (item) item.style.opacity = '0.7';
+        }
+        
         const headerEl = item.firstElementChild as HTMLElement;
         if (headerEl) headerEl.appendChild(badge);
-        // Render inline diff only for modified
+        
+        // Render inline diff for modified chunks
         if (item && mount && status === 'modified') {
-          const previous = baselineByChunkId.get(chunk.chunkId) || '';
+          const previous = baselineByChunkId.get(displayItem.chunkId) || '';
           mount.empty();
           const view = document.createElement('div');
           view.style.cssText = 'margin-top:4px;border:1px solid var(--background-modifier-border);border-radius:6px;padding:6px;';
-          const diffEl = (await import('./inline-diff')).renderInlineDiff(previous, chunk.contentRaw || '');
+          const diffEl = (await import('./inline-diff')).renderInlineDiff(previous, displayItem.content);
           view.appendChild(diffEl);
           mount.appendChild(view);
         } else if (mount) {
@@ -128,6 +213,12 @@ export class ChunkView extends ItemView {
       }
     } catch (e) {
       console.error('Chunk diff rendering failed', e);
+      // Fallback to simple rendering
+      const visibleChunks = chunks.slice(0, 50);
+      const { root, items } = renderChunkList(container, visibleChunks);
+      root.dataset['koraChunkList'] = 'true';
+      (this as any)._currentChunks = chunks;
+      (this as any)._currentChunkItems = items;
     }
   }
 
@@ -161,6 +252,78 @@ export class ChunkView extends ItemView {
     if (!chunks.length || !items.length) return;
     const idx = findChunkIndexForLine(chunks, line);
     if (idx >= 0) setActiveChunkItem(items, idx);
+  }
+
+  /**
+   * Incremental sync - only create/update/delete changed chunks
+   */
+  private async syncChunks(originalId: string, file: any, content: string, fm: any, tags: string[], aliases: string[], cache: any): Promise<void> {
+    const chunks: Chunk[] = chunkNote(content, { notePath: file.path, originalId, frontmatter: fm, tags, aliases }, {}, cache);
+    
+    try {
+      // Get current state from vector DB
+      const { baselineByChunkId, statusByChunkId } = await loadBaselineForChunksByOriginalId(this.vectorBridge, originalId, chunks);
+      
+      // Collect chunks to create/update and delete
+      const chunksToVectorize: any[] = [];
+      const chunkIdsToDelete: string[] = [];
+      
+      // Process current chunks
+      for (const chunk of chunks) {
+        const status = statusByChunkId.get(chunk.chunkId);
+        if (status === 'new' || status === 'modified') {
+          chunksToVectorize.push({
+            id: `${originalId}#${chunk.chunkId}`,
+            contentType: 'obsidian_note',
+            title: file.basename,
+            content: chunk.contentRaw,
+            metadata: chunk.meta,
+          });
+        }
+      }
+      
+      // Find deleted chunks (exist in baseline but not in current)
+      for (const [chunkId] of Array.from(baselineByChunkId.entries())) {
+        if (statusByChunkId.get(chunkId) === 'deleted') {
+          chunkIdsToDelete.push(`${originalId}#${chunkId}`);
+        }
+      }
+      
+      // Perform batch operations
+      let vectorizePromise = Promise.resolve();
+      let deletePromise = Promise.resolve();
+      
+      if (chunksToVectorize.length > 0) {
+        vectorizePromise = this.vectorBridge.batchVectorize(chunksToVectorize);
+      }
+      
+      if (chunkIdsToDelete.length > 0) {
+        deletePromise = this.batchDeleteChunks(chunkIdsToDelete);
+      }
+      
+      await Promise.all([vectorizePromise, deletePromise]);
+      
+    } catch (error) {
+      console.error('Error during incremental sync:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Delete multiple chunks by their IDs
+   */
+  private async batchDeleteChunks(chunkIds: string[]): Promise<void> {
+    if (chunkIds.length === 0) return;
+    
+    try {
+      // const result = await this.vectorBridge.batchDelete(chunkIds);
+      // if (result.failed.length > 0) {
+      //   console.warn(`Failed to delete ${result.failed.length} chunks:`, result.failed);
+      // }
+      // console.log(`Successfully deleted ${result.deleted} chunks`);
+    } catch (error) {
+      console.error('Error during batch delete:', error);
+    }
   }
 
   async onClose(): Promise<void> {

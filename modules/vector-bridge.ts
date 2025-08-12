@@ -266,7 +266,6 @@ export class VectorBridge {
    * @returns Batch result when chunked; otherwise single vectorize result
    */
   async vectorizeNote(file: { originalId: string, path: string, content: string, title: string, metadata?: any, cache?: any }): Promise<any> {
-    debugger
     const frontmatter = file?.metadata?.frontmatter ?? file?.metadata ?? {};
     const tags = Array.isArray(frontmatter?.tags) ? frontmatter.tags : [];
     const aliases = Array.isArray(frontmatter?.aliases) ? frontmatter.aliases : [];

@@ -3,7 +3,8 @@
     "allow": [
       "Bash(ls:*)",
       "Bash(tsc -noEmit -skipLibCheck)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(tsc:*)"
     ],
     "deny": []
   }

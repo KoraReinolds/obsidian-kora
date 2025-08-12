@@ -69,7 +69,7 @@ export async function loadBaselineForChunksByOriginalId(
     else statusByChunkId.set(c.chunkId, 'modified');
   }
   // Mark deleted (present in baseline but not in current)
-  for (const [chunkId] of baselineByChunkId.entries()) {
+  for (const [chunkId] of Array.from(baselineByChunkId.entries())) {
     if (!currentIds.has(chunkId)) statusByChunkId.set(chunkId, 'deleted');
   }
   return { baselineByChunkId, statusByChunkId };
