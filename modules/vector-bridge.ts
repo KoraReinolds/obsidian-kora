@@ -215,12 +215,10 @@ export class VectorBridge {
    * Delete all vectors for a given originalId. Optionally keep specific chunkIds.
    * Returns number of deleted points.
    */
-  async deleteByOriginalId(originalId: string, options?: { exceptChunkIds?: Set<string> }): Promise<number> {
+  async deleteByOriginalId(originalId: string): Promise<number> {
     try {
       // Prefer server-side filtered delete to minimize roundtrips
-      const keep = Array.from(options?.exceptChunkIds ?? []).join(',');
       const qs = new URLSearchParams({ by: 'originalId', value: originalId });
-      if (keep) qs.set('keepChunkIds', keep);
       const response = await fetch(`${this.baseUrl}/content?${qs.toString()}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
@@ -284,8 +282,7 @@ export class VectorBridge {
       );
       // Delete old vectors for chunks that no longer exist
       try {
-        const currentChunkIds = new Set(chunks.map((c) => String(c.chunkId)));
-        await this.deleteByOriginalId(originalId, { exceptChunkIds: currentChunkIds });
+        await this.deleteByOriginalId(originalId);
       } catch (err) {
         console.warn('Failed to delete old vectors before re-indexing (continuing):', (err as any)?.message ?? err);
       }

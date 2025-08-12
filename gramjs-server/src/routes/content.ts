@@ -34,7 +34,7 @@ export function registerContentRoutes(app: Express): void {
     }
   });
 
-  // Universal delete-by filter: /content?by=originalId&value=...&keepChunkIds=a,b,c
+  // Universal delete-by filter: /content?by=originalId&value=...
   app.delete('/content', async (req: Request, res: Response) => {
     try {
       const vectorService = getVectorService();
@@ -44,14 +44,7 @@ export function registerContentRoutes(app: Express): void {
       const value = (req.query.value as string) || '';
       if (!value) return res.status(400).json({ error: 'Missing value parameter' });
 
-      const keepChunkIdsRaw = (req.query.keepChunkIds as string) || '';
-      const keepChunkIds = keepChunkIdsRaw
-        ? keepChunkIdsRaw.split(',').map(s => s.trim()).filter(Boolean)
-        : [];
-
-      const result = await vectorService.deleteBy(by, value, {
-        keepChunkIds
-      });
+      const result = await vectorService.deleteBy(by, value);
       res.json({ success: true, ...result });
     } catch (error: any) {
       // eslint-disable-next-line no-console

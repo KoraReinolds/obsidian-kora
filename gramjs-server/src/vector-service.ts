@@ -378,17 +378,15 @@ class VectorService {
 
   /**
    * Delete many contents by payload key/value filter.
-   * Optionally keep points whose chunkId is in keepChunkIds.
    * Returns an approximate count of deleted points (pre-delete match count).
    */
   async deleteBy(
     key: string,
     value: string,
-    options?: { keepChunkIds?: string[]; preCountLimit?: number }
+    options?: { preCountLimit?: number }
   ): Promise<{ deleted: number }> {
     await this.initialize();
     try {
-      const keep = options?.keepChunkIds?.filter(Boolean) ?? [];
       const preCountLimit = options?.preCountLimit ?? 5000;
 
       const filter: any = {
@@ -399,14 +397,6 @@ class VectorService {
           }
         ]
       };
-      if (keep.length > 0) {
-        (filter as any).must_not = [
-          {
-            key: 'chunkId',
-            match: { any: keep }
-          }
-        ];
-      }
 
       // Pre-count matches (best-effort)
       let deleted = 0;
@@ -421,6 +411,8 @@ class VectorService {
       } catch {
         // ignore count errors
       }
+      
+      console.log('[VectorService] Deleting:', deleted);
 
       // Delete by filter
       await this.client.delete(this.config.collectionName, {
