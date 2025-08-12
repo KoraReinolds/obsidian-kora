@@ -23,8 +23,11 @@ npm run dev
 # Build for production
 npm run build
 
-# Type checking (no tests configured)
+# Type checking
 tsc -noEmit -skipLibCheck
+
+# Run tests
+npm run test
 
 # Watch MCP server development
 npm run watch:mcp
@@ -34,6 +37,12 @@ npm run gramjs-server
 
 # GramJS development with auto-reload
 npm run gramjs-dev
+
+# Development for all services (obsidian + mcp + gramjs)
+npm run dev-all
+
+# GramJS authentication setup
+npm run gramjs-auth
 
 # Version bump (updates manifest.json and versions.json)
 npm run version
@@ -61,9 +70,12 @@ npm run version
    - `GramJsSettings.ts`: GramJS userbot configuration
    - `CustomEmojiSettings.ts`: Custom emoji mappings for Telegram
 
-4. **GramJS Integration**: Separate Node.js process architecture
-   - `gramjs-server/gramjs-server.js`: HTTP server for GramJS userbot operations
-   - `gramjs-server/gramjs-auth.js`: Authentication helper for GramJS setup
+4. **GramJS Integration**: Separate TypeScript Node.js process architecture
+   - `gramjs-server/src/server.ts`: HTTP server for GramJS userbot operations
+   - `gramjs-server/src/gramjs-auth.ts`: Authentication helper for GramJS setup
+   - `gramjs-server/src/strategies/`: Bot and Userbot strategy patterns
+   - `gramjs-server/src/routes/`: Modular API endpoints
+   - `gramjs-server/src/services/`: Configuration and shutdown services
    - `modules/gramjs-bridge.ts`: HTTP client for communicating with GramJS server
    - Avoids Electron/Node.js compatibility issues
 
@@ -73,6 +85,9 @@ npm run version
    - `message-formatter.ts`: Message formatting and emoji processing
    - `gramjs-bridge.ts`: HTTP bridge to GramJS server
    - `image-utils.ts`: Image processing utilities
+   - `note-chunker/`: Note parsing and chunking system
+   - `note-ui-system.ts`: Note UI management system
+   - `vector-bridge.ts`: HTTP bridge to vector services
 
 ### Key HTTP Endpoints
 
@@ -118,8 +133,8 @@ The GramJS server runs as a separate Node.js process and provides:
 The plugin includes a comprehensive AI-powered vector search system that can index and search across multiple content types:
 
 **Components:**
-- **EmbeddingService** (`gramjs-server/embedding-service.js`): OpenAI embeddings with chunking and averaging
-- **VectorService** (`gramjs-server/vector-service.js`): Qdrant integration with CRUD operations
+- **EmbeddingService** (`gramjs-server/src/embedding-service.ts`): OpenAI embeddings with chunking and averaging
+- **VectorService** (`gramjs-server/src/vector-service.ts`): Qdrant integration with CRUD operations
 - **VectorBridge** (`modules/vector-bridge.ts`): TypeScript interface for vector operations
 - **VectorSettings** (`settings/VectorSettings.ts`): Configuration UI with connection testing
 
@@ -143,11 +158,19 @@ The plugin includes a comprehensive AI-powered vector search system that can ind
 ```
 main.ts              # Main plugin entry point
 mcp-server.ts        # Standalone MCP server
-gramjs-server/       # GramJS server directory
-├── gramjs-server.js # HTTP server for GramJS userbot operations
-├── gramjs-auth.js   # Authentication helper
-├── embedding-service.js # OpenAI embeddings service
-└── vector-service.js # Qdrant vector database service
+gramjs-server/       # GramJS TypeScript server directory
+├── src/
+│   ├── server.ts    # Main HTTP server
+│   ├── gramjs-auth.ts # Authentication helper
+│   ├── embedding-service.ts # OpenAI embeddings service
+│   ├── vector-service.ts # Qdrant vector database service
+│   ├── routes/      # API endpoint handlers
+│   ├── services/    # Configuration and utility services
+│   ├── strategies/  # Bot/Userbot strategy patterns
+│   ├── types/       # Type definitions
+│   └── utils/       # Utility functions
+├── dist/           # Compiled JavaScript output
+└── package.json    # GramJS server dependencies
 settings/            # Modular settings components
 ├── index.ts         # Settings tab assembler
 ├── ServerSettings.ts
@@ -161,7 +184,9 @@ modules/             # Feature modules
 ├── message-formatter.ts # Message formatting and emoji processing
 ├── gramjs-bridge.ts # HTTP bridge to GramJS server
 ├── vector-bridge.ts # HTTP bridge to vector services
-└── image-utils.ts   # Image processing utilities
+├── image-utils.ts   # Image processing utilities
+├── note-chunker/    # Note parsing and chunking system
+└── note-ui-system.ts # Note UI management system
 lib/
 └── obsidian.ts      # Obsidian API wrappers
 docs/                # Documentation
@@ -173,7 +198,7 @@ docs/                # Documentation
 ## Important Notes
 
 - Plugin serves HTTP API on localhost:8123 by default (security: local only)
-- GramJS server runs on localhost:8124 as separate Node.js process
+- GramJS server runs on localhost:8124 (bot mode) and 8125 (userbot mode) as separate TypeScript Node.js processes
 - Vector search requires Qdrant running on localhost:6333 (Docker recommended)
 - OpenAI API key required for embeddings (paid service)
 - MCP server communicates with plugin HTTP server, not Obsidian API directly
@@ -181,6 +206,8 @@ docs/                # Documentation
 - GramJS requires API credentials from Telegram and separate server process
 - All vector data stored in single Qdrant collection for cross-content search
 - Modular architecture allows for easy extension and maintenance
+- Tests configured with Vitest for note-chunker module
+- Dual-mode support allows bot and userbot to run simultaneously
 
 ## GramJS Setup
 
@@ -211,3 +238,44 @@ Settings are managed through:
 3. Modular setting components in `settings/`
 
 The plugin automatically handles settings persistence and validation.
+
+# Code Development Principles
+
+## Before Writing Code
+1. **Check existing implementations** - Search for similar logic in the codebase first
+2. **Identify reusable patterns** - Look for existing design patterns that match your use case
+3. **Ask when uncertain** - Clarify requirements for any ambiguous situations
+
+## Code Organization
+### Prefer Universal Functions
+- Replace specific functions with generic ones: `getByField1()` → `getBy(field)`
+- Update all existing calls when refactoring to generic functions
+- Design APIs for multiple items even when single item is needed: `getItems()` vs `getItem()`
+
+### Extract Repeated Logic
+- Move duplicate code to shared modules
+- Create utility functions for:
+  - Error handling
+  - Data processing
+  - Common transformations
+- Use functional programming patterns where appropriate
+
+## Design Principles
+### Future-Proof Development
+- Write extensible code from the start
+- Implement batch operations even if currently processing single items
+- Apply design patterns proactively for scalability
+- Consider future use cases when designing interfaces
+
+### Refactoring Priority
+- Universality > Backward compatibility
+- DRY (Don't Repeat Yourself) > Quick fixes
+- Composition > Duplication
+
+## Code Review Checklist
+- [ ] Searched for existing similar implementations
+- [ ] Identified opportunities to generalize existing functions
+- [ ] Extracted common logic into reusable utilities
+- [ ] Designed for future extensibility
+- [ ] Applied appropriate design patterns
+- [ ] Clarified ambiguous requirements
