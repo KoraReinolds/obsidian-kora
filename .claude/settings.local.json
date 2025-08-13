@@ -4,7 +4,8 @@
       "Bash(ls:*)",
       "Bash(tsc -noEmit -skipLibCheck)",
       "Bash(rm:*)",
-      "Bash(tsc:*)"
+      "Bash(tsc:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": []
   }

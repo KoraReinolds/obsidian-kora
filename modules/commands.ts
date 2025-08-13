@@ -5,6 +5,7 @@
 import { App, TFile, Notice, Command } from 'obsidian';
 import { GramJSBridge } from './gramjs-bridge';
 import { MessageFormatter } from './message-formatter';
+import { DuplicateTimeFixer } from './duplicate-time-fixer';
 import type { KoraMcpPluginSettings } from '../main';
 
 export class PluginCommands {
@@ -12,6 +13,7 @@ export class PluginCommands {
   private settings: KoraMcpPluginSettings;
   private gramjsBridge: GramJSBridge;
   private messageFormatter: MessageFormatter;
+  private duplicateTimeFixer: DuplicateTimeFixer;
 
   constructor(app: App, settings: KoraMcpPluginSettings, gramjsBridge: GramJSBridge) {
     this.app = app;
@@ -21,6 +23,7 @@ export class PluginCommands {
       settings.telegram.customEmojis,
       settings.telegram.useCustomEmojis
     );
+    this.duplicateTimeFixer = new DuplicateTimeFixer(app);
   }
 
   /**
@@ -53,6 +56,16 @@ export class PluginCommands {
         id: 'move-to-notes',
         name: 'Переместить файл в Notes',
         callback: () => this.moveToNotes(),
+      },
+      {
+        id: 'find-duplicate-creation-times',
+        name: 'Найти дубликаты времени создания',
+        callback: () => this.findDuplicateCreationTimes(),
+      },
+      {
+        id: 'fix-duplicate-creation-times',
+        name: 'Исправить дубликаты времени создания',
+        callback: () => this.fixDuplicateCreationTimes(),
       },
     ];
   }
@@ -116,6 +129,72 @@ export class PluginCommands {
       new Notice(`Файл перемещён в ${targetFolder}`);
     } catch (err) {
       new Notice(`Ошибка перемещения: ${err}`);
+    }
+  }
+
+  /**
+   * Find notes with duplicate creation times
+   */
+  private async findDuplicateCreationTimes(): Promise<void> {
+    new Notice('Поиск дубликатов времени создания...');
+    
+    try {
+      const duplicates = await this.duplicateTimeFixer.findDuplicateCreationTimes();
+      const duplicateCount = Object.keys(duplicates).length;
+      
+      if (duplicateCount === 0) {
+        new Notice('Дубликаты времени создания не найдены!');
+        return;
+      }
+
+      const result = await this.duplicateTimeFixer.fixDuplicateCreationTimes(true); // dry run
+      const report = this.duplicateTimeFixer.generateReport(result);
+      
+      // Создаем временный файл с отчетом
+      const reportFile = await this.app.vault.create(
+        `Duplicate_Creation_Times_Report_${Date.now()}.md`, 
+        report
+      );
+      
+      // Открываем отчет
+      const leaf = this.app.workspace.getUnpinnedLeaf();
+      await leaf?.openFile(reportFile);
+      
+      new Notice(`Найдено ${duplicateCount} групп дубликатов. Отчет открыт.`);
+    } catch (error) {
+      new Notice(`Ошибка поиска дубликатов: ${error}`);
+    }
+  }
+
+  /**
+   * Fix notes with duplicate creation times
+   */
+  private async fixDuplicateCreationTimes(): Promise<void> {
+    new Notice('Исправление дубликатов времени создания...');
+    
+    try {
+      const result = await this.duplicateTimeFixer.fixDuplicateCreationTimes(false);
+      
+      if (result.totalDuplicates === 0) {
+        new Notice('Дубликаты времени создания не найдены!');
+        return;
+      }
+
+      const report = this.duplicateTimeFixer.generateReport(result);
+      
+      // Создаем файл с отчетом об исправлении
+      const reportFile = await this.app.vault.create(
+        `Fixed_Creation_Times_Report_${Date.now()}.md`, 
+        report
+      );
+      
+      // Открываем отчет
+      const leaf = this.app.workspace.getUnpinnedLeaf();
+      await leaf?.openFile(reportFile);
+      
+      new Notice(`Исправлено ${result.fixed} из ${result.totalDuplicates} файлов. Отчет открыт.`);
+    } catch (error) {
+      new Notice(`Ошибка исправления дубликатов: ${error}`);
     }
   }
 }
