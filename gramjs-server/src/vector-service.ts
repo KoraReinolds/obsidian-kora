@@ -379,10 +379,11 @@ class VectorService {
   /**
    * Delete many contents by payload key/value filter.
    * Returns an approximate count of deleted points (pre-delete match count).
+   * Value can be a string or array of strings (for batch operations).
    */
   async deleteBy(
     key: string,
-    value: string,
+    value: string | string[],
     options?: { preCountLimit?: number }
   ): Promise<{ deleted: number }> {
     await this.initialize();
@@ -391,7 +392,10 @@ class VectorService {
 
       const filter: any = {
         must: [
-          {
+          Array.isArray(value) ? {
+            key,
+            match: { any: value }
+          } : {
             key,
             match: { value }
           }

@@ -285,10 +285,10 @@ export class ChunkView extends ItemView {
       // Find deleted chunks (exist in baseline but not in current)
       for (const [chunkId] of Array.from(baselineByChunkId.entries())) {
         if (statusByChunkId.get(chunkId) === 'deleted') {
-          chunkIdsToDelete.push(`${originalId}#${chunkId}`);
+          chunkIdsToDelete.push(chunkId);
         }
       }
-      
+
       // Perform batch operations
       let vectorizePromise = Promise.resolve();
       let deletePromise = Promise.resolve();
@@ -316,11 +316,11 @@ export class ChunkView extends ItemView {
     if (chunkIds.length === 0) return;
     
     try {
-      // const result = await this.vectorBridge.batchDelete(chunkIds);
-      // if (result.failed.length > 0) {
-      //   console.warn(`Failed to delete ${result.failed.length} chunks:`, result.failed);
-      // }
-      // console.log(`Successfully deleted ${result.deleted} chunks`);
+      const result = await this.vectorBridge.batchDelete(chunkIds);
+      if (result.failed.length > 0) {
+        console.warn(`Failed to delete ${result.failed.length} chunks:`, result.failed);
+      }
+      console.log(`Successfully deleted ${result.deleted} chunks`);
     } catch (error) {
       console.error('Error during batch delete:', error);
     }

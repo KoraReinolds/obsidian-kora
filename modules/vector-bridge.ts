@@ -236,6 +236,41 @@ export class VectorBridge {
   }
 
   /**
+   * Delete multiple chunks by their chunk IDs
+   * Returns object with deleted count and failed IDs
+   */
+  async batchDelete(chunkIds: string[]): Promise<{ deleted: number; failed: string[] }> {
+    if (chunkIds.length === 0) {
+      return { deleted: 0, failed: [] };
+    }
+
+    try {
+      const qs = new URLSearchParams({ 
+        by: 'chunkId', 
+        value: chunkIds.join(',')
+      });
+      const response = await fetch(`${this.baseUrl}/content?${qs.toString()}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to batch delete chunks');
+      }
+
+      const result = await response.json();
+      return {
+        deleted: Number(result.deleted || 0),
+        failed: [] // Server doesn't track individual failures for batch operations
+      };
+    } catch (error) {
+      console.error('Error batch deleting chunks:', error);
+      return { deleted: 0, failed: chunkIds };
+    }
+  }
+
+  /**
    * Get vector service statistics
    */
   async getStats(): Promise<VectorStats> {
