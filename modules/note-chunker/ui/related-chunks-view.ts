@@ -23,6 +23,7 @@ export class RelatedChunksView extends ItemView {
   private currentActiveChunk: Chunk | null = null;
   private currentChunks: Chunk[] = [];
   private refreshTimer: number | null = null;
+  private lastActiveFile: TFile | null = null;
 
   constructor(leaf: WorkspaceLeaf, app: App, vectorBridge: VectorBridge) {
     // @ts-ignore ItemView expects app from super(leaf)
@@ -36,8 +37,9 @@ export class RelatedChunksView extends ItemView {
   getIcon(): string { return 'git-branch'; }
 
   async onOpen(): Promise<void> {
-    this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.scheduleRefresh(0)));
-    this.registerEvent(this.app.workspace.on('file-open', () => this.scheduleRefresh(0)));
+    // Only refresh when switching between different markdown files
+    this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.handleLeafChange()));
+    this.registerEvent(this.app.workspace.on('file-open', () => this.handleFileOpen()));
     this.registerEvent(this.app.vault.on('modify', (file) => {
       const active = this.app.workspace.getActiveFile();
       if (active && file instanceof TFile && file.path === active.path) {
@@ -59,16 +61,28 @@ export class RelatedChunksView extends ItemView {
     
     const active = this.app.workspace.getActiveFile();
     if (!active || !(active instanceof TFile) || active.extension !== 'md') {
+      // Keep the last file reference if no markdown file is active
       container.createEl('div', { 
-        text: 'Open a markdown note to see related chunks.',
+        text: this.lastActiveFile ? 
+          `Related chunks for: ${this.lastActiveFile.basename}` :
+          'Open a markdown note to see related chunks.',
         cls: 'related-chunks-placeholder'
       });
-      return;
+      // Don't return here if we have a last active file, so we can continue processing
+      if (!this.lastActiveFile) {
+        return;
+      }
+    } else {
+      // Update the last active file when we have a valid markdown file
+      this.lastActiveFile = active;
     }
 
-    // Get chunks for the current file
-    const content = await this.app.vault.read(active);
-    const cache = this.app.metadataCache.getFileCache(active);
+    const fileToProcess = active && active instanceof TFile && active.extension === 'md' ? active : this.lastActiveFile;
+    if (!fileToProcess) return;
+
+    // Get chunks for the file to process
+    const content = await this.app.vault.read(fileToProcess);
+    const cache = this.app.metadataCache.getFileCache(fileToProcess);
     const fm = cache?.frontmatter || {};
     const tags = Array.isArray(fm?.tags) ? fm.tags : [];
     const aliases = Array.isArray(fm?.aliases) ? fm.aliases : [];
@@ -77,7 +91,7 @@ export class RelatedChunksView extends ItemView {
     
     this.currentChunks = chunkNote(
       content, 
-      { notePath: active.path, originalId, frontmatter: fm, tags, aliases }, 
+      { notePath: fileToProcess.path, originalId, frontmatter: fm, tags, aliases }, 
       {}, 
       cache as any
     );
@@ -93,7 +107,11 @@ export class RelatedChunksView extends ItemView {
   }
 
   private async onCursorChange(line: number): Promise<void> {
-    if (!this.currentChunks.length) return;
+    if (!this.currentChunks.length || !this.lastActiveFile) return;
+    
+    // Only respond to cursor changes if we're in the same file we're tracking
+    const activeFile = this.app.workspace.getActiveFile();
+    if (!activeFile || activeFile.path !== this.lastActiveFile.path) return;
     
     const chunkIndex = findChunkIndexForLine(this.currentChunks, line);
     if (chunkIndex >= 0) {
@@ -331,6 +349,48 @@ export class RelatedChunksView extends ItemView {
     const v = fm['date created'] ?? null;
     if (!v) throw new Error('Note has no creation time');
     return String(v);
+  }
+
+  /**
+   * Handle leaf change - only refresh if it's a different markdown file
+   */
+  private handleLeafChange(): void {
+    const activeFile = this.app.workspace.getActiveFile();
+    
+    // Only refresh if switching to a different markdown file
+    if (this.shouldRefreshForFile(activeFile)) {
+      this.scheduleRefresh(0);
+    }
+  }
+
+  /**
+   * Handle file open - only refresh if it's a different markdown file
+   */
+  private handleFileOpen(): void {
+    const activeFile = this.app.workspace.getActiveFile();
+    
+    // Only refresh if opening a different markdown file
+    if (this.shouldRefreshForFile(activeFile)) {
+      this.scheduleRefresh(0);
+    }
+  }
+
+  /**
+   * Check if we should refresh for this file
+   */
+  private shouldRefreshForFile(file: TFile | null): boolean {
+    // Don't refresh if no file or not markdown
+    if (!file || file.extension !== 'md') {
+      return false;
+    }
+
+    // Don't refresh if it's the same file as before
+    if (this.lastActiveFile && this.lastActiveFile.path === file.path) {
+      return false;
+    }
+
+    // This is a different markdown file, we should refresh
+    return true;
   }
 
   private scheduleRefresh(delay: number): void {

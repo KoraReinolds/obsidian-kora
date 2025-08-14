@@ -17,6 +17,7 @@ export class ChunkView extends ItemView {
   private vectorBridge: VectorBridge;
   private refreshTimer: number | null = null;
   private stopPolling: (() => void) | null = null;
+  private lastActiveFile: TFile | null = null;
 
   constructor(leaf: WorkspaceLeaf, app: App, vectorBridge: VectorBridge) {
     // @ts-ignore ItemView expects app from super(leaf)
@@ -30,17 +31,16 @@ export class ChunkView extends ItemView {
   getIcon(): string { return 'blocks'; }
 
   async onOpen(): Promise<void> {
-    this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.scheduleRender(0)));
-    this.registerEvent(this.app.workspace.on('file-open', () => this.scheduleRender(0)));
+    // Only refresh when switching between different markdown files
+    this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.handleLeafChange()));
+    this.registerEvent(this.app.workspace.on('file-open', () => this.handleFileOpen()));
     this.registerEvent(this.app.vault.on('modify', (file) => {
-      const active = this.app.workspace.getActiveFile();
-      if (active && file instanceof TFile && file.path === active.path) {
+      if (this.lastActiveFile && file instanceof TFile && file.path === this.lastActiveFile.path) {
         this.scheduleRender(200);
       }
     }));
     this.registerEvent(this.app.metadataCache.on('changed', (file) => {
-      const active = this.app.workspace.getActiveFile();
-      if (active && file instanceof TFile && file.path === active.path) {
+      if (this.lastActiveFile && file instanceof TFile && file.path === this.lastActiveFile.path) {
         this.scheduleRender(200);
       }
     }));
@@ -51,23 +51,78 @@ export class ChunkView extends ItemView {
     }
   }
 
+  /**
+   * Handle leaf change - only refresh if it's a different markdown file
+   */
+  private handleLeafChange(): void {
+    const activeFile = this.app.workspace.getActiveFile();
+    
+    // Only refresh if switching to a different markdown file
+    if (this.shouldRefreshForFile(activeFile)) {
+      this.scheduleRender(0);
+    }
+  }
+
+  /**
+   * Handle file open - only refresh if it's a different markdown file
+   */
+  private handleFileOpen(): void {
+    const activeFile = this.app.workspace.getActiveFile();
+    
+    // Only refresh if opening a different markdown file
+    if (this.shouldRefreshForFile(activeFile)) {
+      this.scheduleRender(0);
+    }
+  }
+
+  /**
+   * Check if we should refresh for this file
+   */
+  private shouldRefreshForFile(file: TFile | null): boolean {
+    // Don't refresh if no file or not markdown
+    if (!file || file.extension !== 'md') {
+      return false;
+    }
+
+    // Don't refresh if it's the same file as before
+    if (this.lastActiveFile && this.lastActiveFile.path === file.path) {
+      return false;
+    }
+
+    // This is a different markdown file, we should refresh
+    return true;
+  }
+
   async renderForActiveFile(): Promise<void> {
     const container = this.containerEl as HTMLElement;
     container.empty();
     const active = this.app.workspace.getActiveFile();
+    
     if (!active || !(active instanceof TFile) || active.extension !== 'md') {
-      container.createEl('div', { text: 'Open a markdown note to see chunks.' });
-      return;
+      // Keep the last file reference if no markdown file is active
+      if (this.lastActiveFile) {
+        container.createEl('div', { text: `Chunks for: ${this.lastActiveFile.basename}` });
+        // Continue processing with the last active file
+      } else {
+        container.createEl('div', { text: 'Open a markdown note to see chunks.' });
+        return;
+      }
+    } else {
+      // Update the last active file when we have a valid markdown file
+      this.lastActiveFile = active;
     }
-    const file = active as TFile;
-    const content = await this.app.vault.read(file);
-    const cache = this.app.metadataCache.getFileCache(file);
+
+    const fileToProcess = active && active instanceof TFile && active.extension === 'md' ? active : this.lastActiveFile;
+    if (!fileToProcess) return;
+    
+    const content = await this.app.vault.read(fileToProcess);
+    const cache = this.app.metadataCache.getFileCache(fileToProcess);
     const fm = cache?.frontmatter || {};
     const tags = Array.isArray(fm?.tags) ? fm.tags : [];
     const aliases = Array.isArray(fm?.aliases) ? fm.aliases : [];
     const createdRaw = this.getCreatedRawFromFrontmatter(fm);
     const originalId = `${createdRaw}`;
-    const chunks: Chunk[] = chunkNote(content, { notePath: file.path, originalId, frontmatter: fm, tags, aliases }, {}, cache as any);
+    const chunks: Chunk[] = chunkNote(content, { notePath: fileToProcess.path, originalId, frontmatter: fm, tags, aliases }, {}, cache as any);
 
     const header = container.createEl('div', { text: `🧩 Chunks (${Math.min(chunks.length, 50)})` });
     header.style.cssText = 'font-weight:600;margin:8px 0;';
@@ -77,7 +132,7 @@ export class ChunkView extends ItemView {
     btn.onclick = async () => {
       btn.disabled = true; btn.textContent = 'Synchronizing...';
       try {
-        await this.syncChunks(originalId, file, content, fm, tags, aliases, cache as any);
+        await this.syncChunks(originalId, fileToProcess, content, fm, tags, aliases, cache as any);
       } finally {
         btn.disabled = false;
         await this.renderForActiveFile();
@@ -129,7 +184,7 @@ export class ChunkView extends ItemView {
             section: '[DELETED]',
             headingsPath: ['[DELETED]'],
             obsidian: {
-              path: file.path,
+              path: fileToProcess.path,
               tags,
               aliases
             },
@@ -249,7 +304,12 @@ export class ChunkView extends ItemView {
   private highlightByCursorLine(line: number) {
     const chunks: Array<Chunk> = (this as any)._currentChunks || [];
     const items: HTMLElement[] = (this as any)._currentChunkItems || [];
-    if (!chunks.length || !items.length) return;
+    if (!chunks.length || !items.length || !this.lastActiveFile) return;
+    
+    // Only respond to cursor changes if we're in the same file we're tracking
+    const activeFile = this.app.workspace.getActiveFile();
+    if (!activeFile || activeFile.path !== this.lastActiveFile.path) return;
+    
     const idx = findChunkIndexForLine(chunks, line);
     if (idx >= 0) setActiveChunkItem(items, idx);
   }
