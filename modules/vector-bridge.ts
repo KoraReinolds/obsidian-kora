@@ -162,6 +162,7 @@ export class VectorBridge {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(request),
       });
+      debugger
 
       if (!response.ok) {
         const error = await response.json();

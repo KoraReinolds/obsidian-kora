@@ -73,7 +73,10 @@ describe('chunkNote', () => {
     const cache = makeCacheFromMarkdown(md);
     const chunks = chunkNote(md, baseContext, undefined, cache);
     const list = chunks.find(c => c.chunkType === 'list_item')!;
-    expect(list.contentForEmbedding.startsWith('H: A > B.'))
+    // Import buildEmbeddingText to test the embedding functionality
+    const { buildEmbeddingText } = require('../model/id');
+    const embeddingText = buildEmbeddingText(list.headingsPath, list.parentItemText, list.contentRaw);
+    expect(embeddingText.startsWith('H: A > B.'))
       .toBe(true);
   });
 

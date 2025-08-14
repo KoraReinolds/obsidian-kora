@@ -1,5 +1,6 @@
 import { Notice, Plugin, TFile, WorkspaceLeaf } from 'obsidian';
 import { CHUNK_VIEW_TYPE, ChunkView } from './modules/note-chunker/ui/chunk-view';
+import { RELATED_CHUNKS_VIEW_TYPE, RelatedChunksView } from './modules/note-chunker/ui/related-chunks-view';
 import * as http from 'http';
 import { AddressInfo } from 'net';
 import {
@@ -109,8 +110,12 @@ export default class KoraMcpPlugin extends Plugin {
 
 		// Register right panel view for chunks
 		this.registerView(CHUNK_VIEW_TYPE, (leaf) => new ChunkView(leaf, this.app, this.vectorBridge));
+		this.registerView(RELATED_CHUNKS_VIEW_TYPE, (leaf) => new RelatedChunksView(leaf, this.app, this.vectorBridge));
 		this.addRibbonIcon('blocks', 'Open Chunks', () => {
 			this.activateChunkView();
+		});
+		this.addRibbonIcon('git-branch', 'Open Related Chunks', () => {
+			this.activateRelatedChunksView();
 		});
 
 		// Регистрируем команды
@@ -165,6 +170,13 @@ export default class KoraMcpPlugin extends Plugin {
 			const leaf = this.app.workspace.getRightLeaf(false);
 			if (!leaf) return;
 			await leaf.setViewState({ type: CHUNK_VIEW_TYPE, active: true });
+			this.app.workspace.revealLeaf(leaf);
+		}
+
+		async activateRelatedChunksView() {
+			const leaf = this.app.workspace.getRightLeaf(false);
+			if (!leaf) return;
+			await leaf.setViewState({ type: RELATED_CHUNKS_VIEW_TYPE, active: true });
 			this.app.workspace.revealLeaf(leaf);
 		}
 

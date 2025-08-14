@@ -6,6 +6,7 @@ import { App, TFile, Notice, Command } from 'obsidian';
 import { GramJSBridge } from './gramjs-bridge';
 import { MessageFormatter } from './message-formatter';
 import { DuplicateTimeFixer } from './duplicate-time-fixer';
+import { RELATED_CHUNKS_VIEW_TYPE } from './note-chunker/ui/related-chunks-view';
 import type { KoraMcpPluginSettings } from '../main';
 
 export class PluginCommands {
@@ -66,6 +67,11 @@ export class PluginCommands {
         id: 'fix-duplicate-creation-times',
         name: 'Исправить дубликаты времени создания',
         callback: () => this.fixDuplicateCreationTimes(),
+      },
+      {
+        id: 'open-related-chunks',
+        name: 'Open Related Chunks',
+        callback: () => this.openRelatedChunks(),
       },
     ];
   }
@@ -195,6 +201,25 @@ export class PluginCommands {
       new Notice(`Исправлено ${result.fixed} из ${result.totalDuplicates} файлов. Отчет открыт.`);
     } catch (error) {
       new Notice(`Ошибка исправления дубликатов: ${error}`);
+    }
+  }
+
+  /**
+   * Open Related Chunks view
+   */
+  private async openRelatedChunks(): Promise<void> {
+    const leaf = this.app.workspace.getRightLeaf(false);
+    if (!leaf) {
+      new Notice('Unable to create right panel view');
+      return;
+    }
+    
+    try {
+      await leaf.setViewState({ type: RELATED_CHUNKS_VIEW_TYPE, active: true });
+      this.app.workspace.revealLeaf(leaf);
+      new Notice('Related Chunks view opened');
+    } catch (error) {
+      new Notice(`Error opening Related Chunks view: ${error}`);
     }
   }
 }
