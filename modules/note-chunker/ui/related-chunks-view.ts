@@ -211,6 +211,7 @@ export class RelatedChunksView extends ItemView {
 
       this.renderRelatedChunkList(container, relatedChunks);
 
+
     } catch (error) {
       console.error('Error finding related chunks:', error);
       const errorEl = container.createEl('div', { 
@@ -218,6 +219,9 @@ export class RelatedChunksView extends ItemView {
         cls: 'related-chunks-error'
       });
       errorEl.style.cssText = 'color:var(--text-error);margin:12px 0;';
+    } finally {
+      // Add unsynced notes section
+      await this.renderUnsyncedNotes(container);
     }
   }
 
@@ -373,6 +377,127 @@ export class RelatedChunksView extends ItemView {
     if (score >= 0.4) return 'Medium';
     if (score >= 0.2) return 'Weak';
     return 'Very Weak';
+  }
+
+  /**
+   * Render section with unsynced notes
+   */
+  private async renderUnsyncedNotes(container: HTMLElement): Promise<void> {
+    try {
+      // Get all markdown files in vault
+      const allFiles = this.app.vault.getMarkdownFiles();
+      
+      // Get all unique originalIds from vector database
+      const vectorStats = await this.vectorBridge.getStats();
+      
+      // Get all vectorized content to check which originalIds exist
+      const vectorizedContent = await this.vectorBridge.getContentBy({
+        by: 'contentType',
+        value: 'obsidian_note',
+        multiple: true,
+        limit: 10000
+      });
+
+      if (!vectorizedContent || !Array.isArray(vectorizedContent)) {
+        return; // Skip if we can't get vectorized content
+      }
+
+      // Extract all existing originalIds from vectorized content
+      const existingOriginalIds = new Set<string>();
+      for (const item of vectorizedContent) {
+        const originalId = item.payload?.originalId || item.payload?.meta?.originalId;
+        if (originalId) {
+          existingOriginalIds.add(originalId);
+        }
+      }
+
+      // Find files that are not synced and are in /Organize folder
+      const unsyncedFiles: TFile[] = [];
+      for (const file of allFiles) {
+        try {
+          // Only include files that start with "Organize/"
+          if (!file.path.startsWith('Organize/')) {
+            continue;
+          }
+          
+          const cache = this.app.metadataCache.getFileCache(file);
+          const fm = cache?.frontmatter || {};
+          const createdRaw = this.getCreatedRawFromFrontmatter(fm);
+          const originalId = `${createdRaw}`;
+          
+          if (!existingOriginalIds.has(originalId)) {
+            unsyncedFiles.push(file);
+          }
+        } catch (error) {
+          // Skip files without proper frontmatter
+          continue;
+        }
+      }
+
+      if (unsyncedFiles.length === 0) {
+        return; // Don't show section if all files are synced
+      }
+
+      // Render unsynced notes section
+      const separator = container.createEl('div');
+      separator.style.cssText = 'height:1px;background:var(--background-modifier-border);margin:16px 0;';
+      
+      const unsyncedHeader = container.createEl('div', { text: `📤 Unsynced Notes in /Organize (${unsyncedFiles.length})` });
+      unsyncedHeader.style.cssText = 'font-weight:600;margin:8px 0;color:var(--text-muted);';
+      
+      const unsyncedSubheader = container.createEl('div', { text: 'These notes from /Organize folder are not yet indexed for vector search:' });
+      unsyncedSubheader.style.cssText = 'font-size:11px;color:var(--text-muted);margin-bottom:8px;';
+
+      // Limit display to first 20 unsynced files
+      const filesToShow = unsyncedFiles.slice(0, 20);
+      const list = container.createEl('div');
+      list.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
+
+      for (const file of filesToShow) {
+        const item = list.createEl('div');
+        item.style.cssText = 'padding:6px 8px;border:1px solid var(--background-modifier-border);border-radius:4px;background:var(--background-secondary);cursor:pointer;transition:background-color .15s,border-color .15s;font-size:12px;';
+        item.textContent = `📄 ${file.basename}`;
+        item.title = `Click to open ${file.name}`;
+
+        // Add hover effect
+        item.addEventListener('mouseenter', () => {
+          item.style.backgroundColor = 'var(--background-modifier-hover)';
+          item.style.borderColor = 'var(--interactive-accent)';
+        });
+        item.addEventListener('mouseleave', () => {
+          item.style.backgroundColor = 'var(--background-secondary)';
+          item.style.borderColor = 'var(--background-modifier-border)';
+        });
+
+        // Add click handler to open file
+        item.addEventListener('click', async () => {
+          await this.openFileInEditor(file);
+        });
+      }
+
+      // Show "and X more" if there are more files
+      if (unsyncedFiles.length > 20) {
+        const moreText = container.createEl('div', { text: `... and ${unsyncedFiles.length - 20} more files` });
+        moreText.style.cssText = 'font-size:11px;color:var(--text-muted);margin-top:4px;font-style:italic;';
+      }
+
+    } catch (error) {
+      console.error('Error rendering unsynced notes:', error);
+      // Fail silently to not break the main functionality
+    }
+  }
+
+  /**
+   * Open a file in the editor
+   */
+  private async openFileInEditor(file: TFile): Promise<void> {
+    try {
+      const leaf = this.app.workspace.getUnpinnedLeaf();
+      if (!leaf) return;
+      await leaf.openFile(file);
+    } catch (error) {
+      console.error('Error opening file in editor:', error);
+    }
   }
 
   /**
