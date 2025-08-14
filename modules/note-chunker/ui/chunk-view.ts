@@ -87,7 +87,7 @@ export class ChunkView extends ItemView {
     // Auto-compare and render diffs for visible chunks
     try {
       const { baselineByChunkId, statusByChunkId } = await loadBaselineForChunksByOriginalId(this.vectorBridge, originalId, chunks);
-     
+
       // Collect all chunks to display (current + deleted)
       const allChunksToDisplay: Array<{chunk: Chunk | null, status: string, chunkId: string, content: string}> = [];
       
@@ -262,11 +262,11 @@ export class ChunkView extends ItemView {
     
     try {
       // Get current state from vector DB
-      const { baselineByChunkId, statusByChunkId } = await loadBaselineForChunksByOriginalId(this.vectorBridge, originalId, chunks);
+      const { baselineByChunkId, statusByChunkId, qdrantIdByChunkId } = await loadBaselineForChunksByOriginalId(this.vectorBridge, originalId, chunks);
       
       // Collect chunks to create/update and delete
       const chunksToVectorize: any[] = [];
-      const chunkIdsToDelete: string[] = [];
+      const qdrantIdsToDelete: string[] = [];
       
       // Process current chunks
       for (const chunk of chunks) {
@@ -283,9 +283,13 @@ export class ChunkView extends ItemView {
       }
       
       // Find deleted chunks (exist in baseline but not in current)
+      // Use qdrantIds from the already loaded data
       for (const [chunkId] of Array.from(baselineByChunkId.entries())) {
         if (statusByChunkId.get(chunkId) === 'deleted') {
-          chunkIdsToDelete.push(chunkId);
+          const qdrantId = qdrantIdByChunkId.get(chunkId);
+          if (qdrantId) {
+            qdrantIdsToDelete.push(qdrantId);
+          }
         }
       }
 
@@ -297,8 +301,8 @@ export class ChunkView extends ItemView {
         vectorizePromise = this.vectorBridge.batchVectorize(chunksToVectorize);
       }
       
-      if (chunkIdsToDelete.length > 0) {
-        deletePromise = this.batchDeleteChunks(chunkIdsToDelete);
+      if (qdrantIdsToDelete.length > 0) {
+        deletePromise = this.batchDeleteChunks(qdrantIdsToDelete);
       }
       
       await Promise.all([vectorizePromise, deletePromise]);
@@ -310,13 +314,13 @@ export class ChunkView extends ItemView {
   }
   
   /**
-   * Delete multiple chunks by their IDs
+   * Delete multiple chunks by their IDs (auto-detects qdrantId vs chunkId)
    */
-  private async batchDeleteChunks(chunkIds: string[]): Promise<void> {
-    if (chunkIds.length === 0) return;
+  private async batchDeleteChunks(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
     
     try {
-      const result = await this.vectorBridge.batchDelete(chunkIds);
+      const result = await this.vectorBridge.batchDelete(ids);
       if (result.failed.length > 0) {
         console.warn(`Failed to delete ${result.failed.length} chunks:`, result.failed);
       }

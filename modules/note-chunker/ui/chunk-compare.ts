@@ -48,17 +48,23 @@ export async function loadBaselineForChunksByOriginalId(
   vectorBridge: VectorBridge,
   originalId: string,
   currentChunks: Chunk[]
-): Promise<{ baselineByChunkId: Map<string, string>, statusByChunkId: Map<string, 'new' | 'deleted' | 'modified' | 'unchanged'> }>{
+): Promise<{ baselineByChunkId: Map<string, string>, statusByChunkId: Map<string, 'new' | 'deleted' | 'modified' | 'unchanged'>, qdrantIdByChunkId: Map<string, string> }>{
   const res = await vectorBridge.getContentBy({ by: 'originalId', value: originalId, multiple: true, limit: 5000 });
   const points = Array.isArray(res) ? res : [];
   const baselineByChunkId = new Map<string, string>();
+  const qdrantIdByChunkId = new Map<string, string>();
+  
   for (const p of points) {
     const payload = p.payload || {};
     const meta = payload.metadata || payload.meta || {};
     const chunkId = meta.chunkId || payload.chunkId || null;
     const content = payload.content || payload.text || '';
-    if (chunkId) baselineByChunkId.set(String(chunkId), String(content));
+    if (chunkId) {
+      baselineByChunkId.set(String(chunkId), String(content));
+      qdrantIdByChunkId.set(String(chunkId), p.qdrantId);
+    }
   }
+  
   // Determine statuses by comparing current vs baseline
   const statusByChunkId = new Map<string, 'new' | 'deleted' | 'modified' | 'unchanged'>();
   const currentIds = new Set(currentChunks.map(c => c.chunkId));
@@ -72,7 +78,7 @@ export async function loadBaselineForChunksByOriginalId(
   for (const [chunkId] of Array.from(baselineByChunkId.entries())) {
     if (!currentIds.has(chunkId)) statusByChunkId.set(chunkId, 'deleted');
   }
-  return { baselineByChunkId, statusByChunkId };
+  return { baselineByChunkId, statusByChunkId, qdrantIdByChunkId };
 }
 
 /**

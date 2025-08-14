@@ -236,18 +236,25 @@ export class VectorBridge {
   }
 
   /**
-   * Delete multiple chunks by their chunk IDs
+   * Delete multiple chunks by their IDs (auto-detects chunkId vs qdrantId)
    * Returns object with deleted count and failed IDs
+   * - If IDs look like UUIDs (contain dashes), treats as qdrantIds
+   * - Otherwise treats as chunkIds
    */
-  async batchDelete(chunkIds: string[]): Promise<{ deleted: number; failed: string[] }> {
-    if (chunkIds.length === 0) {
+  async batchDelete(ids: string[]): Promise<{ deleted: number; failed: string[] }> {
+    if (ids.length === 0) {
       return { deleted: 0, failed: [] };
     }
 
+    // Auto-detect ID type: UUID format for qdrantId, otherwise chunkId
+    const firstId = ids[0];
+    const isQdrantId = firstId.includes('-') && firstId.length > 10; // Simple UUID detection
+    const by = isQdrantId ? 'qdrantId' : 'chunkId';
+
     try {
       const qs = new URLSearchParams({ 
-        by: 'chunkId', 
-        value: chunkIds.join(',')
+        by, 
+        value: ids.join(',')
       });
       const response = await fetch(`${this.baseUrl}/content?${qs.toString()}`, {
         method: 'DELETE',
@@ -256,7 +263,7 @@ export class VectorBridge {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Failed to batch delete chunks');
+        throw new Error(error.error || `Failed to batch delete by ${by}`);
       }
 
       const result = await response.json();
@@ -265,8 +272,8 @@ export class VectorBridge {
         failed: [] // Server doesn't track individual failures for batch operations
       };
     } catch (error) {
-      console.error('Error batch deleting chunks:', error);
-      return { deleted: 0, failed: chunkIds };
+      console.error(`Error batch deleting by ${by}:`, error);
+      return { deleted: 0, failed: ids };
     }
   }
 

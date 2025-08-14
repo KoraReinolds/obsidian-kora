@@ -377,9 +377,10 @@ class VectorService {
   // Legacy deleteContent(id) removed in favor of deleteBy(key, value, opts)
 
   /**
-   * Delete many contents by payload key/value filter.
+   * Delete many contents by payload key/value filter or by qdrantId.
    * Returns an approximate count of deleted points (pre-delete match count).
    * Value can be a string or array of strings (for batch operations).
+   * Special case: if key is 'qdrantId', deletes by exact point IDs.
    */
   async deleteBy(
     key: string,
@@ -390,6 +391,19 @@ class VectorService {
     try {
       const preCountLimit = options?.preCountLimit ?? 5000;
 
+      // Special case: delete by exact qdrant point IDs
+      if (key === 'qdrantId') {
+        const ids = Array.isArray(value) ? value : [value];
+        console.log('[VectorService] Deleting by qdrantId:', ids.length, 'points');
+
+        await this.client.delete(this.config.collectionName, {
+          points: ids
+        });
+
+        return { deleted: ids.length };
+      }
+
+      // Regular filter-based deletion
       const filter: any = {
         must: [
           Array.isArray(value) ? {
