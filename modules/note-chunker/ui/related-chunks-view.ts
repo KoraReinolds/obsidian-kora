@@ -172,41 +172,11 @@ export class RelatedChunksView extends ItemView {
         return;
       }
 
-      // Render related chunks
+      // Render related chunks with custom rendering for scores
       const relatedHeader = container.createEl('div', { text: `Found ${relatedChunks.length} related chunks:` });
       relatedHeader.style.cssText = 'margin:12px 0 8px 0;font-size:12px;color:var(--text-muted);';
 
-      const { root } = renderChunkList(container, relatedChunks);
-      root.dataset['koraRelatedChunkList'] = 'true';
-
-      // Add similarity scores to each chunk item
-      const chunkItems = root.querySelectorAll('[data-chunk-id]');
-      chunkItems.forEach((item, index) => {
-        if (index < relatedChunks.length) {
-          const chunk = relatedChunks[index];
-          const score = Math.round(chunk.score * 100);
-          
-          // Add score badge
-          const badge = document.createElement('span');
-          badge.textContent = `${score}%`;
-          badge.style.cssText = 'font-size:10px;border-radius:8px;padding:2px 6px;margin-left:6px;vertical-align:middle;border:1px solid var(--background-modifier-border);background:var(--background-modifier-hover);color:var(--text-muted);';
-          
-          const headerEl = item.firstElementChild as HTMLElement;
-          if (headerEl) headerEl.appendChild(badge);
-
-          // Add source file info if different from current file
-          if (chunk.sourceFile) {
-            const sourceInfo = document.createElement('div');
-            sourceInfo.textContent = `📄 ${chunk.sourceFile}`;
-            sourceInfo.style.cssText = 'font-size:10px;color:var(--text-muted);margin-top:4px;';
-            
-            const contentEl = item.querySelector('[data-kora-diff-mount], [data-koraDiffMount], [data-koradiffmount]') as HTMLElement || (item.lastElementChild as HTMLElement);
-            if (contentEl) {
-              contentEl.appendChild(sourceInfo);
-            }
-          }
-        }
-      });
+      this.renderRelatedChunkList(container, relatedChunks);
 
     } catch (error) {
       console.error('Error finding related chunks:', error);
@@ -248,6 +218,112 @@ export class RelatedChunksView extends ItemView {
   private truncateText(text: string, maxLength: number): string {
     if (text.length <= maxLength) return text;
     return text.substring(0, maxLength) + '...';
+  }
+
+  /**
+   * Custom render for related chunks with weight indicators
+   */
+  private renderRelatedChunkList(container: HTMLElement, relatedChunks: RelatedChunk[]): void {
+    const list = container.createEl('div');
+    list.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin-top:8px;';
+    list.dataset['koraRelatedChunkList'] = 'true';
+    
+    for (const chunk of relatedChunks) {
+      const item = list.createEl('div');
+      item.style.cssText = 'border:1px solid var(--background-modifier-border);border-radius:6px;padding:8px;background:var(--background-secondary);transition:background-color .15s,border-color .15s;';
+      item.dataset['chunkId'] = chunk.chunkId;
+      
+      // Header with chunk info and score
+      const top = item.createEl('div');
+      top.style.cssText = 'font-size:12px;color:var(--text-muted);margin-bottom:4px;display:flex;align-items:center;justify-content:space-between;gap:8px;';
+      
+      const left = top.createEl('span');
+      left.textContent = `${chunk.chunkType} — ${chunk.headingsPath.join(' > ')}`;
+      
+      // Score container with weight indicator
+      const scoreContainer = top.createEl('span');
+      scoreContainer.style.cssText = 'display:inline-flex;align-items:center;gap:4px;';
+      
+      // Weight indicator (dots)
+      const weightIndicator = this.createWeightIndicator(chunk.score);
+      const score = Math.round(chunk.score * 100);
+      weightIndicator.title = `Similarity strength: ${this.getStrengthLabel(chunk.score)} (${score}%)`;
+      scoreContainer.appendChild(weightIndicator);
+      
+      // Score badge
+      const badge = scoreContainer.createEl('span', { text: `${score}%` });
+      badge.style.cssText = 'font-size:10px;border-radius:8px;padding:2px 6px;vertical-align:middle;border:1px solid var(--background-modifier-border);background:var(--background-modifier-hover);color:var(--text-muted);';
+      
+      // Content preview
+      const preview = item.createEl('div', { text: chunk.contentRaw.slice(0, 220) + (chunk.contentRaw.length > 220 ? '…' : '') });
+      preview.style.cssText = 'font-size:12px;margin-bottom:4px;';
+      
+      // Source file info
+      if (chunk.sourceFile) {
+        const sourceInfo = item.createEl('div', { text: `📄 ${chunk.sourceFile}` });
+        sourceInfo.style.cssText = 'font-size:10px;color:var(--text-muted);';
+      }
+      
+      // Diff mount placeholder
+      const diffMount = item.createEl('div');
+      diffMount.style.cssText = 'margin-top:8px;';
+      diffMount.dataset['koraDiffMount'] = 'true';
+    }
+  }
+
+  /**
+   * Create a visual weight indicator (dots like Smart Connections)
+   */
+  private createWeightIndicator(score: number): HTMLElement {
+    const container = document.createElement('span');
+    container.style.cssText = 'display:inline-flex;gap:1px;';
+    
+    // Determine how many dots to show (1-5 based on score)
+    const maxDots = 5;
+    const filledDots = Math.max(1, Math.ceil(score * maxDots));
+    
+    for (let i = 0; i < maxDots; i++) {
+      const dot = document.createElement('span');
+      dot.style.cssText = `
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        display: inline-block;
+        margin: 0 1px;
+      `;
+      
+      if (i < filledDots) {
+        // Filled dot - color based on strength
+        let color = '';
+        if (score >= 0.8) color = 'var(--color-green, #059669)'; // Very strong
+        else if (score >= 0.6) color = 'var(--color-yellow, #d97706)'; // Strong  
+        else if (score >= 0.4) color = 'var(--color-orange, #ea580c)'; // Medium
+        else color = 'var(--text-muted)'; // Weak
+        
+        dot.style.backgroundColor = color;
+        dot.style.border = `1px solid ${color}`;
+      } else {
+        // Empty dot
+        dot.style.backgroundColor = 'transparent';
+        dot.style.border = '1px solid var(--background-modifier-border)';
+        dot.style.opacity = '0.3';
+      }
+      
+      container.appendChild(dot);
+    }
+    
+    return container;
+  }
+
+  /**
+   * Get text label for similarity strength
+   */
+  private getStrengthLabel(score: number): string {
+    if (score >= 0.8) return 'Very Strong';
+    if (score >= 0.6) return 'Strong';
+    if (score >= 0.4) return 'Medium';
+    if (score >= 0.2) return 'Weak';
+    return 'Very Weak';
   }
 
   private getCreatedRawFromFrontmatter(fm: any): string {
