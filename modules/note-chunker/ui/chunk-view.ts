@@ -127,8 +127,8 @@ export class ChunkView extends ItemView {
     const header = container.createEl('div', { text: `🧩 Chunks (${Math.min(chunks.length, 50)})` });
     header.style.cssText = 'font-weight:600;margin:8px 0;';
 
-    const actions = container.createEl('div');
-    const btn = actions.createEl('button', { text: 'Vectorize chunks', cls: 'mod-cta' });
+    header.style.cssText = 'display:flex;gap:8px;justify-content:space-between;align-items:center;';
+    const btn = header.createEl('button', { text: 'Vectorize chunks', cls: 'mod-cta' });
     btn.onclick = async () => {
       btn.disabled = true; btn.textContent = 'Synchronizing...';
       try {
@@ -206,7 +206,7 @@ export class ChunkView extends ItemView {
       const hasChanges = Array.from(statusByChunkId.values()).some(status => status !== 'unchanged');
       
       // Update sync button state
-      const syncBtn = actions.querySelector('button') as HTMLButtonElement;
+      const syncBtn = header.querySelector('button') as HTMLButtonElement;
       if (syncBtn) {
         syncBtn.disabled = !hasChanges;
         syncBtn.textContent = hasChanges ? 'Vectorize chunks' : 'No changes to sync';
