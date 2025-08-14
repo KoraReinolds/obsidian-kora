@@ -248,8 +248,24 @@ export class RelatedChunksView extends ItemView {
     
     for (const chunk of relatedChunks) {
       const item = list.createEl('div');
-      item.style.cssText = 'border:1px solid var(--background-modifier-border);border-radius:6px;padding:8px;background:var(--background-secondary);transition:background-color .15s,border-color .15s;';
+      item.style.cssText = 'border:1px solid var(--background-modifier-border);border-radius:6px;padding:8px;background:var(--background-secondary);transition:background-color .15s,border-color .15s;cursor:pointer;';
       item.dataset['chunkId'] = chunk.chunkId;
+      item.title = `Click to open ${chunk.sourceFile || 'this file'} and jump to this chunk`;
+      
+      // Add hover effect
+      item.addEventListener('mouseenter', () => {
+        item.style.backgroundColor = 'var(--background-modifier-hover)';
+        item.style.borderColor = 'var(--interactive-accent)';
+      });
+      item.addEventListener('mouseleave', () => {
+        item.style.backgroundColor = 'var(--background-secondary)';
+        item.style.borderColor = 'var(--background-modifier-border)';
+      });
+      
+      // Add click handler to open the file
+      item.addEventListener('click', async () => {
+        await this.openChunkInEditor(chunk);
+      });
       
       // Header with chunk info and score
       const top = item.createEl('div');
@@ -276,9 +292,9 @@ export class RelatedChunksView extends ItemView {
       const preview = item.createEl('div', { text: chunk.contentRaw.slice(0, 220) + (chunk.contentRaw.length > 220 ? '…' : '') });
       preview.style.cssText = 'font-size:12px;margin-bottom:4px;';
       
-      // Source file info
+      // Source file info with click indicator
       if (chunk.sourceFile) {
-        const sourceInfo = item.createEl('div', { text: `📄 ${chunk.sourceFile}` });
+        const sourceInfo = item.createEl('div', { text: `📄 ${chunk.sourceFile} →` });
         sourceInfo.style.cssText = 'font-size:10px;color:var(--text-muted);';
       }
       
@@ -342,6 +358,73 @@ export class RelatedChunksView extends ItemView {
     if (score >= 0.4) return 'Medium';
     if (score >= 0.2) return 'Weak';
     return 'Very Weak';
+  }
+
+  /**
+   * Open a chunk in the editor and scroll to its position
+   */
+  private async openChunkInEditor(chunk: RelatedChunk): Promise<void> {
+    try {
+      if (!chunk.sourceFile) {
+        console.error('No source file information for chunk:', chunk.chunkId);
+        return;
+      }
+
+      // Get the file from vault
+      const file = this.app.vault.getAbstractFileByPath(chunk.sourceFile);
+      if (!file || !(file instanceof TFile)) {
+        console.error('File not found:', chunk.sourceFile);
+        return;
+      }
+
+      // Open the file in the current active leaf or create a new one
+      const leaf = this.app.workspace.getUnpinnedLeaf();
+      if (!leaf) return;
+
+      await leaf.openFile(file);
+
+      // Try to scroll to the chunk position if we have position data
+      if (chunk.position && chunk.position.start) {
+        // Wait a bit for the file to load
+        setTimeout(() => {
+          const view = leaf.view;
+          if (view && 'editor' in view) {
+            const editor = (view as any).editor;
+            if (editor && editor.setCursor) {
+              // Move cursor to the chunk position
+              const line = chunk.position?.start?.line || 0;
+              editor.setCursor(line, 0);
+              editor.scrollIntoView({ from: { line, ch: 0 }, to: { line, ch: 0 } });
+            }
+          }
+        }, 100);
+      } else {
+        // Fallback: try to find the chunk content in the file
+        setTimeout(async () => {
+          const content = await this.app.vault.read(file);
+          const lines = content.split('\n');
+          const chunkContent = chunk.contentRaw.trim();
+          
+          // Find the line containing the chunk content
+          for (let i = 0; i < lines.length; i++) {
+            if (lines[i].trim().includes(chunkContent.substring(0, 50))) {
+              const view = leaf.view;
+              if (view && 'editor' in view) {
+                const editor = (view as any).editor;
+                if (editor && editor.setCursor) {
+                  editor.setCursor(i, 0);
+                  editor.scrollIntoView({ from: { line: i, ch: 0 }, to: { line: i, ch: 0 } });
+                  break;
+                }
+              }
+            }
+          }
+        }, 100);
+      }
+
+    } catch (error) {
+      console.error('Error opening chunk in editor:', error);
+    }
   }
 
   private getCreatedRawFromFrontmatter(fm: any): string {
