@@ -23,7 +23,7 @@ export class DuplicateTimeFixer {
 
 			if (dateCreated) {
 				// Нормализуем дату для сравнения
-				const normalizedDate = this.normalizeDateString(dateCreated);
+				const normalizedDate = dateCreated;
 				if (normalizedDate) {
 					if (!timeMap[normalizedDate]) {
 						timeMap[normalizedDate] = [];
@@ -67,8 +67,9 @@ export class DuplicateTimeFixer {
 
 		// Исправляем дубликаты
 		for (const [originalDateCreated, files] of Object.entries(duplicateGroups)) {
-			const originalDate = new Date(originalDateCreated);
-			
+      // @ts-ignore
+      const originalMoment = moment(originalDateCreated, "dddd, MMMM Do YYYY, h:mm:ss a");
+
 			// Оставляем первый файл с оригинальным временем, остальные изменяем
 			for (let i = 1; i < files.length; i++) {
 				const file = files[i];
@@ -76,9 +77,13 @@ export class DuplicateTimeFixer {
 					if (!dryRun) {
 						// Генерируем новое время: оригинальное + случайное количество секунд (1-300)
 						const randomSeconds = Math.floor(Math.random() * 300) + 1;
-						const newDate = new Date(originalDate.getTime() + (randomSeconds * 1000));
-						
-						await this.updateFileCreationTime(file, newDate);
+            const newMoment = originalMoment.clone().add(randomSeconds, 'seconds');
+            // Вернуть в исходный формат
+            const formattedDate = newMoment.format("dddd, MMMM Do YYYY, h:mm:ss a");	
+            // @ts-ignore
+            window.app.fileManager.processFrontMatter(file, (frontmatter) => {
+              frontmatter['date created'] = formattedDate;
+            });
 					}
 					result.fixed++;
 				} catch (error) {
@@ -96,41 +101,11 @@ export class DuplicateTimeFixer {
 	/**
 	 * Обновляет время создания файла через поле date created в frontmatter
 	 */
-	private async updateFileCreationTime(file: TFile, newDate: Date): Promise<void> {
+	private async updateFileCreationTime(file: TFile, newDate: string): Promise<void> {
 		await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
-			// Получаем исходный формат даты из frontmatter
-			const originalDateCreated = frontmatter['date created'];
-			
-			// Определяем формат для записи на основе исходного значения
-			let newDateString: string;
-			if (typeof originalDateCreated === 'string' && originalDateCreated.includes('.000Z')) {
-				// Если исходный формат с миллисекундами, сохраняем его
-				newDateString = newDate.toISOString();
-			} else {
-				// Иначе используем формат без миллисекунд
-				newDateString = newDate.toISOString().replace('.000Z', 'Z');
-			}
-			
 			// Обновляем поле date created в frontmatter
-			frontmatter['date created'] = newDateString;
+			frontmatter['date created'] = newDate;
 		});
-	}
-
-	/**
-	 * Нормализует строку даты для сравнения
-	 */
-	private normalizeDateString(dateValue: any): string | null {
-		if (!dateValue) return null;
-		
-		try {
-			const date = new Date(dateValue);
-			if (isNaN(date.getTime())) return null;
-			
-			// Возвращаем ISO строку для консистентного сравнения
-			return date.toISOString();
-		} catch (e) {
-			return null;
-		}
 	}
 
 	/**

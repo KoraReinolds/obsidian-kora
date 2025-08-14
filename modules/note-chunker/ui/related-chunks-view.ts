@@ -157,7 +157,7 @@ export class RelatedChunksView extends ItemView {
       // Search for related chunks
       const searchResults = await this.vectorBridge.searchContent({
         query: activeChunk.contentRaw || '',
-        limit: 10,
+        limit: 15, // Increased limit since we'll filter out current file
         contentTypes: ['obsidian_note'],
         scoreThreshold: 0.3
       });
@@ -172,26 +172,41 @@ export class RelatedChunksView extends ItemView {
         return;
       }
 
-      // Filter out the current chunk and convert to RelatedChunk format
+      // Get current file's originalId for filtering
+      const currentOriginalId = activeChunk.meta?.originalId;
+
+      // Filter out chunks from current file and current chunk itself
       const relatedChunks: RelatedChunk[] = searchResults.results
         .filter(result => {
-          // Exclude the current chunk itself
           const resultChunkId = result.content?.chunkId;
-          return resultChunkId !== activeChunk.chunkId;
+          const resultOriginalId = result.content?.originalId || result.content?.meta?.originalId;
+          
+          // Exclude the current chunk itself
+          if (resultChunkId === activeChunk.chunkId) {
+            return false;
+          }
+          
+          // Exclude chunks from the same file (same originalId)
+          if (currentOriginalId && resultOriginalId === currentOriginalId) {
+            return false;
+          }
+          
+          return true;
         })
         .map(result => this.convertSearchResultToChunk(result))
-        .filter(chunk => chunk !== null) as RelatedChunk[];
+        .filter(chunk => chunk !== null)
+        .slice(0, 10) as RelatedChunk[]; // Limit to 10 after filtering
 
       if (relatedChunks.length === 0) {
         container.createEl('div', { 
-          text: 'No related chunks found (excluding current).',
+          text: 'No related chunks found in other files.',
           cls: 'related-chunks-empty'
         });
         return;
       }
 
       // Render related chunks with custom rendering for scores
-      const relatedHeader = container.createEl('div', { text: `Found ${relatedChunks.length} related chunks:` });
+      const relatedHeader = container.createEl('div', { text: `Found ${relatedChunks.length} related chunks in other files:` });
       relatedHeader.style.cssText = 'margin:12px 0 8px 0;font-size:12px;color:var(--text-muted);';
 
       this.renderRelatedChunkList(container, relatedChunks);
