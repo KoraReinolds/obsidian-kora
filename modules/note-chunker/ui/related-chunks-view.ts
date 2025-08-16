@@ -25,6 +25,8 @@ export class RelatedChunksView extends ItemView {
   private currentChunks: Chunk[] = [];
   private refreshTimer: number | null = null;
   private lastActiveFile: TFile | null = null;
+  private saveTimer: number | null = null;
+  private lastModifyTime: number = 0;
 
   constructor(leaf: WorkspaceLeaf, app: App, vectorBridge: VectorBridge) {
     // @ts-ignore ItemView expects app from super(leaf)
@@ -41,10 +43,11 @@ export class RelatedChunksView extends ItemView {
     // Only refresh when switching between different markdown files
     this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.handleLeafChange()));
     this.registerEvent(this.app.workspace.on('file-open', () => this.handleFileOpen()));
+    // Listen to file modifications with debounced save detection
     this.registerEvent(this.app.vault.on('modify', (file) => {
       const active = this.app.workspace.getActiveFile();
       if (active && file instanceof TFile && file.path === active.path) {
-        this.scheduleRefresh(300);
+        this.handleFileModification();
       }
     }));
     
@@ -621,6 +624,27 @@ export class RelatedChunksView extends ItemView {
     return true;
   }
 
+  /**
+   * Handle file modification with debounced save detection
+   */
+  private handleFileModification(): void {
+    this.lastModifyTime = Date.now();
+    
+    // Clear existing save timer
+    if (this.saveTimer) {
+      window.clearTimeout(this.saveTimer);
+    }
+    
+    // Set new timer - only update chunks after 3 seconds of no modifications (indicating save)
+    this.saveTimer = window.setTimeout(() => {
+      // Check if enough time has passed since last modification
+      if (Date.now() - this.lastModifyTime >= 2900) {
+        this.initializeForActiveFile();
+        this.currentActiveChunk = null; // Reset to force refresh on next cursor change
+      }
+    }, 3000);
+  }
+
   private scheduleRefresh(delay: number): void {
     if (this.refreshTimer) {
       window.clearTimeout(this.refreshTimer);
@@ -635,6 +659,10 @@ export class RelatedChunksView extends ItemView {
     if (this.refreshTimer) {
       window.clearTimeout(this.refreshTimer);
       this.refreshTimer = null;
+    }
+    if (this.saveTimer) {
+      window.clearTimeout(this.saveTimer);
+      this.saveTimer = null;
     }
     if (this.stopPolling) {
       this.stopPolling();

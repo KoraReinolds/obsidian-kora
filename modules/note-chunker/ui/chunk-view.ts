@@ -19,6 +19,8 @@ export class ChunkView extends ItemView {
   private refreshTimer: number | null = null;
   private stopPolling: (() => void) | null = null;
   private lastActiveFile: TFile | null = null;
+  private saveTimer: number | null = null;
+  private lastModifyTime: number = 0;
 
   constructor(leaf: WorkspaceLeaf, app: App, vectorBridge: VectorBridge) {
     // @ts-ignore ItemView expects app from super(leaf)
@@ -35,14 +37,10 @@ export class ChunkView extends ItemView {
     // Only refresh when switching between different markdown files
     this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.handleLeafChange()));
     this.registerEvent(this.app.workspace.on('file-open', () => this.handleFileOpen()));
+    // Listen to file modifications with debounced save detection
     this.registerEvent(this.app.vault.on('modify', (file) => {
       if (this.lastActiveFile && file instanceof TFile && file.path === this.lastActiveFile.path) {
-        this.scheduleRender(200);
-      }
-    }));
-    this.registerEvent(this.app.metadataCache.on('changed', (file) => {
-      if (this.lastActiveFile && file instanceof TFile && file.path === this.lastActiveFile.path) {
-        this.scheduleRender(200);
+        this.handleFileModification();
       }
     }));
     await this.renderForActiveFile();
@@ -293,6 +291,26 @@ export class ChunkView extends ItemView {
     return String(v);
   }
 
+  /**
+   * Handle file modification with debounced save detection
+   */
+  private handleFileModification(): void {
+    this.lastModifyTime = Date.now();
+    
+    // Clear existing save timer
+    if (this.saveTimer) {
+      window.clearTimeout(this.saveTimer);
+    }
+    
+    // Set new timer - only update chunks after 3 seconds of no modifications (indicating save)
+    this.saveTimer = window.setTimeout(() => {
+      // Check if enough time has passed since last modification
+      if (Date.now() - this.lastModifyTime >= 2900) {
+        this.renderForActiveFile();
+      }
+    }, 3000);
+  }
+
   private scheduleRender(delay: number) {
     if (this.refreshTimer) {
       window.clearTimeout(this.refreshTimer);
@@ -395,6 +413,10 @@ export class ChunkView extends ItemView {
     if (this.refreshTimer) {
       window.clearTimeout(this.refreshTimer);
       this.refreshTimer = null;
+    }
+    if (this.saveTimer) {
+      window.clearTimeout(this.saveTimer);
+      this.saveTimer = null;
     }
     if (this.stopPolling) {
       this.stopPolling();
