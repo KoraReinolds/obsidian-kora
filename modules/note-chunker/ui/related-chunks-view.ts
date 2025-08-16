@@ -59,10 +59,14 @@ export class RelatedChunksView extends ItemView {
     const container = this.containerEl as HTMLElement;
     container.empty();
     
+    // Create wrapper with padding
+    const wrapper = container.createEl('div');
+    wrapper.style.cssText = 'padding: 12px 16px; height: 100%; box-sizing: border-box;';
+    
     const active = this.app.workspace.getActiveFile();
     if (!active || !(active instanceof TFile) || active.extension !== 'md') {
       // Keep the last file reference if no markdown file is active
-      container.createEl('div', { 
+      wrapper.createEl('div', { 
         text: this.lastActiveFile ? 
           `Related chunks for: ${this.lastActiveFile.basename}` :
           'Open a markdown note to see related chunks.',
@@ -97,10 +101,10 @@ export class RelatedChunksView extends ItemView {
     );
 
     // Show initial placeholder
-    const header = container.createEl('div', { text: '🔗 Related Chunks' });
+    const header = wrapper.createEl('div', { text: '🔗 Related Chunks' });
     header.style.cssText = 'font-weight:600;margin:8px 0;';
     
-    container.createEl('div', { 
+    wrapper.createEl('div', { 
       text: 'Position cursor on a chunk to see related content.',
       cls: 'related-chunks-instruction'
     });
@@ -126,12 +130,16 @@ export class RelatedChunksView extends ItemView {
   private async findAndRenderRelatedChunks(activeChunk: Chunk): Promise<void> {
     const container = this.containerEl as HTMLElement;
     container.empty();
+    
+    // Create wrapper with padding
+    const wrapper = container.createEl('div');
+    wrapper.style.cssText = 'padding: 12px 16px; height: 100%; box-sizing: border-box;';
 
-    const header = container.createEl('div', { text: '🔗 Related Chunks' });
+    const header = wrapper.createEl('div', { text: '🔗 Related Chunks' });
     header.style.cssText = 'font-weight:600;margin:8px 0;';
 
     // Show current chunk info
-    const currentInfo = container.createEl('div');
+    const currentInfo = wrapper.createEl('div');
     currentInfo.style.cssText = 'margin-bottom:12px;padding:8px;background:var(--background-modifier-hover);border-radius:6px;';
     
     const currentTitle = currentInfo.createEl('div', { text: 'Current:' });
@@ -144,14 +152,14 @@ export class RelatedChunksView extends ItemView {
       // Check if vector service is available
       const isHealthy = await this.vectorBridge.isVectorServiceHealthy();
       if (!isHealthy) {
-        container.createEl('div', { 
+        wrapper.createEl('div', { 
           text: 'Vector service unavailable. Start GramJS server with Qdrant and OpenAI configured.',
           cls: 'related-chunks-error'
         });
         return;
       }
 
-      const loadingEl = container.createEl('div', { text: 'Finding related chunks...' });
+      const loadingEl = wrapper.createEl('div', { text: 'Finding related chunks...' });
       loadingEl.style.cssText = 'margin:12px 0;color:var(--text-muted);font-style:italic;';
 
       // Search for related chunks
@@ -165,7 +173,7 @@ export class RelatedChunksView extends ItemView {
       loadingEl.remove();
 
       if (searchResults.results.length === 0) {
-        container.createEl('div', { 
+        wrapper.createEl('div', { 
           text: 'No related chunks found.',
           cls: 'related-chunks-empty'
         });
@@ -195,10 +203,10 @@ export class RelatedChunksView extends ItemView {
         })
         .map(result => this.convertSearchResultToChunk(result))
         .filter(chunk => chunk !== null)
-        .slice(0, 10) as RelatedChunk[]; // Limit to 10 after filtering
+        .slice(0, 5) as RelatedChunk[]; // Limit to 10 after filtering
 
       if (relatedChunks.length === 0) {
-        container.createEl('div', { 
+        wrapper.createEl('div', { 
           text: 'No related chunks found in other files.',
           cls: 'related-chunks-empty'
         });
@@ -206,22 +214,22 @@ export class RelatedChunksView extends ItemView {
       }
 
       // Render related chunks with custom rendering for scores
-      const relatedHeader = container.createEl('div', { text: `Found ${relatedChunks.length} related chunks in other files:` });
+      const relatedHeader = wrapper.createEl('div', { text: `Found ${relatedChunks.length} related chunks in other files:` });
       relatedHeader.style.cssText = 'margin:12px 0 8px 0;font-size:12px;color:var(--text-muted);';
 
-      this.renderRelatedChunkList(container, relatedChunks);
+      this.renderRelatedChunkList(wrapper, relatedChunks);
 
 
     } catch (error) {
       console.error('Error finding related chunks:', error);
-      const errorEl = container.createEl('div', { 
+      const errorEl = wrapper.createEl('div', { 
         text: `Error: ${error.message}`,
         cls: 'related-chunks-error'
       });
       errorEl.style.cssText = 'color:var(--text-error);margin:12px 0;';
     } finally {
       // Add unsynced notes section
-      await this.renderUnsyncedNotes(container);
+      await this.renderUnsyncedNotes(wrapper);
     }
   }
 
@@ -382,7 +390,7 @@ export class RelatedChunksView extends ItemView {
   /**
    * Render section with unsynced notes
    */
-  private async renderUnsyncedNotes(container: HTMLElement): Promise<void> {
+  private async renderUnsyncedNotes(wrapper: HTMLElement): Promise<void> {
     try {
       // Get all markdown files in vault
       const allFiles = this.app.vault.getMarkdownFiles();
@@ -413,7 +421,7 @@ export class RelatedChunksView extends ItemView {
 
       // Find files that are not synced and are in /Organize folder
       const unsyncedFiles: TFile[] = [];
-      for (const file of allFiles) {
+      for (const file of allFiles.sort((a, b) => Math.random() - 0.5)) {
         try {
           // Only include files that start with "Organize/"
           if (!file.path.startsWith('Organize/')) {
@@ -439,18 +447,18 @@ export class RelatedChunksView extends ItemView {
       }
 
       // Render unsynced notes section
-      const separator = container.createEl('div');
+      const separator = wrapper.createEl('div');
       separator.style.cssText = 'height:1px;background:var(--background-modifier-border);margin:16px 0;';
       
-      const unsyncedHeader = container.createEl('div', { text: `📤 Unsynced Notes in /Organize (${unsyncedFiles.length})` });
+      const unsyncedHeader = wrapper.createEl('div', { text: `📤 Unsynced Notes in /Organize (${unsyncedFiles.length})` });
       unsyncedHeader.style.cssText = 'font-weight:600;margin:8px 0;color:var(--text-muted);';
       
-      const unsyncedSubheader = container.createEl('div', { text: 'These notes from /Organize folder are not yet indexed for vector search:' });
+      const unsyncedSubheader = wrapper.createEl('div', { text: 'These notes from /Organize folder are not yet indexed for vector search:' });
       unsyncedSubheader.style.cssText = 'font-size:11px;color:var(--text-muted);margin-bottom:8px;';
 
       // Limit display to first 20 unsynced files
       const filesToShow = unsyncedFiles.slice(0, 20);
-      const list = container.createEl('div');
+      const list = wrapper.createEl('div');
       list.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
 
       for (const file of filesToShow) {
@@ -477,7 +485,7 @@ export class RelatedChunksView extends ItemView {
 
       // Show "and X more" if there are more files
       if (unsyncedFiles.length > 20) {
-        const moreText = container.createEl('div', { text: `... and ${unsyncedFiles.length - 20} more files` });
+        const moreText = wrapper.createEl('div', { text: `... and ${unsyncedFiles.length - 20} more files` });
         moreText.style.cssText = 'font-size:11px;color:var(--text-muted);margin-top:4px;font-style:italic;';
       }
 

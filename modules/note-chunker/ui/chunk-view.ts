@@ -96,15 +96,19 @@ export class ChunkView extends ItemView {
   async renderForActiveFile(): Promise<void> {
     const container = this.containerEl as HTMLElement;
     container.empty();
+    
+    // Create wrapper with padding
+    const wrapper = container.createEl('div');
+    wrapper.style.cssText = 'padding: 12px 16px; height: 100%; box-sizing: border-box;';
     const active = this.app.workspace.getActiveFile();
     
     if (!active || !(active instanceof TFile) || active.extension !== 'md') {
       // Keep the last file reference if no markdown file is active
       if (this.lastActiveFile) {
-        container.createEl('div', { text: `Chunks for: ${this.lastActiveFile.basename}` });
+        wrapper.createEl('div', { text: `Chunks for: ${this.lastActiveFile.basename}` });
         // Continue processing with the last active file
       } else {
-        container.createEl('div', { text: 'Open a markdown note to see chunks.' });
+        wrapper.createEl('div', { text: 'Open a markdown note to see chunks.' });
         return;
       }
     } else {
@@ -124,10 +128,8 @@ export class ChunkView extends ItemView {
     const originalId = `${createdRaw}`;
     const chunks: Chunk[] = chunkNote(content, { notePath: fileToProcess.path, originalId, frontmatter: fm, tags, aliases }, {}, cache as any);
 
-    const header = container.createEl('div', { text: `🧩 Chunks (${Math.min(chunks.length, 50)})` });
-    header.style.cssText = 'font-weight:600;margin:8px 0;';
-
-    header.style.cssText = 'display:flex;gap:8px;justify-content:space-between;align-items:center;';
+    const header = wrapper.createEl('div', { text: `🧩 Chunks (${Math.min(chunks.length, 50)})` });
+    header.style.cssText = 'display:flex;gap:8px;justify-content:space-between;align-items:center;font-weight:600;margin:8px 0;';
     const btn = header.createEl('button', { text: 'Vectorize chunks', cls: 'mod-cta' });
     btn.onclick = async () => {
       btn.disabled = true; btn.textContent = 'Synchronizing...';
@@ -195,7 +197,7 @@ export class ChunkView extends ItemView {
         } as Chunk;
       });
       
-      const { root, items } = renderChunkList(container, visualChunks as Chunk[]);
+      const { root, items } = renderChunkList(wrapper, visualChunks as Chunk[]);
       root.dataset['koraChunkList'] = 'true';
       
       // Store refs for highlighting
@@ -270,7 +272,7 @@ export class ChunkView extends ItemView {
       console.error('Chunk diff rendering failed', e);
       // Fallback to simple rendering
       const visibleChunks = chunks.slice(0, 50);
-      const { root, items } = renderChunkList(container, visibleChunks);
+      const { root, items } = renderChunkList(wrapper, visibleChunks);
       root.dataset['koraChunkList'] = 'true';
       (this as any)._currentChunks = chunks;
       (this as any)._currentChunkItems = items;
