@@ -39,11 +39,11 @@ describe('chunkNote', () => {
     expect(h2Para?.contentRaw).toBe('para2');
   });
 
-  it('creates separate chunks for code and table', () => {
+  it('creates separate chunks for table, but ignores code blocks', () => {
     const md = '```js\nconsole.log(1)\n```\n\n| a | b |\n|---|---|\n| 1 | 2 |\n';
     const cache = makeCacheFromMarkdown(md);
     const chunks = chunkNote(md, baseContext, undefined, cache);
-    expect(chunks.find(c => c.chunkType === 'code')).toBeTruthy();
+    expect(chunks.find(c => c.chunkType === 'code')).toBeFalsy(); // Code blocks are now ignored
     expect(chunks.find(c => c.chunkType === 'table')).toBeTruthy();
   });
 

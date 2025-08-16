@@ -103,14 +103,19 @@ export function buildBlocksFromCache(markdown: string, cache: CachedMetadataLike
   }
 
   // Filter out blocks that should be ignored
-  return blocks.filter(block => !shouldIgnoreBlock(block.text));
+  return blocks.filter(block => !shouldIgnoreBlock(block));
 }
 
 /**
- * Check if a block should be ignored based on content patterns
+ * Check if a block should be ignored based on content patterns and type
  */
-function shouldIgnoreBlock(text: string): boolean {
-  const trimmedText = text.trim();
+function shouldIgnoreBlock(block: ParsedBlock): boolean {
+  const trimmedText = block.text.trim();
+  
+  // Ignore code blocks
+  if (block.type === 'code') {
+    return true;
+  }
   
   // Ignore empty blocks
   if (!trimmedText) {
