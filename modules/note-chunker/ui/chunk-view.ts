@@ -10,6 +10,7 @@ import { renderChunkList, setActiveChunkItem } from './chunk-list';
 import { findChunkIndexForLine, startCursorPolling } from './chunk-cursor';
 import { VectorBridge } from '../../vector-bridge';
 import { fetchAndRenderChunkDiff, loadBaselineForChunksByOriginalId } from './chunk-compare';
+import { createScrollableContainer } from './shared-container';
 
 export const CHUNK_VIEW_TYPE = 'kora-chunks';
 
@@ -95,11 +96,9 @@ export class ChunkView extends ItemView {
 
   async renderForActiveFile(): Promise<void> {
     const container = this.containerEl as HTMLElement;
-    container.empty();
     
-    // Create wrapper with padding
-    const wrapper = container.createEl('div');
-    wrapper.style.cssText = 'padding: 12px 16px; height: 100%; box-sizing: border-box;';
+    // Create shared scrollable container
+    const wrapper = createScrollableContainer(container);
     const active = this.app.workspace.getActiveFile();
     
     if (!active || !(active instanceof TFile) || active.extension !== 'md') {

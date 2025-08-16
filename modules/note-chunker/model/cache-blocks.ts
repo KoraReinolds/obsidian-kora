@@ -102,7 +102,45 @@ export function buildBlocksFromCache(markdown: string, cache: CachedMetadataLike
     });
   }
 
-  return blocks;
+  // Filter out blocks that should be ignored
+  return blocks.filter(block => !shouldIgnoreBlock(block.text));
+}
+
+/**
+ * Check if a block should be ignored based on content patterns
+ */
+function shouldIgnoreBlock(text: string): boolean {
+  const trimmedText = text.trim();
+  
+  // Ignore empty blocks
+  if (!trimmedText) {
+    return true;
+  }
+  
+  // Ignore embed blocks: ![[filename]] or ![[filename#heading]]
+  if (/^!\[\[.*\]\]$/.test(trimmedText)) {
+    return true;
+  }
+  
+  // Ignore horizontal separators: --- (3 or more dashes)
+  if (/^-{3,}$/.test(trimmedText)) {
+    return true;
+  }
+  
+  // Ignore callout blocks: > [!type] or > [!type]+ or > [!type]-
+  // Also handle multiline callouts that start with callout syntax
+  if (/^>\s*\[![\w-]+\][\+\-]?/.test(trimmedText)) {
+    return true;
+  }
+  
+  // Ignore blocks that are entirely callout content (lines starting with >)
+  const lines = trimmedText.split('\n');
+  const calloutLines = lines.filter(line => line.trim().startsWith('>'));
+  if (calloutLines.length === lines.length && lines.length > 0) {
+    return true;
+  }
+  
+  return false;
 }
 
 

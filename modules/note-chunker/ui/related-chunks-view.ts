@@ -9,6 +9,7 @@ import type { Chunk } from '..';
 import { renderChunkList } from './chunk-list';
 import { findChunkIndexForLine, startCursorPolling } from './chunk-cursor';
 import { VectorBridge } from '../../vector-bridge';
+import { createScrollableContainer } from './shared-container';
 
 export const RELATED_CHUNKS_VIEW_TYPE = 'kora-related-chunks';
 
@@ -57,11 +58,9 @@ export class RelatedChunksView extends ItemView {
 
   private async initializeForActiveFile(): Promise<void> {
     const container = this.containerEl as HTMLElement;
-    container.empty();
     
-    // Create wrapper with padding
-    const wrapper = container.createEl('div');
-    wrapper.style.cssText = 'padding: 12px 16px; height: 100%; box-sizing: border-box;';
+    // Create shared scrollable container
+    const wrapper = createScrollableContainer(container);
     
     const active = this.app.workspace.getActiveFile();
     if (!active || !(active instanceof TFile) || active.extension !== 'md') {
@@ -129,11 +128,9 @@ export class RelatedChunksView extends ItemView {
 
   private async findAndRenderRelatedChunks(activeChunk: Chunk): Promise<void> {
     const container = this.containerEl as HTMLElement;
-    container.empty();
     
-    // Create wrapper with padding
-    const wrapper = container.createEl('div');
-    wrapper.style.cssText = 'padding: 12px 16px; height: 100%; box-sizing: border-box;';
+    // Create shared scrollable container
+    const wrapper = createScrollableContainer(container);
 
     const header = wrapper.createEl('div', { text: '🔗 Related Chunks' });
     header.style.cssText = 'font-weight:600;margin:8px 0;';
