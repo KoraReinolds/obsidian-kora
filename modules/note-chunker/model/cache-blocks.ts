@@ -155,11 +155,18 @@ function shouldIgnoreBlock(block: ParsedBlock): boolean {
     return true;
   }
   
-  // Ignore blocks that contain only links (wikilinks and/or markdown links)
-  // Remove all wikilinks and markdown links, then check if anything meaningful remains
-  const withoutWikilinks = trimmedText.replace(/\[\[.*?\]\]/g, '');
-  const withoutMarkdownLinks = withoutWikilinks.replace(/\[.*?\]\(.*?\)/g, '');
-  const withoutLinks = withoutMarkdownLinks.trim();
+  // Ignore block references: ^blockid or ^(blockid)
+  if (/^\^[\w\-\(\)]+$/.test(trimmedText)) {
+    return true;
+  }
+  
+  // Ignore blocks that contain only links (wikilinks, embed links, markdown links, and block references)
+  // Remove all wikilinks, embed links, markdown links, and block references, then check if anything meaningful remains
+  const withoutEmbeds = trimmedText.replace(/!\[\[.*?\]\]/g, ''); // Remove ![[...]]
+  const withoutWikilinks = withoutEmbeds.replace(/\[\[.*?\]\]/g, ''); // Remove [[...]]
+  const withoutMarkdownLinks = withoutWikilinks.replace(/\[.*?\]\(.*?\)/g, ''); // Remove [...](...)
+  const withoutBlockRefs = withoutMarkdownLinks.replace(/\s*\^[\w\-\(\)]+\s*$/g, ''); // Remove block references ^blockid or ^(blockid) at end
+  const withoutLinks = withoutBlockRefs.trim();
   
   // If after removing all links there's nothing substantial left, ignore the block
   if (!withoutLinks || /^[\s\-\*\+\.\,\;\:\!\?]*$/.test(withoutLinks)) {

@@ -141,6 +141,91 @@ Another paragraph.`;
     expect(chunks[1].contentRaw).toBe('Another paragraph.');
   });
 
+  it('should ignore blocks with embed links mixed with other links', () => {
+    const md = `# Heading
+
+Normal paragraph.
+
+![[File1]], [[Link1]]
+
+![[File2]] - [Google](https://google.com)
+
+[[Wiki]] ![[Embed]] [Markdown](http://test.com)...
+
+![[File3]]![[File4]]
+
+Another paragraph.`;
+    
+    const cache = makeCacheFromMarkdown(md);
+    const chunks = chunkNote(md, baseContext, {}, cache);
+    
+    // Should have 2 chunks: only the normal paragraphs
+    expect(chunks.length).toBe(2);
+    expect(chunks[0].contentRaw).toBe('Normal paragraph.');
+    expect(chunks[1].contentRaw).toBe('Another paragraph.');
+  });
+
+  it('should ignore embed with block reference combinations', () => {
+    const md = `# Heading
+
+Normal paragraph.
+
+![[telegram posts.base]] ^287d03
+
+![[another file]] ^(ref123)
+
+![[file]] [[wiki]] ^blockref
+
+Another paragraph.`;
+    
+    const cache = makeCacheFromMarkdown(md);
+    const chunks = chunkNote(md, baseContext, {}, cache);
+    
+    // Should have 2 chunks: only the normal paragraphs
+    expect(chunks.length).toBe(2);
+    expect(chunks[0].contentRaw).toBe('Normal paragraph.');
+    expect(chunks[1].contentRaw).toBe('Another paragraph.');
+    
+    // Ensure these specific problematic patterns are not present
+    const hasEmbedWithBlockRef = chunks.some(c => 
+      c.contentRaw.includes('![[telegram posts.base]] ^287d03')
+    );
+    expect(hasEmbedWithBlockRef).toBe(false);
+  });
+
+
+  it('should ignore block references and blocks with them', () => {
+    const md = `# Heading
+
+Normal paragraph.
+
+^blockref123
+
+^(block-ref-456)
+
+Some text with content ^textblock
+
+[[Link]] ^linkblock
+
+Just punctuation, no content ^punctblock
+
+Another paragraph.`;
+    
+    const cache = makeCacheFromMarkdown(md);
+    const chunks = chunkNote(md, baseContext, {}, cache);
+    
+    // Should have 4 chunks: normal paragraphs and text with content (including the one with block ref)
+    expect(chunks.length).toBe(4);
+    expect(chunks[0].contentRaw).toBe('Normal paragraph.');
+    expect(chunks[1].contentRaw).toBe('Some text with content ^textblock');
+    expect(chunks[2].contentRaw).toBe('Just punctuation, no content ^punctblock');
+    expect(chunks[3].contentRaw).toBe('Another paragraph.');
+    
+    // Ensure no standalone block reference chunks are present
+    const blockRefOnlyChunks = chunks.filter(c => /^\^[\w\-\(\)]+$/.test(c.contentRaw.trim()));
+    expect(blockRefOnlyChunks.length).toBe(0);
+  });
+
   it('should ignore callout blocks', () => {
     const md = `# Heading
 
@@ -241,7 +326,9 @@ npm install
 npm run build
 \`\`\`
 
-[[Link1]], [[Link2]]
+[[Link1]], [[Link2]], ![[EmbedFile]] ^mixedblock
+
+^standalone-ref
 
 > [!warning]+ Warning
 > - Point 1  
@@ -262,10 +349,10 @@ Final paragraph.`;
     const codeChunks = chunks.filter(c => c.chunkType === 'code');
     expect(codeChunks.length).toBe(0);
     
-    // Ensure no standalone link chunks are present
+    // Ensure no standalone link chunks or block references are present
     const linkOnlyChunks = chunks.filter(c => {
       const text = c.contentRaw.trim();
-      return /^\[\[.*\]\]$/.test(text) || /^\[.*\]\(.*\)$/.test(text);
+      return /^\[\[.*\]\]$/.test(text) || /^\[.*\]\(.*\)$/.test(text) || /^\^[\w\-\(\)]+$/.test(text);
     });
     expect(linkOnlyChunks.length).toBe(0);
   });
