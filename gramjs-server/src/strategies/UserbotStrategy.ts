@@ -143,6 +143,46 @@ class UserbotStrategy extends TelegramClientStrategy {
   }
 
   /**
+   * Edit message with userbot-specific handling
+   */
+  async editMessage(peer: string, messageId: number, options: MessageOptions): Promise<any> {
+    try {
+      console.log(`[UserbotStrategy] Editing message ${messageId} in peer: ${peer}`);
+      
+      const result = await super.editMessage(peer, messageId, options);
+      
+      console.log('[UserbotStrategy] Message edited successfully in userbot mode');
+      return {
+        ...result,
+        mode: 'userbot'
+      };
+    } catch (error) {
+      console.error('[UserbotStrategy] Userbot edit message error:', error);
+      
+      // Provide userbot-specific error context
+      if (error.message.includes('PEER_ID_INVALID')) {
+        throw new Error('Invalid peer ID. Check if the chat/user exists and is accessible.');
+      }
+      if (error.message.includes('MESSAGE_NOT_MODIFIED')) {
+        throw new Error('Message content is the same, no changes made.');
+      }
+      if (error.message.includes('MESSAGE_EDIT_TIME_EXPIRED')) {
+        throw new Error('Message is too old to edit.');
+      }
+      if (error.message.includes('USER_DEACTIVATED')) {
+        throw new Error('Your account has been deactivated. Cannot edit messages.');
+      }
+      if (error.message.includes('FLOOD_WAIT')) {
+        const match = error.message.match(/FLOOD_WAIT_(\d+)/);
+        const seconds = match ? match[1] : 'unknown';
+        throw new Error(`Rate limited. Please wait ${seconds} seconds before editing another message.`);
+      }
+      
+      throw error;
+    }
+  }
+
+  /**
    * Get messages with full userbot access
    */
   async getMessages(peer: string, options: any = {}): Promise<any[]> {

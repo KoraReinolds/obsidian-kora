@@ -126,6 +126,7 @@ class BotStrategy extends TelegramClientStrategy {
       console.log('[BotStrategy] Message sent successfully in bot mode');
       return {
         id: result.message_id,
+        messageId: result.message_id, // Add messageId alias
         peerId: result.chat.id,
         message: result.text,
         date: result.date,
@@ -140,6 +141,62 @@ class BotStrategy extends TelegramClientStrategy {
       }
       if (error.message.includes('Forbidden')) {
         throw new Error('Bot is blocked or doesn\'t have permission to send messages to this chat.');
+      }
+      
+      throw error;
+    }
+  }
+
+  /**
+   * Edit an existing message with bot-specific handling
+   */
+  async editMessage(peer: string, messageId: number, options: MessageOptions): Promise<any> {
+    try {
+      console.log(`[BotStrategy] Editing message ${messageId} in peer: ${peer}`);
+      
+      const opts: Record<string, any> = {};
+      
+      // Extract message text
+      const text = options.message || (typeof options === 'string' ? options : '');
+      
+      // Handle parse mode
+      if (options.parseMode) {
+        opts.parse_mode = options.parseMode;
+      }
+
+      // Handle reply markup (buttons)
+      if (options.replyMarkup && options.replyMarkup.inline_keyboard) {
+        opts.reply_markup = options.replyMarkup;
+        console.log(`[BotStrategy] Editing with replyMarkup:`, JSON.stringify(opts.reply_markup));
+      }
+
+      const result = await this.client.editMessageText(text, {
+        chat_id: peer,
+        message_id: messageId,
+        ...opts
+      });
+      
+      console.log('[BotStrategy] Message edited successfully in bot mode');
+      return {
+        id: result.message_id || messageId,
+        messageId: result.message_id || messageId,
+        peerId: peer,
+        message: text,
+        date: result.date || Date.now(),
+        mode: 'bot'
+      };
+    } catch (error) {
+      console.error('[BotStrategy] Bot edit message error:', error);
+      
+      // Provide bot-specific error context
+      if (error.message.includes('Bad Request: message is not modified')) {
+        throw new Error('Message content is the same, no changes made.');
+      }
+      if (error.message.includes('Bad Request: message to edit not found')) {
+        throw new Error('Message not found or too old to edit.');
+      }
+      if (error.message.includes('Forbidden')) {
+        throw new Error('Bot doesn\'t have permission to edit messages in this chat.');
       }
       
       throw error;

@@ -108,7 +108,7 @@ export class GramJSBridge {
   /**
    * Send text message via GramJS userbot with MarkdownV2 support
    */
-  async sendMessage(peer: string, message: string, entities?: MessageEntity[], buttons?: InlineButton[][]): Promise<boolean> {
+  async sendMessage(peer: string, message: string, entities?: MessageEntity[], buttons?: InlineButton[][]): Promise<{ success: boolean; messageId?: number }> {
     try {
       const response = await fetch(`${this.baseUrl}/send_message`, {
         method: 'POST',
@@ -121,10 +121,35 @@ export class GramJSBridge {
         throw new Error(error.error || 'Failed to send message');
       }
 
-      return true;
+      const result = await response.json();
+      return { success: true, messageId: result.result?.messageId || result.result?.id };
     } catch (error) {
       console.error('Error sending message via GramJS:', error);
       new Notice(`Ошибка отправки сообщения: ${error.message}`);
+      return { success: false };
+    }
+  }
+
+  /**
+   * Edit existing message via GramJS userbot
+   */
+  async editMessage(peer: string, messageId: number, message: string, entities?: MessageEntity[]): Promise<boolean> {
+    try {
+      const response = await fetch(`${this.baseUrl}/edit_message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ peer, messageId, message, entities }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to edit message');
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error editing message via GramJS:', error);
+      new Notice(`Ошибка редактирования сообщения: ${error.message}`);
       return false;
     }
   }

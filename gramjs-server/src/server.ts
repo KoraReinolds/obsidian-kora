@@ -42,8 +42,8 @@ import { registerContentRoutes } from './routes/content.js';
 import { registerVectorStatsRoute } from './routes/vector_stats.js';
 import { registerVectorHealthRoute } from './routes/vector_health.js';
 import { registerSendMessageRoute } from './routes/send-message.js';
+import { registerEditMessageRoute } from './routes/edit-message.js';
 import { registerSendFileRoute } from './routes/send-file.js';
-import { registerSendNoteRoute } from './routes/send-note.js';
 
 // Services
 import { getConfig } from './services/config-service.js';
@@ -58,8 +58,8 @@ app.use(express.json());
 // Core routes
 registerHealthRoutes(app);
 registerSendMessageRoute(app);
+registerEditMessageRoute(app);
 registerSendFileRoute(app);
-registerSendNoteRoute(app);
 registerMeRoutes(app);
 registerChannelRoutes(app);
 registerMessageRoutes(app);

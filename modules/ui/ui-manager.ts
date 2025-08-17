@@ -4,6 +4,7 @@
 
 import { TFile, Notice, WorkspaceLeaf, App } from 'obsidian';
 import { GramJSBridge, MessageFormatter } from '../telegram';
+import { FrontmatterUtils } from '../obsidian';
 import { NoteUISystem } from './note-ui-system';
 import { VectorBridge } from '../vector';
 import type { KoraMcpPluginSettings } from '../../main';
@@ -13,6 +14,7 @@ export class UIManager {
   private settings: KoraMcpPluginSettings;
   private gramjsBridge: GramJSBridge;
   private messageFormatter: MessageFormatter;
+  private frontmatterUtils: FrontmatterUtils;
   private moveFileToFolder: (file: TFile, targetFolder: string) => Promise<void>;
   private getFileContent: (file: TFile) => Promise<string>;
   private noteUISystem: NoteUISystem;
@@ -36,6 +38,7 @@ export class UIManager {
       settings.telegram.customEmojis,
       settings.telegram.useCustomEmojis
     );
+    this.frontmatterUtils = new FrontmatterUtils(app);
     this.noteUISystem = new NoteUISystem();
   }
 
@@ -134,12 +137,18 @@ export class UIManager {
 
     // GramJS Post button (only if GramJS is enabled)
     if (this.settings.useGramJsUserbot) {
-      // GramJS Text button
+      // Check if note is already linked to determine button text
+      const file = (leaf.view as any).file as TFile;
+      const telegramMessageId = file ? this.frontmatterUtils.getFrontmatterField(file, 'telegram_message_id') : null;
+      
+      const buttonText = telegramMessageId ? '✏️ Редактировать пост' : '📤 Отправить в TG';
+      const buttonColor = telegramMessageId ? '#f59e0b' : '#0088cc';
+      
       const buttonGramJSText = this.createButton(
-        '📤 GramJS Text',
+        buttonText,
         'kora-gramjs-text',
         () => this.sendNoteAsText(leaf),
-        { backgroundColor: '#0088cc' }
+        { backgroundColor: buttonColor }
       );
       buttons.push(buttonGramJSText);
     }
@@ -197,14 +206,31 @@ export class UIManager {
       return;
     }
 
+    // Check if note is already linked to a Telegram post
+    const telegramMessageId = this.frontmatterUtils.getFrontmatterField(file, 'telegram_message_id');
+
     // Process custom emojis
     const { processedText, entities } = this.messageFormatter.processCustomEmojis(content);
 
-    const buttons = this.createNavigationButtons(file);
-
-    const success = await this.gramjsBridge.sendMessage(peer, processedText, entities, buttons);
-    if (success) {
-      new Notice('Заметка отправлена как текст!');
+    if (telegramMessageId) {
+      // Edit existing message
+      const success = await this.gramjsBridge.editMessage(peer, telegramMessageId, processedText, entities);
+      if (success) {
+        new Notice('Сообщение в Telegram обновлено!');
+        // Re-inject buttons to update UI
+        await this.injectButtons(leaf);
+      }
+    } else {
+      // Send new message
+      const buttons = this.createNavigationButtons(file);
+      const result = await this.gramjsBridge.sendMessage(peer, processedText, entities, buttons);
+      if (result.success && result.messageId) {
+        // Save message ID to frontmatter
+        await this.frontmatterUtils.setFrontmatterField(file, 'telegram_message_id', result.messageId);
+        new Notice('Заметка отправлена через GramJS и связана с постом!');
+        // Re-inject buttons to update UI
+        await this.injectButtons(leaf);
+      }
     }
   }
 

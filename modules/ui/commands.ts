@@ -4,6 +4,7 @@
 
 import { App, TFile, Notice, Command } from 'obsidian';
 import { GramJSBridge, MessageFormatter } from '../telegram';
+import { FrontmatterUtils } from '../obsidian';
 import { DuplicateTimeFixer } from '../utils';
 import { RELATED_CHUNKS_VIEW_TYPE } from '../chunking/ui/related-chunks-view';
 import type { KoraMcpPluginSettings } from '../../main';
@@ -14,6 +15,7 @@ export class PluginCommands {
   private gramjsBridge: GramJSBridge;
   private messageFormatter: MessageFormatter;
   private duplicateTimeFixer: DuplicateTimeFixer;
+  private frontmatterUtils: FrontmatterUtils;
 
   constructor(app: App, settings: KoraMcpPluginSettings, gramjsBridge: GramJSBridge) {
     this.app = app;
@@ -24,6 +26,7 @@ export class PluginCommands {
       settings.telegram.useCustomEmojis
     );
     this.duplicateTimeFixer = new DuplicateTimeFixer(app);
+    this.frontmatterUtils = new FrontmatterUtils(app);
   }
 
   /**
@@ -93,12 +96,26 @@ export class PluginCommands {
       return;
     }
 
+    // Check if note is already linked to a Telegram post
+    const telegramMessageId = this.frontmatterUtils.getFrontmatterField(file, 'telegram_message_id');
+
     // Format message with custom emojis support
     const { processedText } = this.messageFormatter.processCustomEmojis(content);
     
-    const success = await this.gramjsBridge.sendMessage(peer, processedText);
-    if (success) {
-      new Notice('Заметка отправлена через GramJS!');
+    if (telegramMessageId) {
+      // Edit existing message
+      const success = await this.gramjsBridge.editMessage(peer, telegramMessageId, processedText);
+      if (success) {
+        new Notice('Сообщение в Telegram обновлено!');
+      }
+    } else {
+      // Send new message
+      const result = await this.gramjsBridge.sendMessage(peer, processedText);
+      if (result.success && result.messageId) {
+        // Save message ID to frontmatter
+        await this.frontmatterUtils.setFrontmatterField(file, 'telegram_message_id', result.messageId);
+        new Notice('Заметка отправлена через GramJS и связана с постом!');
+      }
     }
   }
 

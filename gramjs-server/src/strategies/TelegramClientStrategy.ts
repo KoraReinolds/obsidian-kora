@@ -122,6 +122,29 @@ class TelegramClientStrategy {
   }
 
   /**
+   * Edit an existing message
+   * @param {string} peer - Target peer
+   * @param {number} messageId - Message ID to edit
+   * @param {MessageOptions} options - Message options
+   * @returns {Promise<any>}
+   */
+  async editMessage(peer: string, messageId: number, options: MessageOptions): Promise<any> {
+    if (!this.isConnected || !this.client) {
+      throw new Error('Client not connected');
+    }
+    
+    const targetPeer = this.resolveTargetPeer(peer);
+    const result = await this.client.editMessage(targetPeer, {
+      message: messageId,
+      text: options.message,
+      formattingEntities: options.formattingEntities
+    });
+    
+    // Clean result to avoid circular references
+    return this.sanitizeResult(result);
+  }
+
+  /**
    * Sanitize result object to remove circular references and non-serializable data
    * @param {any} result - Raw result from GramJS
    * @returns {any} Clean result safe for JSON serialization
@@ -131,6 +154,7 @@ class TelegramClientStrategy {
     
     const cleanResult = {
       id: result.id,
+      messageId: result.id, // Add messageId alias for easier access
       date: result.date ? new Date(result.date * 1000).toISOString() : null,
       message: result.message || null,
       out: result.out,
