@@ -81,6 +81,66 @@ Third paragraph.`;
     expect(chunks[2].contentRaw).toBe('Third paragraph.');
   });
 
+  it('should ignore wikilinks and markdown links', () => {
+    const md = `# Heading
+
+Normal paragraph with content.
+
+[[Home]]
+
+[[Another Note|Display Text]]
+
+[Google](https://google.com)
+
+[Link with title](https://example.com "Example Site")
+
+Another normal paragraph.
+
+[[Link1]] [[Link2]]
+
+Some text with [[embedded link]] in the middle.
+
+Just text.`;
+    
+    const cache = makeCacheFromMarkdown(md);
+    const chunks = chunkNote(md, baseContext, {}, cache);
+    
+    // Should have 4 chunks: the normal paragraphs, the text with embedded link, and "Just text."
+    expect(chunks.length).toBe(4);
+    expect(chunks[0].contentRaw).toBe('Normal paragraph with content.');
+    expect(chunks[1].contentRaw).toBe('Another normal paragraph.');
+    expect(chunks[2].contentRaw).toBe('Some text with [[embedded link]] in the middle.');
+    expect(chunks[3].contentRaw).toBe('Just text.');
+    
+    // Ensure no pure link chunks are present
+    const hasOnlyWikilink = chunks.some(c => /^\[\[.*\]\]$/.test(c.contentRaw.trim()));
+    const hasOnlyMarkdownLink = chunks.some(c => /^\[.*\]\(.*\)$/.test(c.contentRaw.trim()));
+    expect(hasOnlyWikilink).toBe(false);
+    expect(hasOnlyMarkdownLink).toBe(false);
+  });
+
+  it('should ignore blocks with only punctuation after removing links', () => {
+    const md = `# Heading
+
+Normal paragraph.
+
+[[Link1]], [[Link2]].
+
+[Google](https://google.com), [Yahoo](https://yahoo.com)!
+
+[[Mixed]] - [link](http://example.com)...
+
+Another paragraph.`;
+    
+    const cache = makeCacheFromMarkdown(md);
+    const chunks = chunkNote(md, baseContext, {}, cache);
+    
+    // Should have 2 chunks: only the normal paragraphs
+    expect(chunks.length).toBe(2);
+    expect(chunks[0].contentRaw).toBe('Normal paragraph.');
+    expect(chunks[1].contentRaw).toBe('Another paragraph.');
+  });
+
   it('should ignore callout blocks', () => {
     const md = `# Heading
 
@@ -152,12 +212,14 @@ Another paragraph with **bold** text.`;
     expect(hasBoldText).toBe(true);
   });
 
-  it('should handle complex mixed content with code blocks', () => {
+  it('should handle complex mixed content with code blocks and links', () => {
     const md = `# Test Note
 
 Regular intro paragraph.
 
 ![[SomeFile#heading]]
+
+[[Simple Link]]
 
 ---
 
@@ -165,6 +227,8 @@ Regular intro paragraph.
 def hello_world():
     print("Hello, world!")
 \`\`\`
+
+[External Link](https://example.com)
 
 > [!tip] This is a tip
 > With some content
@@ -177,6 +241,8 @@ npm install
 npm run build
 \`\`\`
 
+[[Link1]], [[Link2]]
+
 > [!warning]+ Warning
 > - Point 1  
 > - Point 2
@@ -186,7 +252,7 @@ Final paragraph.`;
     const cache = makeCacheFromMarkdown(md);
     const chunks = chunkNote(md, baseContext, {}, cache);
     
-    // Should only have regular content, no embeds, separators, callouts, or code blocks
+    // Should only have regular content, no embeds, separators, callouts, code blocks, or standalone links
     expect(chunks.length).toBe(3);
     expect(chunks[0].contentRaw).toBe('Regular intro paragraph.');
     expect(chunks[1].contentRaw).toBe('Normal content here.');
@@ -195,6 +261,13 @@ Final paragraph.`;
     // Ensure no code chunks are present
     const codeChunks = chunks.filter(c => c.chunkType === 'code');
     expect(codeChunks.length).toBe(0);
+    
+    // Ensure no standalone link chunks are present
+    const linkOnlyChunks = chunks.filter(c => {
+      const text = c.contentRaw.trim();
+      return /^\[\[.*\]\]$/.test(text) || /^\[.*\]\(.*\)$/.test(text);
+    });
+    expect(linkOnlyChunks.length).toBe(0);
   });
 
   it('should handle complex mixed content', () => {

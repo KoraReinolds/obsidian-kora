@@ -145,6 +145,27 @@ function shouldIgnoreBlock(block: ParsedBlock): boolean {
     return true;
   }
   
+  // Ignore wikilinks: [[link]] or [[link|display text]]
+  if (/^\[\[.*\]\]$/.test(trimmedText)) {
+    return true;
+  }
+  
+  // Ignore markdown links: [text](url) or [text](url "title")
+  if (/^\[.*\]\(.*\)$/.test(trimmedText)) {
+    return true;
+  }
+  
+  // Ignore blocks that contain only links (wikilinks and/or markdown links)
+  // Remove all wikilinks and markdown links, then check if anything meaningful remains
+  const withoutWikilinks = trimmedText.replace(/\[\[.*?\]\]/g, '');
+  const withoutMarkdownLinks = withoutWikilinks.replace(/\[.*?\]\(.*?\)/g, '');
+  const withoutLinks = withoutMarkdownLinks.trim();
+  
+  // If after removing all links there's nothing substantial left, ignore the block
+  if (!withoutLinks || /^[\s\-\*\+\.\,\;\:\!\?]*$/.test(withoutLinks)) {
+    return true;
+  }
+  
   return false;
 }
 
