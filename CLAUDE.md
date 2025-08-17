@@ -79,15 +79,13 @@ npm run version
    - `modules/gramjs-bridge.ts`: HTTP client for communicating with GramJS server
    - Avoids Electron/Node.js compatibility issues
 
-5. **Modular Components** (`modules/`): Separated concerns architecture
-   - `commands.ts`: Command definitions and handlers
-   - `ui-manager.ts`: UI button injection and management
-   - `message-formatter.ts`: Message formatting and emoji processing
-   - `gramjs-bridge.ts`: HTTP bridge to GramJS server
-   - `image-utils.ts`: Image processing utilities
-   - `note-chunker/`: Note parsing and chunking system
-   - `note-ui-system.ts`: Note UI management system
-   - `vector-bridge.ts`: HTTP bridge to vector services
+5. **Modular Components** (`modules/`): Organized by functional domains
+   - `obsidian/`: Common Obsidian utilities (vault operations, frontmatter utils)
+   - `telegram/`: Telegram integration (GramJS bridge, message formatting, image utils)
+   - `vector/`: Vector search functionality (vector bridge and operations)
+   - `ui/`: User interface components (commands, UI manager, note UI system)
+   - `utils/`: General utilities (duplicate time fixer, etc.)
+   - `chunking/`: Note parsing and chunking system (formerly note-chunker)
 
 ### Key HTTP Endpoints
 
@@ -135,7 +133,7 @@ The plugin includes a comprehensive AI-powered vector search system that can ind
 **Components:**
 - **EmbeddingService** (`gramjs-server/src/embedding-service.ts`): OpenAI embeddings with chunking and averaging
 - **VectorService** (`gramjs-server/src/vector-service.ts`): Qdrant integration with CRUD operations
-- **VectorBridge** (`modules/vector-bridge.ts`): TypeScript interface for vector operations
+- **VectorBridge** (`modules/vector/vector-bridge.ts`): TypeScript interface for vector operations
 - **VectorSettings** (`settings/VectorSettings.ts`): Configuration UI with connection testing
 
 **Supported Content Types:**
@@ -178,15 +176,33 @@ settings/            # Modular settings components
 ├── GramJsSettings.ts
 ├── CustomEmojiSettings.ts
 └── VectorSettings.ts # Vector search configuration
-modules/             # Feature modules
-├── commands.ts      # Command definitions and handlers
-├── ui-manager.ts    # UI button injection and management
-├── message-formatter.ts # Message formatting and emoji processing
-├── gramjs-bridge.ts # HTTP bridge to GramJS server
-├── vector-bridge.ts # HTTP bridge to vector services
-├── image-utils.ts   # Image processing utilities
-├── note-chunker/    # Note parsing and chunking system
-└── note-ui-system.ts # Note UI management system
+modules/             # Organized feature modules
+├── obsidian/        # Obsidian utilities
+│   ├── vault-operations.ts # File operations and management
+│   ├── frontmatter-utils.ts # Frontmatter manipulation
+│   └── index.ts
+├── telegram/        # Telegram integration
+│   ├── gramjs-bridge.ts # HTTP bridge to GramJS server
+│   ├── message-formatter.ts # Message formatting and emoji processing
+│   ├── image-utils.ts # Image processing utilities
+│   └── index.ts
+├── vector/          # Vector search
+│   ├── vector-bridge.ts # HTTP bridge to vector services
+│   └── index.ts
+├── ui/              # User interface
+│   ├── commands.ts  # Command definitions and handlers
+│   ├── ui-manager.ts # UI button injection and management
+│   ├── note-ui-system.ts # Note UI management system
+│   └── index.ts
+├── utils/           # General utilities
+│   ├── duplicate-time-fixer.ts # Duplicate timestamp utilities
+│   └── index.ts
+├── chunking/        # Note chunking system (formerly note-chunker)
+│   ├── index.ts
+│   ├── model/       # Chunking logic and types
+│   ├── ui/          # Chunk views and UI components
+│   └── __tests__/   # Tests for chunking functionality
+└── index.ts         # Main modules export
 lib/
 └── obsidian.ts      # Obsidian API wrappers
 docs/                # Documentation
@@ -206,7 +222,7 @@ docs/                # Documentation
 - GramJS requires API credentials from Telegram and separate server process
 - All vector data stored in single Qdrant collection for cross-content search
 - Modular architecture allows for easy extension and maintenance
-- Tests configured with Vitest for note-chunker module
+- Tests configured with Vitest for chunking module
 - Dual-mode support allows bot and userbot to run simultaneously
 
 ## GramJS Setup
@@ -238,6 +254,39 @@ Settings are managed through:
 3. Modular setting components in `settings/`
 
 The plugin automatically handles settings persistence and validation.
+
+## Module Organization
+
+The plugin follows a domain-driven modular architecture for better organization and maintainability:
+
+### Import Patterns
+```typescript
+// Import from specific modules
+import { VaultOperations, FrontmatterUtils } from './modules/obsidian';
+import { GramJSBridge, MessageFormatter } from './modules/telegram';
+import { VectorBridge } from './modules/vector';
+import { UIManager, PluginCommands } from './modules/ui';
+import { DuplicateTimeFixer } from './modules/utils';
+import { chunkNote } from './modules/chunking';
+
+// Or import from main modules index
+import { VaultOperations, GramJSBridge, VectorBridge } from './modules';
+```
+
+### Module Boundaries
+- **obsidian/**: Core Obsidian API interactions and vault operations
+- **telegram/**: All Telegram-related functionality (GramJS, formatting, emojis)
+- **vector/**: Vector search and embedding operations
+- **ui/**: User interface components and command definitions
+- **utils/**: General utilities not specific to other domains
+- **chunking/**: Note parsing, chunking, and chunk UI components
+
+### Extension Guidelines
+When adding new features:
+1. Identify the appropriate functional domain
+2. Add to existing module or create new module if needed
+3. Update module's index.ts to export new functionality
+4. Follow established patterns within each module
 
 # Code Development Principles
 

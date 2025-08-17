@@ -3,11 +3,10 @@
  */
 
 import { App, TFile, Notice, Command } from 'obsidian';
-import { GramJSBridge } from './gramjs-bridge';
-import { MessageFormatter } from './message-formatter';
-import { DuplicateTimeFixer } from './duplicate-time-fixer';
-import { RELATED_CHUNKS_VIEW_TYPE } from './note-chunker/ui/related-chunks-view';
-import type { KoraMcpPluginSettings } from '../main';
+import { GramJSBridge, MessageFormatter } from '../telegram';
+import { DuplicateTimeFixer } from '../utils';
+import { RELATED_CHUNKS_VIEW_TYPE } from '../chunking/ui/related-chunks-view';
+import type { KoraMcpPluginSettings } from '../../main';
 
 export class PluginCommands {
   private app: App;

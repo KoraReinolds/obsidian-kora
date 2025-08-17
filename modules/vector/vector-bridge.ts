@@ -4,7 +4,7 @@
  */
 
 import { Notice } from 'obsidian';
-import { chunkNote } from './note-chunker/index.js';
+import { chunkNote } from '../chunking/index.js';
 
 interface VectorBridgeConfig {
   host: string;

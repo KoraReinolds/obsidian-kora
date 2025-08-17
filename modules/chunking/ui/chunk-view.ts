@@ -8,7 +8,7 @@ import { chunkNote } from '..';
 import type { Chunk } from '..';
 import { renderChunkList, setActiveChunkItem } from './chunk-list';
 import { findChunkIndexForLine, startCursorPolling } from './chunk-cursor';
-import { VectorBridge } from '../../vector-bridge';
+import { VectorBridge } from '../../vector';
 import { fetchAndRenderChunkDiff, loadBaselineForChunksByOriginalId } from './chunk-compare';
 import { createScrollableContainer } from './shared-container';
 

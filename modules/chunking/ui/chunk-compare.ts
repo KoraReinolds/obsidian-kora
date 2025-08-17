@@ -4,7 +4,7 @@
  */
 
 import type { Chunk } from '..';
-import type { VectorBridge } from '../../vector-bridge';
+import type { VectorBridge } from '../../vector';
 import { renderInlineDiff } from './inline-diff';
 
 /** Result of a comparison operation. */

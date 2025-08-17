@@ -8,7 +8,7 @@ import { chunkNote } from '..';
 import type { Chunk } from '..';
 import { renderChunkList } from './chunk-list';
 import { findChunkIndexForLine, startCursorPolling } from './chunk-cursor';
-import { VectorBridge } from '../../vector-bridge';
+import { VectorBridge } from '../../vector';
 import { createScrollableContainer } from './shared-container';
 
 export const RELATED_CHUNKS_VIEW_TYPE = 'kora-related-chunks';

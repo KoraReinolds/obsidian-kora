@@ -1,6 +1,6 @@
 import { Notice, Plugin, TFile, WorkspaceLeaf } from 'obsidian';
-import { CHUNK_VIEW_TYPE, ChunkView } from './modules/note-chunker/ui/chunk-view';
-import { RELATED_CHUNKS_VIEW_TYPE, RelatedChunksView } from './modules/note-chunker/ui/related-chunks-view';
+import { CHUNK_VIEW_TYPE, ChunkView } from './modules/chunking/ui/chunk-view';
+import { RELATED_CHUNKS_VIEW_TYPE, RelatedChunksView } from './modules/chunking/ui/related-chunks-view';
 import * as http from 'http';
 import { AddressInfo } from 'net';
 import {
@@ -11,12 +11,11 @@ import {
 	getMarkdownFiles,
 	updateFrontmatterForFiles,
 } from './lib/obsidian';
-import { GramJSBridge } from './modules/gramjs-bridge';
-import { PluginCommands } from './modules/commands';
-import { UIManager } from './modules/ui-manager';
-import { VectorBridge } from './modules/vector-bridge';
+import { GramJSBridge } from './modules/telegram';
+import { PluginCommands, UIManager } from './modules/ui';
+import { VectorBridge } from './modules/vector';
 import { McpSettingTab } from './settings';
-import type { EmojiMapping } from './modules/message-formatter';
+import type { EmojiMapping } from './modules/telegram';
 import type { VectorSettingsInterface } from './settings/VectorSettings';
 import { defaultVectorSettings } from './settings/VectorSettings';
 

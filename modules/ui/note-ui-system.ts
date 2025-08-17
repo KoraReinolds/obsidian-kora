@@ -4,8 +4,8 @@
  */
 
 import { TFile, WorkspaceLeaf, App } from 'obsidian';
-import { VectorBridge } from './vector-bridge';
-import type { KoraMcpPluginSettings } from '../main';
+import { VectorBridge } from '../vector';
+import type { KoraMcpPluginSettings } from '../../main';
 
 export interface NoteUIContext {
   file: TFile;
