@@ -3,19 +3,26 @@ import type { App } from 'obsidian';
 import { BaseEndpoint } from './base';
 import { getMarkdownFiles } from '../../obsidian';
 
-interface FilesOutput {
-	files: string[];
+interface FilesInput {
+	include?: string[];
+	exclude?: string[];
 }
 
-export class FilesEndpoint extends BaseEndpoint<Record<string, never>, string[]> {
+export class FilesEndpoint extends BaseEndpoint<FilesInput, string[]> {
 	path = '/files';
-	method = 'GET' as const;
-	description = 'Return an array of markdown files from the vault';
+	method = 'POST' as const;
+	description = 'Return an array of markdown files from the vault with optional include/exclude filters';
 	toolName = 'get_obsidian_files';
-	inputSchema = {} as Record<string, never>; // No input parameters
+	inputSchema = z.object({
+		include: z.array(z.string()).optional().describe('Array of path patterns to include'),
+		exclude: z.array(z.string()).optional().describe('Array of path patterns to exclude'),
+	});
 
-	async handler(app: App, _input: Record<string, never>): Promise<string[]> {
-		const files = await getMarkdownFiles(app);
+	async handler(app: App, input: FilesInput): Promise<string[]> {
+		const files = await getMarkdownFiles(app, {
+			include: input.include,
+			exclude: input.exclude
+		});
 		return files.map(file => file.path);
 	}
 

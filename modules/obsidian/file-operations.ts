@@ -5,6 +5,24 @@
 import { App, TFile, TFolder } from 'obsidian';
 
 /**
+ * Checks if a file path matches a glob-like pattern.
+ * @param path The file path to check.
+ * @param pattern The glob pattern (* and ** supported).
+ * @returns True if the path matches the pattern.
+ */
+function matchesPattern(path: string, pattern: string): boolean {
+	// Convert glob-like pattern to regex
+	// Support for * (any characters) and ** (any directories)
+	const regexPattern = pattern
+		.replace(/\*\*/g, '.*') // ** matches any directories
+		.replace(/\*/g, '[^/]*') // * matches any characters except /
+		.replace(/\./g, '\\.'); // Escape dots
+	
+	const regex = new RegExp(`^${regexPattern}$`);
+	return regex.test(path);
+}
+
+/**
  * Retrieves markdown files from the vault.
  * @param app The Obsidian application instance.
  * @param options Optional parameters for filtering and content inclusion.
@@ -16,14 +34,30 @@ export async function getMarkdownFiles(
 		folderPath?: string;
 		includeContent?: boolean;
 		includeTitle?: boolean;
+		include?: string[];
+		exclude?: string[];
 	}
 ) {
 	const files = app.vault.getMarkdownFiles();
 	
-	// Filter by folder path if specified
-	const filteredFiles = options?.folderPath 
+	// Filter by folder path if specified (legacy support)
+	let filteredFiles = options?.folderPath 
 		? files.filter(f => f.path.startsWith(options.folderPath!))
 		: files;
+
+	// Apply include filter if provided
+	if (options?.include && options.include.length > 0) {
+		filteredFiles = filteredFiles.filter(file => 
+			options.include!.some(pattern => matchesPattern(file.path, pattern))
+		);
+	}
+
+	// Apply exclude filter if provided
+	if (options?.exclude && options.exclude.length > 0) {
+		filteredFiles = filteredFiles.filter(file => 
+			!options.exclude!.some(pattern => matchesPattern(file.path, pattern))
+		);
+	}
 	
 	// Map files to result format
 	const results = [];
