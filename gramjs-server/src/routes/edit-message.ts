@@ -1,12 +1,13 @@
 /**
  * Route: /edit_message
  * Edits an existing message text with optional emoji entities.
+ * Now supports markdown conversion with markdownContent parameter.
  */
 
 import type { Express, Request, Response } from 'express';
-import { Api } from 'telegram';
 import { initClient } from '../services/strategy-service.js';
 import type { MessageOptions } from '../types/http.js';
+import { processMessage, validateMessageParams } from '../utils/markdown-converter.js';
 
 /**
  * JSDoc: Registers POST /edit_message endpoint.
@@ -14,28 +15,60 @@ import type { MessageOptions } from '../types/http.js';
 export function registerEditMessageRoute(app: Express): void {
   app.post('/edit_message', async (req: Request, res: Response) => {
     try {
-      const { peer, messageId, message, entities, disableWebPagePreview } = req.body;
-      if (!peer || !messageId || !message) {
-        return res.status(400).json({ error: 'peer, messageId and message are required' });
-      }
+      const { 
+        peer, 
+        messageId, 
+        message, 
+        fileName,
+        entities, 
+        buttons,
+        disableWebPagePreview 
+      } = req.body;
+
+      // Validate required parameters
+      validateMessageParams('edit', { peer, messageId, message });
+
+      // Process message (handles both regular and markdown)
+      const processed = processMessage({
+        peer,
+        message,
+        fileName,
+        entities,
+        buttons,  // Important: now edit_message also supports buttons!
+        disableWebPagePreview
+      }); 
 
       const strategy = await initClient();
-      const messageOptions: MessageOptions = { message };
+      const messageOptions: MessageOptions = { message: processed.finalMessage };
 
-      if (entities && entities.length > 0) {
-        messageOptions.formattingEntities = entities.map((entity: any) => new Api.MessageEntityCustomEmoji({
-          offset: entity.offset,
-          length: entity.length,
-          documentId: entity.custom_emoji_id,
-        }));
+      if (processed.finalEntities.length > 0) {
+        messageOptions.formattingEntities = processed.finalEntities;
       }
 
-      if (disableWebPagePreview !== undefined) {
-        messageOptions.disableWebPagePreview = disableWebPagePreview;
+      if (processed.disableWebPagePreview !== undefined) {
+        messageOptions.disableWebPagePreview = processed.disableWebPagePreview;
+      }
+
+      // Handle inline buttons for edit operation
+      if (processed.replyMarkup) {
+        messageOptions.replyMarkup = processed.replyMarkup;
       }
 
       const result = await strategy.editMessage(peer, messageId, messageOptions);
-      res.json({ success: true, message: 'Message edited successfully', mode: strategy.getMode(), result });
+      
+      const response: any = { 
+        success: true, 
+        message: 'Message edited successfully', 
+        mode: strategy.getMode(), 
+        result 
+      };
+      
+      // Add conversion info if markdown was used
+      if (processed.conversionInfo) {
+        response.conversionInfo = processed.conversionInfo;
+      }
+      
+      res.json(response);
     } catch (error: any) {
       // eslint-disable-next-line no-console
       console.error('[edit_message] Error:', error);

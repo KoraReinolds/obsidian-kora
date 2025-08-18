@@ -149,19 +149,32 @@ export class UIManager {
       const file = (leaf.view as any).file as TFile;
       if (file) {
         const channelConfigs = this.getChannelConfigs(file);
-        // If no channel configs, show default button
+        // If no channel configs, create default channel config from settings
         if (channelConfigs.length === 0) {
-          const telegramMessageId = this.frontmatterUtils.getFrontmatterField(file, 'telegram_message_id');
-          const buttonText = telegramMessageId ? '✏️ Редактировать пост' : '📤 Отправить в TG';
-          const buttonColor = telegramMessageId ? '#f59e0b' : '#0088cc';
-          
-          const buttonGramJSText = this.createButton(
-            buttonText,
-            'kora-gramjs-text',
-            () => this.sendNoteAsTextLegacy(leaf),
-            { backgroundColor: buttonColor }
-          );
-          buttons.push(buttonGramJSText);
+          const defaultChannelId = this.settings.gramjs?.chatId || this.settings.telegram.chatId;
+          if (defaultChannelId) {
+            // Check if there's an existing message ID in legacy format
+            const telegramMessageId = this.frontmatterUtils.getFrontmatterField(file, 'telegram_message_id');
+            
+            const defaultChannelConfig: ChannelConfig = {
+              name: 'Telegram',
+              channelId: defaultChannelId,
+              messageId: telegramMessageId || undefined
+            };
+            
+            const buttonText = defaultChannelConfig.messageId 
+              ? '✏️ Редактировать пост' 
+              : '📤 Отправить в TG';
+            const buttonColor = defaultChannelConfig.messageId ? '#f59e0b' : '#0088cc';
+            
+            const buttonGramJSText = this.createButton(
+              buttonText,
+              'kora-gramjs-text',
+              () => this.sendNoteToChannel(leaf, defaultChannelConfig),
+              { backgroundColor: buttonColor }
+            );
+            buttons.push(buttonGramJSText);
+          }
         } else {
           // Create button for each channel config
           channelConfigs.forEach(channelConfig => {
@@ -217,63 +230,6 @@ export class UIManager {
     return button;
   }
 
-  /**
-   * Send note as text via GramJS (legacy method for backward compatibility)
-   */
-  private async sendNoteAsTextLegacy(leaf: WorkspaceLeaf): Promise<void> {
-    const file = (leaf.view as any).file as TFile;
-    if (!file) {
-      new Notice('Нет активного файла');
-      return;
-    }
-
-    const content = await this.getFileContent(file);
-    const peer = this.settings.gramjs?.chatId || this.settings.telegram.chatId;
-    
-    if (!peer) {
-      new Notice('Chat ID не настроен');
-      return;
-    }
-
-    // Check if note is already linked to a Telegram post
-    const telegramMessageId = this.frontmatterUtils.getFrontmatterField(file, 'telegram_message_id');
-
-    // Process custom emojis
-    const { processedText, entities } = this.messageFormatter.processCustomEmojis(content);
- 
-    if (telegramMessageId) {
-      // Edit existing message
-      const success = await this.gramjsBridge.editMessage(
-        peer, 
-        telegramMessageId, 
-        processedText, 
-        entities, 
-        true, // disableWebPagePreview
-      );
-      if (success) {
-        new Notice('Сообщение в Telegram обновлено!');
-        // Re-inject buttons to update UI
-        await this.injectButtons(leaf);
-      }
-    } else {
-      // Send new message
-      const buttons = this.createNavigationButtons(file);
-      const result = await this.gramjsBridge.sendMessage(
-        peer, 
-        processedText, 
-        entities, 
-        buttons, 
-        true, // disableWebPagePreview
-      );
-      if (result.success && result.messageId) {
-        // Save message ID to frontmatter
-        await this.frontmatterUtils.setFrontmatterField(file, 'telegram_message_id', result.messageId);
-        new Notice('Заметка отправлена через GramJS и связана с постом!');
-        // Re-inject buttons to update UI
-        await this.injectButtons(leaf);
-      }
-    }
-  }
 
   /**
    * Send note to specific channel
@@ -292,10 +248,16 @@ export class UIManager {
       new Notice(`Channel ID не настроен для ${channelConfig.name}`);
       return;
     }
-       debugger 
 
-    // Process custom emojis
-    const { processedText, entities } = this.messageFormatter.processCustomEmojis(content);
+    // Convert markdown to Telegram format and process custom emojis
+    const conversionResult = this.messageFormatter.formatMarkdownNote(file.basename, content);
+    const { processedText, entities: customEmojiEntities } = this.messageFormatter.processCustomEmojis(conversionResult.text);
+    
+    // Combine markdown entities with custom emoji entities
+    const combinedEntities = [
+      ...(conversionResult.entities || []),
+      ...customEmojiEntities
+    ].sort((a, b) => a.offset - b.offset);
  
     if (channelConfig.messageId) {
       // Edit existing message
@@ -303,7 +265,7 @@ export class UIManager {
         peer, 
         channelConfig.messageId, 
         processedText, 
-        entities, 
+        combinedEntities, 
         true, // disableWebPagePreview
       );
       if (success) {
@@ -317,13 +279,19 @@ export class UIManager {
       const result = await this.gramjsBridge.sendMessage(
         peer, 
         processedText, 
-        entities, 
+        combinedEntities, 
         buttons, 
         true, // disableWebPagePreview
       );
       if (result.success && result.messageId) {
-        // Save message ID to channel config
-        await this.updateChannelConfig(file, channelConfig.name, result.messageId);
+        // For default channel (legacy migration), save to both formats for compatibility
+        if (channelConfig.name === 'Telegram' && !this.getChannelConfigs(file).some(ch => ch.name === 'Telegram')) {
+          // This is a legacy default channel, save to old format for backward compatibility
+          await this.frontmatterUtils.setFrontmatterField(file, 'telegram_message_id', result.messageId);
+        } else {
+          // Save message ID to channel config
+          await this.updateChannelConfig(file, channelConfig.name, result.messageId);
+        }
         new Notice(`Заметка отправлена в ${channelConfig.name}!`);
         // Re-inject buttons to update UI
         await this.injectButtons(leaf);
@@ -341,7 +309,6 @@ export class UIManager {
           { text: '✏️', data: 'edit_note:test.md' },
           { text: '🗂️', data: 'browse_folder' },
           { text: '🔍', data: 'search_vault' },
-          { text: 'a', data: 'search_vault' },
       ],
    ]; 
    return buttons;

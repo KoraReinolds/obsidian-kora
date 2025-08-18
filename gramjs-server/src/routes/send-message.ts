@@ -1,13 +1,14 @@
 /**
  * Route: /send_message
  * Sends a text message with optional emoji entities and inline buttons.
+ * Now supports markdown conversion with markdownContent parameter.
  */
 
 import type { Express, Request, Response } from 'express';
-import { Api } from 'telegram';
 import { initClient } from '../services/strategy-service.js';
 import { createInlineKeyboard } from '../utils/keyboard.js';
 import type { MessageOptions } from '../types/http.js';
+import { processMessage, validateMessageParams } from '../utils/markdown-converter.js';
 
 /**
  * JSDoc: Registers POST /send_message endpoint.
@@ -15,37 +16,62 @@ import type { MessageOptions } from '../types/http.js';
 export function registerSendMessageRoute(app: Express): void {
   app.post('/send_message', async (req: Request, res: Response) => {
     try {
-      const { peer, message, entities, buttons, disableWebPagePreview } = req.body;
-      if (!peer || !message) return res.status(400).json({ error: 'peer and message are required' });
+      const { 
+        peer, 
+        message, 
+        markdownContent,
+        fileName,
+        entities, 
+        buttons, 
+        disableWebPagePreview 
+      } = req.body;
+      
+      // Validate required parameters
+      validateMessageParams('send', { peer, message, markdownContent });
+
+      // Process message (handles both regular and markdown)
+      const processed = processMessage({
+        peer,
+        message,
+        markdownContent,
+        fileName,
+        entities,
+        buttons,
+        disableWebPagePreview
+      });
 
       const strategy = await initClient();
-      const messageOptions: MessageOptions = { message };
+      const messageOptions: MessageOptions = { message: processed.finalMessage };
 
-      if (entities && entities.length > 0) {
-        messageOptions.formattingEntities = entities.map((entity: any) => new Api.MessageEntityCustomEmoji({
-          offset: entity.offset,
-          length: entity.length,
-          documentId: entity.custom_emoji_id,
-        }));
+      if (processed.finalEntities.length > 0) {
+        messageOptions.formattingEntities = processed.finalEntities;
       }
 
-      if (disableWebPagePreview !== undefined) {
-        messageOptions.disableWebPagePreview = disableWebPagePreview;
+      if (processed.disableWebPagePreview !== undefined) {
+        messageOptions.disableWebPagePreview = processed.disableWebPagePreview;
       }
 
+      // Handle inline buttons using existing keyboard utility
       const inlineButtons = createInlineKeyboard(buttons);
-      if (inlineButtons) {
-        messageOptions.replyMarkup = {
-          inline_keyboard: buttons.map((row: any) => row.map((btn: any) => ({
-            text: btn.text,
-            ...(btn.url ? { url: btn.url } : {}),
-            ...(btn.data ? { callback_data: btn.data } : {}),
-          }))),
-        };
+      if (inlineButtons || processed.replyMarkup) {
+        messageOptions.replyMarkup = processed.replyMarkup || inlineButtons;
       }
 
       const result = await strategy.sendMessage(peer, messageOptions);
-      res.json({ success: true, message: 'Message sent successfully', mode: strategy.getMode(), result });
+      
+      const response: any = { 
+        success: true, 
+        message: 'Message sent successfully', 
+        mode: strategy.getMode(), 
+        result 
+      };
+      
+      // Add conversion info if markdown was used
+      if (processed.conversionInfo) {
+        response.conversionInfo = processed.conversionInfo;
+      }
+      
+      res.json(response);
     } catch (error: any) {
       // eslint-disable-next-line no-console
       console.error('[send_message] Error:', error);

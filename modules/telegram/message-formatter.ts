@@ -2,6 +2,12 @@
  * Utilities for formatting messages for different platforms
  */
 
+import { 
+  MarkdownToTelegramConverter, 
+  type ConversionOptions, 
+  type ConversionResult 
+} from './markdown-to-telegram-converter';
+
 export interface EmojiMapping {
   standard: string;      // Обычный эмодзи (например: "📝")
   customId: string;      // ID кастомного эмодзи
@@ -18,10 +24,12 @@ export interface MessageEntity {
 export class MessageFormatter {
   private customEmojis: EmojiMapping[];
   private useCustomEmojis: boolean;
+  private markdownConverter: MarkdownToTelegramConverter;
 
   constructor(customEmojis: EmojiMapping[] = [], useCustomEmojis = false) {
     this.customEmojis = customEmojis;
     this.useCustomEmojis = useCustomEmojis;
+    this.markdownConverter = new MarkdownToTelegramConverter();
   }
 
   /**
@@ -132,5 +140,45 @@ export class MessageFormatter {
     if (!this.customEmojis) return;
 
     this.customEmojis = this.customEmojis.filter(m => m.standard !== standard);
+  }
+
+  /**
+   * Форматировать markdown заметку для Telegram
+   */
+  formatMarkdownNote(fileName: string, markdownContent: string, options?: ConversionOptions): ConversionResult {
+    // Конвертируем markdown в telegram формат
+    const conversionResult = this.markdownConverter.convert(markdownContent, options);
+    
+    // Добавляем заголовок с именем файла
+    const header = `📝 *${this.escapeMarkdownV2(fileName)}*\n\n`;
+    
+    // Объединяем заголовок с контентом
+    const finalText = header + conversionResult.text;
+    
+    // Корректируем offset'ы entities с учетом добавленного заголовка
+    const adjustedEntities = conversionResult.entities?.map(entity => ({
+      ...entity,
+      offset: entity.offset + header.length
+    })) || [];
+
+    return {
+      ...conversionResult,
+      text: finalText,
+      entities: adjustedEntities
+    };
+  }
+
+  /**
+   * Конвертировать markdown в telegram формат без заголовка
+   */
+  convertMarkdownToTelegram(markdownContent: string, options?: ConversionOptions): ConversionResult {
+    return this.markdownConverter.convert(markdownContent, options);
+  }
+
+  /**
+   * Получить экземпляр markdown конвертера для прямого доступа
+   */
+  getMarkdownConverter(): MarkdownToTelegramConverter {
+    return this.markdownConverter;
   }
 }
