@@ -1,170 +1,85 @@
-import type { App, TFile } from 'obsidian';
-import {
-	getAreaFrontmatters,
-	getAreas,
-	getAutomateDocs,
-	getFrontmatterForFiles,
-	getMarkdownFiles,
-	updateFrontmatterForFiles,
-} from '../../lib/obsidian';
-import type {
-	McpEndpoints,
-	FrontmatterUpdateRequest,
-	FileContentRequest,
-	FrontmatterRequest,
-} from './types';
+import type { App } from 'obsidian';
+import { ALL_ENDPOINTS } from './endpoints';
+import type { McpEndpointDefinition } from './endpoints';
 
 export class McpHttpHandler {
-	constructor(private app: App) {}
+	private endpoints: Map<string, McpEndpointDefinition>;
 
-	getEndpoints(): McpEndpoints {
-		return {
-			'/frontmatter': this.handleFrontmatterUpdate.bind(this),
-			'/area_frontmatters': this.handleAreaFrontmatters.bind(this),
-			'/get_frontmatter': this.handleGetFrontmatter.bind(this),
-			'/areas': this.handleAreas.bind(this),
-			'/files': this.handleFiles.bind(this),
-			'/file_content': this.handleFileContent.bind(this),
-			'/automate_docs': this.handleAutomateDocs.bind(this),
-		};
+	constructor(private app: App) {
+		// Создаем мапу эндпоинтов для быстрого поиска
+		this.endpoints = new Map();
+		for (const endpoint of ALL_ENDPOINTS) {
+			this.endpoints.set(endpoint.path, endpoint);
+		}
 	}
 
-	private async handleFrontmatterUpdate(app: App, req: any, res: any): Promise<void> {
-		let body = '';
-		req.on('data', (chunk: Buffer) => {
-			body += chunk.toString();
-		});
-		req.on('end', async () => {
-			try {
-				const { files, frontmatter }: FrontmatterUpdateRequest = JSON.parse(body);
+	async handleRequest(url: string, method: string, req: any, res: any): Promise<void> {
+		const endpoint = this.endpoints.get(url);
+		
+		if (!endpoint) {
+			res.writeHead(404, { 'Content-Type': 'application/json' });
+			res.end(JSON.stringify({ error: 'Endpoint not found' }));
+			return;
+		}
 
-				if (
-					!Array.isArray(files) ||
-					typeof frontmatter !== 'object' ||
-					frontmatter === null
-				) {
-					res.writeHead(400, { 'Content-Type': 'application/json' });
-					res.end(JSON.stringify({ error: 'Invalid request body' }));
-					return;
-				}
+		if (endpoint.method !== method) {
+			res.writeHead(405, { 'Content-Type': 'application/json' });
+			res.end(JSON.stringify({ error: 'Method not allowed' }));
+			return;
+		}
 
-				const result = await updateFrontmatterForFiles(app, files, frontmatter);
-
-				res.writeHead(200, { 'Content-Type': 'application/json' });
-				res.end(JSON.stringify(result));
-			} catch (error) {
-				res.writeHead(400, { 'Content-Type': 'application/json' });
-				res.end(JSON.stringify({ error: 'Invalid JSON in request body' }));
+		try {
+			let input: any = {};
+			
+			// Для POST запросов читаем body
+			if (method === 'POST') {
+				input = await this.readRequestBody(req);
 			}
-		});
-	}
 
-	private async handleAreaFrontmatters(app: App, req: any, res: any): Promise<void> {
-		try {
-			const frontmatters = await getAreaFrontmatters(app);
+			// Вызываем handler эндпоинта
+			const result = await endpoint.handler(this.app, input);
+			
 			res.writeHead(200, { 'Content-Type': 'application/json' });
-			res.end(JSON.stringify(frontmatters));
+			res.end(JSON.stringify(result));
 		} catch (error: any) {
-			res.writeHead(500, { 'Content-Type': 'application/json' });
-			res.end(JSON.stringify({ error: 'Internal server error', message: error.message }));
+			console.error(`Error in endpoint ${url}:`, error);
+			
+			const statusCode = error.message === 'File not found' ? 404 : 400;
+			res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+			res.end(JSON.stringify({ 
+				error: error.message || 'Internal server error' 
+			}));
 		}
 	}
 
-	private async handleGetFrontmatter(app: App, req: any, res: any): Promise<void> {
-		let body = '';
-		req.on('data', (chunk: Buffer) => {
-			body += chunk.toString();
-		});
-		req.on('end', async () => {
-			try {
-				const { files }: FrontmatterRequest = JSON.parse(body);
-				if (!Array.isArray(files)) {
-					res.writeHead(400, { 'Content-Type': 'application/json' });
-					res.end(
-						JSON.stringify({
-							error: 'Invalid request body, "files" must be an array.',
-						})
-					);
-					return;
+	private async readRequestBody(req: any): Promise<any> {
+		return new Promise((resolve, reject) => {
+			let body = '';
+			req.on('data', (chunk: Buffer) => {
+				body += chunk.toString();
+			});
+			req.on('end', () => {
+				try {
+					resolve(JSON.parse(body));
+				} catch (error) {
+					reject(new Error('Invalid JSON in request body'));
 				}
-				const result = await getFrontmatterForFiles(app, files);
-				res.writeHead(200, { 'Content-Type': 'application/json' });
-				res.end(JSON.stringify(result));
-			} catch (error: any) {
-				res.writeHead(400, { 'Content-Type': 'application/json' });
-				res.end(
-					JSON.stringify({
-						error: 'Invalid JSON in request body',
-						message: error.message,
-					})
-				);
-			}
+			});
+			req.on('error', reject);
 		});
 	}
 
-	private async handleAreas(app: App, req: any, res: any): Promise<void> {
-		try {
-			const areas = getAreas(app);
-			res.writeHead(200, { 'Content-Type': 'application/json' });
-			res.end(JSON.stringify(areas));
-		} catch (error: any) {
-			res.writeHead(500, { 'Content-Type': 'application/json' });
-			res.end(JSON.stringify({ error: 'Internal server error', message: error.message }));
+	// Оставляем для обратной совместимости, но теперь используем новую логику
+	getEndpoints(): Record<string, any> {
+		const legacyEndpoints: Record<string, any> = {};
+		
+		for (const endpoint of ALL_ENDPOINTS) {
+			legacyEndpoints[endpoint.path] = async (app: App, req: any, res: any) => {
+				await this.handleRequest(endpoint.path, endpoint.method, req, res);
+			};
 		}
+		
+		return legacyEndpoints;
 	}
 
-	private async handleFiles(app: App, req: any, res: any): Promise<void> {
-		try {
-			const files = await getMarkdownFiles(app);
-			res.writeHead(200, { 'Content-Type': 'application/json' });
-			res.end(JSON.stringify(files));
-		} catch (error: any) {
-			res.writeHead(500, { 'Content-Type': 'application/json' });
-			res.end(JSON.stringify({ error: 'Internal server error', message: error.message }));
-		}
-	}
-
-	private async handleFileContent(app: App, req: any, res: any): Promise<void> {
-		let body = '';
-		req.on('data', (chunk: Buffer) => {
-			body += chunk.toString();
-		});
-		req.on('end', async () => {
-			try {
-				const { file }: FileContentRequest = JSON.parse(body);
-				if (typeof file !== 'string') {
-					res.writeHead(400, { 'Content-Type': 'application/json' });
-					res.end(JSON.stringify({ error: 'Invalid "file" parameter' }));
-					return;
-				}
-
-				const abstract = app.vault.getAbstractFileByPath(file);
-				if (!(abstract instanceof TFile)) {
-					res.writeHead(404, { 'Content-Type': 'application/json' });
-					res.end(JSON.stringify({ error: 'File not found' }));
-					return;
-				}
-
-				const content = await app.vault.read(abstract);
-				res.writeHead(200, { 'Content-Type': 'application/json' });
-				res.end(JSON.stringify({ file, content }));
-			} catch (error: any) {
-				res.writeHead(400, { 'Content-Type': 'application/json' });
-				res.end(
-					JSON.stringify({ error: 'Invalid JSON', message: error.message })
-				);
-			}
-		});
-	}
-
-	private async handleAutomateDocs(app: App, req: any, res: any): Promise<void> {
-		try {
-			const docs = await getAutomateDocs(app);
-			res.writeHead(200, { 'Content-Type': 'application/json' });
-			res.end(JSON.stringify(docs));
-		} catch (error: any) {
-			res.writeHead(500, { 'Content-Type': 'application/json' });
-			res.end(JSON.stringify({ error: 'Internal server error', message: error.message }));
-		}
-	}
 }

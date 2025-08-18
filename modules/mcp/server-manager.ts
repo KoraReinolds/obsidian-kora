@@ -20,8 +20,6 @@ export class McpServerManager {
 			return;
 		}
 
-		const endpoints = this.httpHandler.getEndpoints();
-
 		this.server = http.createServer(async (req, res) => {
 			// CORS headers
 			res.setHeader('Access-Control-Allow-Origin', '*');
@@ -35,25 +33,10 @@ export class McpServerManager {
 			}
 
 			const url = req.url || '';
-			const endpoint = endpoints[url as keyof typeof endpoints];
+			const method = req.method || 'GET';
 
-			if (endpoint) {
-				try {
-					await endpoint(this.app, req, res);
-				} catch (error: any) {
-					console.error(`Error handling ${url}:`, error);
-					res.writeHead(500, { 'Content-Type': 'application/json' });
-					res.end(JSON.stringify({ 
-						error: 'Internal server error', 
-						message: error.message 
-					}));
-				}
-				return;
-			}
-
-			// 404 for unknown endpoints
-			res.writeHead(404, { 'Content-Type': 'application/json' });
-			res.end(JSON.stringify({ error: 'Not Found' }));
+			// Используем новый универсальный обработчик
+			await this.httpHandler.handleRequest(url, method, req, res);
 		});
 
 		this.server.on('error', (err: NodeJS.ErrnoException) => {
