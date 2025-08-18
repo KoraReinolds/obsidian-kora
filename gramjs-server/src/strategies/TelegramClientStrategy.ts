@@ -123,6 +123,28 @@ class TelegramClientStrategy {
       messageOptions.linkPreview = !options.disableWebPagePreview;
     }
     
+    // Handle reply markup (buttons) for consistency with editMessage
+    if (options.replyMarkup) {
+      // Convert different button formats for GramJS compatibility
+      if (options.replyMarkup.inline_keyboard) {
+        // Convert from markdown-converter format to GramJS format
+        (messageOptions as any).buttons = options.replyMarkup.inline_keyboard.map((row: any) => 
+          row.map((btn: any) => ({
+            text: btn.text,
+            ...(btn.url ? { url: btn.url } : {}),
+            ...(btn.callback_data ? { data: btn.callback_data } : {}),
+            ...(btn.data ? { data: btn.data } : {})
+          }))
+        );
+        // Remove the original replyMarkup to avoid conflicts
+        delete (messageOptions as any).replyMarkup;
+      } else {
+        // Pass through GramJS ReplyInlineMarkup objects
+        (messageOptions as any).buttons = options.replyMarkup;
+        delete (messageOptions as any).replyMarkup;
+      }
+    }
+    
     const result = await this.client.sendMessage(targetPeer, messageOptions);
     
     // Clean result to avoid circular references
@@ -152,6 +174,25 @@ class TelegramClientStrategy {
     // For userbot (GramJS), handle linkPreview option
     if (options.disableWebPagePreview !== undefined) {
       (editOptions as any).linkPreview = !options.disableWebPagePreview;
+    }
+    
+    // Handle reply markup (buttons) - CRITICAL FIX for preserving inline keyboards
+    if (options.replyMarkup) {
+      // Convert different button formats for GramJS compatibility
+      if (options.replyMarkup.inline_keyboard) {
+        // Convert from markdown-converter format to GramJS format
+        (editOptions as any).buttons = options.replyMarkup.inline_keyboard.map((row: any) => 
+          row.map((btn: any) => ({
+            text: btn.text,
+            ...(btn.url ? { url: btn.url } : {}),
+            ...(btn.callback_data ? { data: btn.callback_data } : {}),
+            ...(btn.data ? { data: btn.data } : {})
+          }))
+        );
+      } else {
+        // Pass through GramJS ReplyInlineMarkup objects
+        (editOptions as any).buttons = options.replyMarkup;
+      }
     }
     
     const result = await this.client.editMessage(targetPeer, editOptions);

@@ -134,12 +134,12 @@ export class GramJSBridge {
   /**
    * Edit existing message via GramJS userbot
    */
-  async editMessage(peer: string, messageId: number, message: string, entities?: MessageEntity[], disableWebPagePreview?: boolean): Promise<boolean> {
+  async editMessage(peer: string, messageId: number, message: string, entities?: MessageEntity[], buttons?: InlineButton[][], disableWebPagePreview?: boolean): Promise<boolean> {
     try {
       const response = await fetch(`${this.baseUrl}/edit_message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ peer, messageId, message, entities, disableWebPagePreview }),
+        body: JSON.stringify({ peer, messageId, message, entities, buttons, disableWebPagePreview }),
       });
 
       if (!response.ok) {

@@ -260,12 +260,14 @@ export class UIManager {
     ].sort((a, b) => a.offset - b.offset);
  
     if (channelConfig.messageId) {
-      // Edit existing message
+      // Edit existing message - FIXED: preserve buttons during editing
+      const buttons = this.createNavigationButtons(file);
       const success = await this.gramjsBridge.editMessage(
         peer, 
         channelConfig.messageId, 
         processedText, 
         combinedEntities, 
+        buttons, // CRITICAL FIX: Include buttons when editing
         true, // disableWebPagePreview
       );
       if (success) {
