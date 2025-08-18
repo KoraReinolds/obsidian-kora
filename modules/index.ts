@@ -17,5 +17,8 @@ export * from './ui';
 // General utilities
 export * from './utils';
 
+// MCP server functionality
+export * from './mcp';
+
 // Chunking system (re-export for compatibility)
 export { chunkNote } from './chunking';

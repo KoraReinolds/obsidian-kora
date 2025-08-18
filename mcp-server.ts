@@ -2,9 +2,10 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
+import { MCP_CONFIG, getMcpUrl, MCP_ENDPOINTS } from './modules/mcp/config';
+
 console.error('[kora] server booted');
-const KORA_PORT = 8123;
-const KORA_URL  = `http://127.0.0.1:${KORA_PORT}`;
+const KORA_URL = getMcpUrl(MCP_CONFIG.DEFAULT_PORT);
 
 const server = new McpServer({
   name:    'kora-obsidian-vault',
@@ -20,7 +21,7 @@ server.registerTool(
     inputSchema: {} // No input parameters
   },
   async () => {
-    const res = await fetch(`${KORA_URL}/files`);
+    const res = await fetch(`${KORA_URL}${MCP_ENDPOINTS.FILES}`);
     if (!res.ok) throw new Error(`Obsidian server responded ${res.status}`);
     const files: unknown[] = await res.json();
     return {
@@ -44,7 +45,7 @@ server.registerTool(
 		},
 	},
 	async ({ files, frontmatter }) => {
-		const res = await fetch(`${KORA_URL}/frontmatter`, {
+		const res = await fetch(`${KORA_URL}${MCP_ENDPOINTS.FRONTMATTER}`, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
@@ -77,7 +78,7 @@ server.registerTool(
 		inputSchema: {}, // No input parameters
 	},
 	async () => {
-		const res = await fetch(`${KORA_URL}/areas`);
+		const res = await fetch(`${KORA_URL}${MCP_ENDPOINTS.AREAS}`);
 		if (!res.ok) throw new Error(`Obsidian server responded ${res.status}`);
 		const areas: string[] = await res.json();
 		return {
@@ -96,7 +97,7 @@ server.registerTool(
 		inputSchema: {},
 	},
 	async () => {
-		const res = await fetch(`${KORA_URL}/area_frontmatters`);
+		const res = await fetch(`${KORA_URL}${MCP_ENDPOINTS.AREA_FRONTMATTERS}`);
 		if (!res.ok)
 			throw new Error(`Obsidian server responded ${res.status}`);
 		const frontmatters = await res.json();
@@ -123,7 +124,7 @@ server.registerTool(
 		},
 	},
 	async ({ files }) => {
-		const res = await fetch(`${KORA_URL}/get_frontmatter`, {
+		const res = await fetch(`${KORA_URL}${MCP_ENDPOINTS.GET_FRONTMATTER}`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ files }),
@@ -152,7 +153,7 @@ server.registerTool(
 		},
 	},
 	async ({ file }) => {
-		const res = await fetch(`${KORA_URL}/file_content`, {
+		const res = await fetch(`${KORA_URL}${MCP_ENDPOINTS.FILE_CONTENT}`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ file }),
@@ -176,7 +177,7 @@ server.registerTool(
 		inputSchema: {}, // No input parameters
 	},
 	async () => {
-		const res = await fetch(`${KORA_URL}/automate_docs`);
+		const res = await fetch(`${KORA_URL}${MCP_ENDPOINTS.AUTOMATE_DOCS}`);
 		if (!res.ok) throw new Error(`Obsidian server responded ${res.status}`);
 		const docs: Array<{ path: string; basename: string; title: string; content: string; stat: any }> = await res.json();
 		return {
