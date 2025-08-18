@@ -9,6 +9,15 @@ import { NoteUISystem } from './note-ui-system';
 import { VectorBridge } from '../vector';
 import type { KoraMcpPluginSettings } from '../../main';
 
+/**
+ * Configuration for a Telegram channel
+ */
+interface ChannelConfig {
+  name: string;
+  channelId: string;
+  messageId?: number;
+}
+
 export class UIManager {
   private app: App;
   private settings: KoraMcpPluginSettings;
@@ -135,22 +144,42 @@ export class UIManager {
     });
     buttons.push(buttonNotes);
 
-    // GramJS Post button (only if GramJS is enabled)
+    // GramJS Post buttons (only if GramJS is enabled)
     if (this.settings.useGramJsUserbot) {
-      // Check if note is already linked to determine button text
       const file = (leaf.view as any).file as TFile;
-      const telegramMessageId = file ? this.frontmatterUtils.getFrontmatterField(file, 'telegram_message_id') : null;
-      
-      const buttonText = telegramMessageId ? '✏️ Редактировать пост' : '📤 Отправить в TG';
-      const buttonColor = telegramMessageId ? '#f59e0b' : '#0088cc';
-      
-      const buttonGramJSText = this.createButton(
-        buttonText,
-        'kora-gramjs-text',
-        () => this.sendNoteAsText(leaf),
-        { backgroundColor: buttonColor }
-      );
-      buttons.push(buttonGramJSText);
+      if (file) {
+        const channelConfigs = this.getChannelConfigs(file);
+        // If no channel configs, show default button
+        if (channelConfigs.length === 0) {
+          const telegramMessageId = this.frontmatterUtils.getFrontmatterField(file, 'telegram_message_id');
+          const buttonText = telegramMessageId ? '✏️ Редактировать пост' : '📤 Отправить в TG';
+          const buttonColor = telegramMessageId ? '#f59e0b' : '#0088cc';
+          
+          const buttonGramJSText = this.createButton(
+            buttonText,
+            'kora-gramjs-text',
+            () => this.sendNoteAsTextLegacy(leaf),
+            { backgroundColor: buttonColor }
+          );
+          buttons.push(buttonGramJSText);
+        } else {
+          // Create button for each channel config
+          channelConfigs.forEach(channelConfig => {
+            const buttonText = channelConfig.messageId 
+              ? `✏️ ${channelConfig.name}` 
+              : `📤 ${channelConfig.name}`;
+            const buttonColor = channelConfig.messageId ? '#f59e0b' : '#0088cc';
+            
+            const channelButton = this.createButton(
+              buttonText,
+              `kora-gramjs-${channelConfig.name.toLowerCase().replace(/\s+/g, '-')}`,
+              () => this.sendNoteToChannel(leaf, channelConfig),
+              { backgroundColor: buttonColor }
+            );
+            buttons.push(channelButton);
+          });
+        }
+      }
     }
 
     return buttons;
@@ -189,9 +218,9 @@ export class UIManager {
   }
 
   /**
-   * Send note as text via GramJS
+   * Send note as text via GramJS (legacy method for backward compatibility)
    */
-  private async sendNoteAsText(leaf: WorkspaceLeaf): Promise<void> {
+  private async sendNoteAsTextLegacy(leaf: WorkspaceLeaf): Promise<void> {
     const file = (leaf.view as any).file as TFile;
     if (!file) {
       new Notice('Нет активного файла');
@@ -247,6 +276,62 @@ export class UIManager {
   }
 
   /**
+   * Send note to specific channel
+   */
+  private async sendNoteToChannel(leaf: WorkspaceLeaf, channelConfig: ChannelConfig): Promise<void> {
+    const file = (leaf.view as any).file as TFile;
+    if (!file) {
+      new Notice('Нет активного файла');
+      return;
+    }
+
+    const content = await this.getFileContent(file);
+    const peer = channelConfig.channelId;
+    
+    if (!peer) {
+      new Notice(`Channel ID не настроен для ${channelConfig.name}`);
+      return;
+    }
+       debugger 
+
+    // Process custom emojis
+    const { processedText, entities } = this.messageFormatter.processCustomEmojis(content);
+ 
+    if (channelConfig.messageId) {
+      // Edit existing message
+      const success = await this.gramjsBridge.editMessage(
+        peer, 
+        channelConfig.messageId, 
+        processedText, 
+        entities, 
+        true, // disableWebPagePreview
+      );
+      if (success) {
+        new Notice(`Сообщение в ${channelConfig.name} обновлено!`);
+        // Re-inject buttons to update UI
+        await this.injectButtons(leaf);
+      }
+    } else {
+      // Send new message
+      const buttons = this.createNavigationButtons(file);
+      const result = await this.gramjsBridge.sendMessage(
+        peer, 
+        processedText, 
+        entities, 
+        buttons, 
+        true, // disableWebPagePreview
+      );
+      if (result.success && result.messageId) {
+        // Save message ID to channel config
+        await this.updateChannelConfig(file, channelConfig.name, result.messageId);
+        new Notice(`Заметка отправлена в ${channelConfig.name}!`);
+        // Re-inject buttons to update UI
+        await this.injectButtons(leaf);
+      }
+    }
+  }
+
+  /**
    * Create navigation buttons for the post
    */
   private createNavigationButtons(file: TFile): any[][] {
@@ -260,6 +345,38 @@ export class UIManager {
       ],
    ]; 
    return buttons;
+  }
+
+  /**
+   * Get channel configurations from frontmatter
+   */
+  private getChannelConfigs(file: TFile): ChannelConfig[] {
+    const frontmatter = this.frontmatterUtils.getFrontmatter(file);
+    const channels = frontmatter.telegram_channels;
+    
+    if (!Array.isArray(channels)) {
+      return [];
+    }
+    
+    return channels.filter(channel => 
+      typeof channel === 'object' &&
+       channel.name &&
+       channel.channelId
+    );
+  }
+
+  /**
+   * Update channel configuration in frontmatter
+   */
+  private async updateChannelConfig(file: TFile, channelName: string, messageId: number): Promise<void> {
+    const frontmatter = this.frontmatterUtils.getFrontmatter(file);
+    const channels = Array.isArray(frontmatter.telegram_channels) ? frontmatter.telegram_channels : [];
+    
+    const channelIndex = channels.findIndex((ch: any) => ch.name === channelName);
+    if (channelIndex !== -1) {
+      channels[channelIndex] = { ...channels[channelIndex], messageId };
+      await this.frontmatterUtils.setFrontmatterField(file, 'telegram_channels', channels);
+    }
   }
 
   /**
