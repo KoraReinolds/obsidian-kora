@@ -126,6 +126,12 @@ class BotStrategy extends TelegramClientStrategy {
         opts.disable_web_page_preview = options.disableWebPagePreview;
       }
 
+      // Handle formatting entities
+      if (options.formattingEntities && options.formattingEntities.length > 0) {
+        opts.entities = options.formattingEntities;
+        console.log(`[BotStrategy] Sending with formattingEntities:`, options.formattingEntities.length, 'entities');
+      }
+
       const result = await this.client.sendMessage(peer, message, opts);
       
       console.log('[BotStrategy] Message sent successfully in bot mode');
@@ -178,6 +184,12 @@ class BotStrategy extends TelegramClientStrategy {
       if (options.replyMarkup && options.replyMarkup.inline_keyboard) {
         opts.reply_markup = options.replyMarkup;
         console.log(`[BotStrategy] Editing with replyMarkup:`, JSON.stringify(opts.reply_markup));
+      }
+
+      // Handle formatting entities
+      if (options.formattingEntities && options.formattingEntities.length > 0) {
+        opts.entities = options.formattingEntities;
+        console.log(`[BotStrategy] Editing with formattingEntities:`, options.formattingEntities.length, 'entities');
       }
 
       const result = await this.client.editMessageText(text, {

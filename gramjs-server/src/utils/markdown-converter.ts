@@ -23,140 +23,6 @@ export interface ConversionResult {
 }
 
 /**
- * Simplified markdown converter
- * TODO: Replace with actual import from modules/telegram when build system allows
- */
-class MarkdownConverter {
-  convert(markdown: string): ConversionResult {
-    let text = markdown;
-    
-    // Remove frontmatter
-    text = text.replace(/^---\s*\n[\s\S]*?\n---\s*\n?/, '');
-    
-    // Remove H1 headers
-    text = text.replace(/^# .+$/gm, '');
-    
-    // Track entities and offset changes
-    const entities: any[] = [];
-    let offsetDelta = 0;
-    
-    // Bold text **text** or __text__ -> text with bold entity
-    text = text.replace(/\*\*(.*?)\*\*/g, (match, content, offset) => {
-      entities.push({
-        type: 'bold',
-        offset: offset - offsetDelta,
-        length: content.length,
-      });
-      offsetDelta += 4; // removed ** **
-      return content;
-    });
-    
-    text = text.replace(/__(.*?)__/g, (match, content, offset) => {
-      entities.push({
-        type: 'bold',
-        offset: offset - offsetDelta,
-        length: content.length,
-      });
-      offsetDelta += 4; // removed __ __
-      return content;
-    });
-    
-    // Italic *text* or _text_ -> text with italic entity
-    text = text.replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, (match, content, offset) => {
-      entities.push({
-        type: 'italic',
-        offset: offset - offsetDelta,
-        length: content.length,
-      });
-      offsetDelta += 2; // removed * *
-      return content;
-    });
-    
-    text = text.replace(/(?<!_)_([^_]+?)_(?!_)/g, (match, content, offset) => {
-      entities.push({
-        type: 'italic',
-        offset: offset - offsetDelta,
-        length: content.length,
-      });
-      offsetDelta += 2; // removed _ _
-      return content;
-    });
-    
-    // Code `code` -> code with code entity
-    text = text.replace(/`([^`]+?)`/g, (match, content, offset) => {
-      entities.push({
-        type: 'code',
-        offset: offset - offsetDelta,
-        length: content.length,
-      });
-      offsetDelta += 2; // removed ` `
-      return content;
-    });
-    
-    // Code blocks ```lang\ncode\n``` -> code with pre entity
-    text = text.replace(/```(\w+)?\n([\s\S]*?)\n```/g, (match, lang, content, offset) => {
-      entities.push({
-        type: 'pre',
-        offset: offset - offsetDelta,
-        length: content.length,
-        language: lang || 'text',
-      });
-      const originalLength = match.length;
-      const newLength = content.length;
-      offsetDelta += originalLength - newLength;
-      return content;
-    });
-    
-    // Links [text](url) -> text with text_link entity
-    text = text.replace(/\[([^\]]+?)\]\(([^)]+?)\)/g, (match, linkText, url, offset) => {
-      entities.push({
-        type: 'text_link',
-        offset: offset - offsetDelta,
-        length: linkText.length,
-        url: url,
-      });
-      const originalLength = match.length;
-      const newLength = linkText.length;
-      offsetDelta += originalLength - newLength;
-      return linkText;
-    });
-    
-    // Strikethrough ~~text~~ -> text with strikethrough entity
-    text = text.replace(/~~(.*?)~~/g, (match, content, offset) => {
-      entities.push({
-        type: 'strikethrough',
-        offset: offset - offsetDelta,
-        length: content.length,
-      });
-      offsetDelta += 4; // removed ~~ ~~
-      return content;
-    });
-    
-    // Convert headers (h2-h6) to bold text
-    text = text.replace(/^#{2,6} (.+)$/gm, (match, headerText) => {
-      return `**${headerText}**`;
-    });
-    
-    // Clean up extra whitespace and newlines
-    text = text.replace(/\n{3,}/g, '\n\n'); // Max 2 consecutive newlines
-    text = text.trim();
-    
-    // Sort entities by offset
-    entities.sort((a, b) => a.offset - b.offset);
-    
-    return {
-      text,
-      entities,
-      truncated: false,
-      originalLength: markdown.length
-    };
-  }
-}
-
-// Singleton instance
-const converter = new MarkdownConverter();
-
-/**
  * Convert entities to GramJS format
  */
 export function convertToGramJSEntities(entities: any[] = []): Api.TypeMessageEntity[] {
@@ -216,7 +82,6 @@ export function convertToGramJSEntities(entities: any[] = []): Api.TypeMessageEn
 export interface MessageProcessingOptions {
   peer: string;
   message?: string;
-  markdownContent?: string;
   fileName?: string;
   entities?: any[];
   buttons?: any[];
@@ -241,7 +106,6 @@ export interface ProcessedMessage {
 export function processMessage(options: MessageProcessingOptions): ProcessedMessage {
   const { 
     message, 
-    fileName, 
     entities, 
     buttons, 
     disableWebPagePreview 
@@ -251,34 +115,7 @@ export function processMessage(options: MessageProcessingOptions): ProcessedMess
   let finalEntities: Api.TypeMessageEntity[] = [];
   let conversionInfo: any = undefined;
 
-  // If markdownContent is provided, convert it
-  if (message) {
-    const conversionResult = converter.convert(message);
-    
-    // Add fileName header if provided
-    if (fileName) {
-      const header = `📝 *${fileName}*\n\n`;
-      finalMessage = header + conversionResult.text;
-      
-      // Adjust entity offsets and add bold for filename
-      const adjustedEntities = conversionResult.entities?.map(entity => ({
-        ...entity,
-        offset: entity.offset + header.length
-      })) || [];
-      
-      // Add bold entity for filename
-      adjustedEntities.unshift({
-        type: 'bold',
-        offset: 3, // After "📝 "
-        length: fileName.length
-      });
-      
-      finalEntities = convertToGramJSEntities(adjustedEntities);
-    } else {
-      finalMessage = conversionResult.text;
-      finalEntities = convertToGramJSEntities(conversionResult.entities);
-    }
-    
+  if (message) { 
     // Validate message length
     if (finalMessage.length > 4096) {
       throw new Error(`Message too long: ${finalMessage.length} characters (max 4096)`);
@@ -287,16 +124,18 @@ export function processMessage(options: MessageProcessingOptions): ProcessedMess
     conversionInfo = {
       hasMarkdown: true,
       finalLength: finalMessage.length,
-      entitiesCount: finalEntities.length
+      entitiesCount: 0 // Will be updated below when entities are processed
     };
   }
-  // Handle legacy entities (custom emoji)
-  else if (entities && entities.length > 0) {
-    finalEntities = entities.map((entity: any) => new Api.MessageEntityCustomEmoji({
-      offset: entity.offset,
-      length: entity.length,
-      documentId: entity.custom_emoji_id,
-    }));
+  
+  // Always process entities if they exist (regardless of message presence)
+  if (entities && entities.length > 0) {
+    finalEntities = convertToGramJSEntities(entities);
+    
+    // Update entities count in conversionInfo if it exists
+    if (conversionInfo) {
+      conversionInfo.entitiesCount = finalEntities.length;
+    }
   }
 
   // Handle inline buttons
@@ -325,9 +164,9 @@ export function processMessage(options: MessageProcessingOptions): ProcessedMess
  */
 export function validateMessageParams(
   operation: 'send' | 'edit',
-  params: { peer?: string; messageId?: number; message?: string; markdownContent?: string }
+  params: { peer?: string; messageId?: number; message?: string }
 ): void {
-  const { peer, messageId, message, markdownContent } = params;
+  const { peer, messageId, message } = params;
   
   if (!peer) {
     throw new Error('peer is required');
@@ -337,7 +176,7 @@ export function validateMessageParams(
     throw new Error('messageId is required for edit operation');
   }
   
-  if (!message && !markdownContent) {
-    throw new Error('either message or markdownContent is required');
+  if (!message) {
+    throw new Error('message is required');
   }
 }

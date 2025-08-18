@@ -1,7 +1,6 @@
 /**
  * Route: /edit_message
  * Edits an existing message text with optional emoji entities.
- * Now supports markdown conversion with markdownContent parameter.
  */
 
 import type { Express, Request, Response } from 'express';
@@ -53,7 +52,7 @@ export function registerEditMessageRoute(app: Express): void {
       if (processed.replyMarkup) {
         messageOptions.replyMarkup = processed.replyMarkup;
       }
-
+      console.log('MESSAGE OPTIONS', messageOptions);
       const result = await strategy.editMessage(peer, messageId, messageOptions);
       
       const response: any = { 

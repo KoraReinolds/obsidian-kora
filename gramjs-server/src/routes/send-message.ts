@@ -1,7 +1,6 @@
 /**
  * Route: /send_message
  * Sends a text message with optional emoji entities and inline buttons.
- * Now supports markdown conversion with markdownContent parameter.
  */
 
 import type { Express, Request, Response } from 'express';
@@ -19,7 +18,6 @@ export function registerSendMessageRoute(app: Express): void {
       const { 
         peer, 
         message, 
-        markdownContent,
         fileName,
         entities, 
         buttons, 
@@ -27,13 +25,12 @@ export function registerSendMessageRoute(app: Express): void {
       } = req.body;
       
       // Validate required parameters
-      validateMessageParams('send', { peer, message, markdownContent });
+      validateMessageParams('send', { peer, message });
 
       // Process message (handles both regular and markdown)
       const processed = processMessage({
         peer,
         message,
-        markdownContent,
         fileName,
         entities,
         buttons,
