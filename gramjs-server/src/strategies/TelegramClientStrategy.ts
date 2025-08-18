@@ -22,6 +22,7 @@ export interface MessageOptions {
   parseMode?: string;
   replyMarkup?: any;
   formattingEntities?: any[];
+  disableWebPagePreview?: boolean;
   [key: string]: any;
 }
 
@@ -115,7 +116,14 @@ class TelegramClientStrategy {
     }
     
     const targetPeer = this.resolveTargetPeer(peer);
-    const result = await this.client.sendMessage(targetPeer, options);
+    
+    // For userbot (GramJS), handle linkPreview option
+    const messageOptions = { ...options };
+    if (options.disableWebPagePreview !== undefined) {
+      messageOptions.linkPreview = !options.disableWebPagePreview;
+    }
+    
+    const result = await this.client.sendMessage(targetPeer, messageOptions);
     
     // Clean result to avoid circular references
     return this.sanitizeResult(result);
@@ -134,11 +142,19 @@ class TelegramClientStrategy {
     }
     
     const targetPeer = this.resolveTargetPeer(peer);
-    const result = await this.client.editMessage(targetPeer, {
+    
+    const editOptions = {
       message: messageId,
       text: options.message,
       formattingEntities: options.formattingEntities
-    });
+    };
+    
+    // For userbot (GramJS), handle linkPreview option
+    if (options.disableWebPagePreview !== undefined) {
+      (editOptions as any).linkPreview = !options.disableWebPagePreview;
+    }
+    
+    const result = await this.client.editMessage(targetPeer, editOptions);
     
     // Clean result to avoid circular references
     return this.sanitizeResult(result);

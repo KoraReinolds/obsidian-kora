@@ -19,6 +19,7 @@ export interface MessageOptions {
   parseMode?: string;
   replyMarkup?: any;
   formattingEntities?: any[];
+  disableWebPagePreview?: boolean;
   [key: string]: any;
 }
 

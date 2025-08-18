@@ -14,7 +14,7 @@ import type { MessageOptions } from '../types/http.js';
 export function registerEditMessageRoute(app: Express): void {
   app.post('/edit_message', async (req: Request, res: Response) => {
     try {
-      const { peer, messageId, message, entities } = req.body;
+      const { peer, messageId, message, entities, disableWebPagePreview } = req.body;
       if (!peer || !messageId || !message) {
         return res.status(400).json({ error: 'peer, messageId and message are required' });
       }
@@ -28,6 +28,10 @@ export function registerEditMessageRoute(app: Express): void {
           length: entity.length,
           documentId: entity.custom_emoji_id,
         }));
+      }
+
+      if (disableWebPagePreview !== undefined) {
+        messageOptions.disableWebPagePreview = disableWebPagePreview;
       }
 
       const result = await strategy.editMessage(peer, messageId, messageOptions);

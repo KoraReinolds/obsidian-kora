@@ -15,7 +15,7 @@ import type { MessageOptions } from '../types/http.js';
 export function registerSendMessageRoute(app: Express): void {
   app.post('/send_message', async (req: Request, res: Response) => {
     try {
-      const { peer, message, entities, buttons } = req.body;
+      const { peer, message, entities, buttons, disableWebPagePreview } = req.body;
       if (!peer || !message) return res.status(400).json({ error: 'peer and message are required' });
 
       const strategy = await initClient();
@@ -27,6 +27,10 @@ export function registerSendMessageRoute(app: Express): void {
           length: entity.length,
           documentId: entity.custom_emoji_id,
         }));
+      }
+
+      if (disableWebPagePreview !== undefined) {
+        messageOptions.disableWebPagePreview = disableWebPagePreview;
       }
 
       const inlineButtons = createInlineKeyboard(buttons);

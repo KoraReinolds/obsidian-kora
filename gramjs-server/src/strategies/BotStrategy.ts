@@ -121,6 +121,11 @@ class BotStrategy extends TelegramClientStrategy {
         opts.parse_mode = options.parseMode;
       }
 
+      // Handle disable web page preview
+      if (options.disableWebPagePreview) {
+        opts.disable_web_page_preview = options.disableWebPagePreview;
+      }
+
       const result = await this.client.sendMessage(peer, message, opts);
       
       console.log('[BotStrategy] Message sent successfully in bot mode');
@@ -162,6 +167,11 @@ class BotStrategy extends TelegramClientStrategy {
       // Handle parse mode
       if (options.parseMode) {
         opts.parse_mode = options.parseMode;
+      }
+
+      // Handle disable web page preview
+      if (options.disableWebPagePreview) {
+        opts.disable_web_page_preview = options.disableWebPagePreview;
       }
 
       // Handle reply markup (buttons)

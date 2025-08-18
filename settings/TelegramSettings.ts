@@ -42,6 +42,18 @@ export function renderTelegramSettings(containerEl: HTMLElement, plugin: any): v
 				})
 		);
 
+	new Setting(containerEl)
+		.setName('Disable Link Preview')
+		.setDesc('Disable web page preview for links in messages')
+		.addToggle((toggle) =>
+			toggle
+				.setValue(plugin.settings.telegram.disableWebPagePreview || false)
+				.onChange(async (value) => {
+					plugin.settings.telegram.disableWebPagePreview = value;
+					await plugin.saveSettings();
+				})
+		);
+
 
 
 

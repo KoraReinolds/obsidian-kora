@@ -104,13 +104,25 @@ export class PluginCommands {
     
     if (telegramMessageId) {
       // Edit existing message
-      const success = await this.gramjsBridge.editMessage(peer, telegramMessageId, processedText);
+      const success = await this.gramjsBridge.editMessage(
+        peer, 
+        telegramMessageId, 
+        processedText, 
+        undefined, 
+        this.settings.telegram.disableWebPagePreview
+      );
       if (success) {
         new Notice('Сообщение в Telegram обновлено!');
       }
     } else {
       // Send new message
-      const result = await this.gramjsBridge.sendMessage(peer, processedText);
+      const result = await this.gramjsBridge.sendMessage(
+        peer, 
+        processedText, 
+        undefined, 
+        undefined, 
+        this.settings.telegram.disableWebPagePreview
+      );
       if (result.success && result.messageId) {
         // Save message ID to frontmatter
         await this.frontmatterUtils.setFrontmatterField(file, 'telegram_message_id', result.messageId);

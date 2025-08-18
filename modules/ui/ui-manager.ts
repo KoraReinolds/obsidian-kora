@@ -211,10 +211,16 @@ export class UIManager {
 
     // Process custom emojis
     const { processedText, entities } = this.messageFormatter.processCustomEmojis(content);
-
+ 
     if (telegramMessageId) {
       // Edit existing message
-      const success = await this.gramjsBridge.editMessage(peer, telegramMessageId, processedText, entities);
+      const success = await this.gramjsBridge.editMessage(
+        peer, 
+        telegramMessageId, 
+        processedText, 
+        entities, 
+        true, // disableWebPagePreview
+      );
       if (success) {
         new Notice('Сообщение в Telegram обновлено!');
         // Re-inject buttons to update UI
@@ -223,7 +229,13 @@ export class UIManager {
     } else {
       // Send new message
       const buttons = this.createNavigationButtons(file);
-      const result = await this.gramjsBridge.sendMessage(peer, processedText, entities, buttons);
+      const result = await this.gramjsBridge.sendMessage(
+        peer, 
+        processedText, 
+        entities, 
+        buttons, 
+        true, // disableWebPagePreview
+      );
       if (result.success && result.messageId) {
         // Save message ID to frontmatter
         await this.frontmatterUtils.setFrontmatterField(file, 'telegram_message_id', result.messageId);

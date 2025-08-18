@@ -25,6 +25,7 @@ export interface TelegramSettings {
 	enabled: boolean;
 	customEmojis?: EmojiMapping[];
 	useCustomEmojis?: boolean;
+	disableWebPagePreview?: boolean;
 }
 
 export interface KoraMcpPluginSettings {
@@ -62,6 +63,7 @@ const DEFAULT_SETTINGS: KoraMcpPluginSettings = {
 			{ standard: '🗺', customId: '5346278150785497951', description: 'Map' }
 		],
 		useCustomEmojis: false,
+		disableWebPagePreview: true,
 	},
 	useGramJsUserbot: false,
 	gramjs: {

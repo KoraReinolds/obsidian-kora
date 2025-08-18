@@ -17,6 +17,7 @@ interface SendMessageRequest {
   entities?: MessageEntity[];
   parseMode?: string;
   buttons?: InlineButton[][];
+  disableWebPagePreview?: boolean;
 }
 
 interface InlineButton {
@@ -108,12 +109,12 @@ export class GramJSBridge {
   /**
    * Send text message via GramJS userbot with MarkdownV2 support
    */
-  async sendMessage(peer: string, message: string, entities?: MessageEntity[], buttons?: InlineButton[][]): Promise<{ success: boolean; messageId?: number }> {
+  async sendMessage(peer: string, message: string, entities?: MessageEntity[], buttons?: InlineButton[][], disableWebPagePreview?: boolean): Promise<{ success: boolean; messageId?: number }> {
     try {
       const response = await fetch(`${this.baseUrl}/send_message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ peer, message, entities, buttons } as SendMessageRequest),
+        body: JSON.stringify({ peer, message, entities, buttons, disableWebPagePreview } as SendMessageRequest),
       });
 
       if (!response.ok) {
@@ -133,12 +134,12 @@ export class GramJSBridge {
   /**
    * Edit existing message via GramJS userbot
    */
-  async editMessage(peer: string, messageId: number, message: string, entities?: MessageEntity[]): Promise<boolean> {
+  async editMessage(peer: string, messageId: number, message: string, entities?: MessageEntity[], disableWebPagePreview?: boolean): Promise<boolean> {
     try {
       const response = await fetch(`${this.baseUrl}/edit_message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ peer, messageId, message, entities }),
+        body: JSON.stringify({ peer, messageId, message, entities, disableWebPagePreview }),
       });
 
       if (!response.ok) {
