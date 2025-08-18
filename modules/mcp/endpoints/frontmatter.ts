@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { App } from 'obsidian';
 import { BaseEndpoint } from './base';
-import { updateFrontmatterForFiles } from '../../obsidian';
+import { FrontmatterUtils } from '../../obsidian';
 
 const FrontmatterUpdateSchema = z.object({
 	files: z.array(z.string()).describe('Array of file paths to update.'),
@@ -19,7 +19,8 @@ export class FrontmatterUpdateEndpoint extends BaseEndpoint<FrontmatterUpdateInp
 
 	async handler(app: App, input: FrontmatterUpdateInput): Promise<any> {
 		const { files, frontmatter } = input;
-		return await updateFrontmatterForFiles(app, files, frontmatter);
+		const frontmatterUtils = new FrontmatterUtils(app);
+		return await frontmatterUtils.updateFrontmatterForFiles(files, frontmatter);
 	}
 
 	protected formatMcpResponse(result: any): {

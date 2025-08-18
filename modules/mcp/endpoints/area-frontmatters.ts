@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { App } from 'obsidian';
 import { BaseEndpoint } from './base';
-import { getAreaFrontmatters } from '../../obsidian';
+import { FrontmatterUtils } from '../../obsidian';
 
 export class AreaFrontmattersEndpoint extends BaseEndpoint<Record<string, never>, any[]> {
 	path = '/area_frontmatters';
@@ -11,7 +11,8 @@ export class AreaFrontmattersEndpoint extends BaseEndpoint<Record<string, never>
 	inputSchema = {} as Record<string, never>;
 
 	async handler(app: App, _input: Record<string, never>): Promise<any[]> {
-		return await getAreaFrontmatters(app);
+		const frontmatterUtils = new FrontmatterUtils(app);
+		return await frontmatterUtils.getAreaFrontmatters();
 	}
 
 	protected formatMcpResponse(frontmatters: any[]): {

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { App } from 'obsidian';
 import { BaseEndpoint } from './base';
-import { getFrontmatterForFiles } from '../../obsidian';
+import { FrontmatterUtils } from '../../obsidian';
 
 const GetFrontmatterSchema = z.object({
 	files: z.array(z.string()).describe('Array of file paths to read frontmatter from.'),
@@ -18,7 +18,8 @@ export class GetFrontmatterEndpoint extends BaseEndpoint<GetFrontmatterInput, an
 
 	async handler(app: App, input: GetFrontmatterInput): Promise<any[]> {
 		const { files } = input;
-		return await getFrontmatterForFiles(app, files);
+		const frontmatterUtils = new FrontmatterUtils(app);
+		return await frontmatterUtils.getFrontmatterForFiles(files);
 	}
 
 	protected formatMcpResponse(frontmatters: any[]): {
