@@ -10,6 +10,7 @@ import { renderChunkList } from './chunk-list';
 import { findChunkIndexForLine, startCursorPolling } from './chunk-cursor';
 import { VectorBridge } from '../../vector';
 import { createScrollableContainer } from './shared-container';
+import { getMarkdownFiles } from '../../obsidian';
 
 export const RELATED_CHUNKS_VIEW_TYPE = 'kora-related-chunks';
 
@@ -392,8 +393,12 @@ export class RelatedChunksView extends ItemView {
    */
   private async renderUnsyncedNotes(wrapper: HTMLElement): Promise<void> {
     try {
-      // Get all markdown files in vault
-      const allFiles = this.app.vault.getMarkdownFiles();
+      // Get markdown files from /Organize, excluding /Organize/Output
+      const organizeFiles = await getMarkdownFiles(this.app, {
+        include: ['Organize/**'],
+        exclude: ['Organize/Output/**']
+      });
+      debugger
       
       // Get all unique originalIds from vector database
       const vectorStats = await this.vectorBridge.getStats();
@@ -419,14 +424,16 @@ export class RelatedChunksView extends ItemView {
         }
       }
 
-      // Find files that are not synced and are in /Organize folder
+      // Find files that are not synced
       const unsyncedFiles: TFile[] = [];
-      for (const file of allFiles.sort((a, b) => Math.random() - 0.5)) {
+      // Shuffle files for random order
+      const shuffledFiles = [...organizeFiles].sort((a, b) => Math.random() - 0.5);
+      
+      for (const fileData of shuffledFiles) {
         try {
-          // Only include files that start with "Organize/"
-          if (!file.path.startsWith('Organize/')) {
-            continue;
-          }
+          // Get TFile object from path
+          const file = this.app.vault.getAbstractFileByPath(fileData.path) as TFile;
+          if (!file) continue;
           
           const cache = this.app.metadataCache.getFileCache(file);
           const fm = cache?.frontmatter || {};

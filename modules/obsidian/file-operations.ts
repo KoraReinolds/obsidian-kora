@@ -13,10 +13,12 @@ import { App, TFile, TFolder } from 'obsidian';
 function matchesPattern(path: string, pattern: string): boolean {
 	// Convert glob-like pattern to regex
 	// Support for * (any characters) and ** (any directories)
+	// First escape dots, then handle globs with placeholders to avoid conflicts
 	const regexPattern = pattern
-		.replace(/\*\*/g, '.*') // ** matches any directories
+		.replace(/\./g, '\\.') // Escape dots first
+		.replace(/\*\*/g, '__DOUBLE_STAR__') // Temporary placeholder for **
 		.replace(/\*/g, '[^/]*') // * matches any characters except /
-		.replace(/\./g, '\\.'); // Escape dots
+		.replace(/__DOUBLE_STAR__/g, '.*'); // ** matches any directories
 	
 	const regex = new RegExp(`^${regexPattern}$`);
 	return regex.test(path);
