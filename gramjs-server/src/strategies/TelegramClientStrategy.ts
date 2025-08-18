@@ -98,10 +98,60 @@ class TelegramClientStrategy {
    * @returns {Promise<UserInfo>}
    */
   async getMe(): Promise<UserInfo> {
+    this.validateConnection();
+    return await this.client.getMe();
+  }
+
+  /**
+   * Validate client connection
+   * @throws {Error} If client is not connected
+   */
+  private validateConnection(): void {
     if (!this.isConnected || !this.client) {
       throw new Error('Client not connected');
     }
-    return await this.client.getMe();
+  }
+
+  /**
+   * Process link preview options
+   * @param {any} targetOptions - Options object to modify
+   * @param {MessageOptions} sourceOptions - Source options
+   */
+  private processLinkPreview(targetOptions: any, sourceOptions: MessageOptions): void {
+    if (sourceOptions.disableWebPagePreview !== undefined) {
+      targetOptions.linkPreview = !sourceOptions.disableWebPagePreview;
+    }
+  }
+
+  /**
+   * Convert and process reply markup (buttons)
+   * @param {any} targetOptions - Options object to modify
+   * @param {MessageOptions} sourceOptions - Source options
+   * @param {boolean} removeReplyMarkup - Whether to remove original replyMarkup property
+   */
+  private processReplyMarkup(targetOptions: any, sourceOptions: MessageOptions, removeReplyMarkup: boolean = true): void {
+    if (sourceOptions.replyMarkup) {
+      // Convert different button formats for GramJS compatibility
+      if (sourceOptions.replyMarkup.inline_keyboard) {
+        // Convert from markdown-converter format to GramJS format
+        targetOptions.buttons = sourceOptions.replyMarkup.inline_keyboard.map((row: any) => 
+          row.map((btn: any) => ({
+            text: btn.text,
+            ...(btn.url ? { url: btn.url } : {}),
+            ...(btn.callback_data ? { data: btn.callback_data } : {}),
+            ...(btn.data ? { data: btn.data } : {})
+          }))
+        );
+      } else {
+        // Pass through GramJS ReplyInlineMarkup objects
+        targetOptions.buttons = sourceOptions.replyMarkup;
+      }
+      
+      // Remove the original replyMarkup to avoid conflicts if requested
+      if (removeReplyMarkup) {
+        delete targetOptions.replyMarkup;
+      }
+    }
   }
 
   /**
@@ -111,43 +161,15 @@ class TelegramClientStrategy {
    * @returns {Promise<any>}
    */
   async sendMessage(peer: string, options: MessageOptions): Promise<any> {
-    if (!this.isConnected || !this.client) {
-      throw new Error('Client not connected');
-    }
+    this.validateConnection();
     
     const targetPeer = this.resolveTargetPeer(peer);
-    
-    // For userbot (GramJS), handle linkPreview option
     const messageOptions = { ...options };
-    if (options.disableWebPagePreview !== undefined) {
-      messageOptions.linkPreview = !options.disableWebPagePreview;
-    }
     
-    // Handle reply markup (buttons) for consistency with editMessage
-    if (options.replyMarkup) {
-      // Convert different button formats for GramJS compatibility
-      if (options.replyMarkup.inline_keyboard) {
-        // Convert from markdown-converter format to GramJS format
-        (messageOptions as any).buttons = options.replyMarkup.inline_keyboard.map((row: any) => 
-          row.map((btn: any) => ({
-            text: btn.text,
-            ...(btn.url ? { url: btn.url } : {}),
-            ...(btn.callback_data ? { data: btn.callback_data } : {}),
-            ...(btn.data ? { data: btn.data } : {})
-          }))
-        );
-        // Remove the original replyMarkup to avoid conflicts
-        delete (messageOptions as any).replyMarkup;
-      } else {
-        // Pass through GramJS ReplyInlineMarkup objects
-        (messageOptions as any).buttons = options.replyMarkup;
-        delete (messageOptions as any).replyMarkup;
-      }
-    }
+    this.processLinkPreview(messageOptions, options);
+    this.processReplyMarkup(messageOptions, options);
     
     const result = await this.client.sendMessage(targetPeer, messageOptions);
-    
-    // Clean result to avoid circular references
     return this.sanitizeResult(result);
   }
 
@@ -159,9 +181,7 @@ class TelegramClientStrategy {
    * @returns {Promise<any>}
    */
   async editMessage(peer: string, messageId: number, options: MessageOptions): Promise<any> {
-    if (!this.isConnected || !this.client) {
-      throw new Error('Client not connected');
-    }
+    this.validateConnection();
     
     const targetPeer = this.resolveTargetPeer(peer);
     
@@ -171,33 +191,10 @@ class TelegramClientStrategy {
       formattingEntities: options.formattingEntities
     };
     
-    // For userbot (GramJS), handle linkPreview option
-    if (options.disableWebPagePreview !== undefined) {
-      (editOptions as any).linkPreview = !options.disableWebPagePreview;
-    }
-    
-    // Handle reply markup (buttons) - CRITICAL FIX for preserving inline keyboards
-    if (options.replyMarkup) {
-      // Convert different button formats for GramJS compatibility
-      if (options.replyMarkup.inline_keyboard) {
-        // Convert from markdown-converter format to GramJS format
-        (editOptions as any).buttons = options.replyMarkup.inline_keyboard.map((row: any) => 
-          row.map((btn: any) => ({
-            text: btn.text,
-            ...(btn.url ? { url: btn.url } : {}),
-            ...(btn.callback_data ? { data: btn.callback_data } : {}),
-            ...(btn.data ? { data: btn.data } : {})
-          }))
-        );
-      } else {
-        // Pass through GramJS ReplyInlineMarkup objects
-        (editOptions as any).buttons = options.replyMarkup;
-      }
-    }
+    this.processLinkPreview(editOptions, options);
+    this.processReplyMarkup(editOptions, options, false); // Don't remove replyMarkup for edit operations
     
     const result = await this.client.editMessage(targetPeer, editOptions);
-    
-    // Clean result to avoid circular references
     return this.sanitizeResult(result);
   }
 
@@ -261,14 +258,11 @@ class TelegramClientStrategy {
    * @returns {Promise<any>}
    */
   async sendFile(peer: string, options: FileOptions): Promise<any> {
-    if (!this.isConnected || !this.client) {
-      throw new Error('Client not connected');
-    }
+    this.validateConnection();
     
     const targetPeer = this.resolveTargetPeer(peer);
     const result = await this.client.sendFile(targetPeer, options);
     
-    // Clean result to avoid circular references
     return this.sanitizeResult(result);
   }
 
@@ -278,10 +272,7 @@ class TelegramClientStrategy {
    * @returns {Promise<any[]>}
    */
   async getDialogs(options: DialogOptions = {}): Promise<any[]> {
-    if (!this.isConnected || !this.client) {
-      throw new Error('Client not connected');
-    }
-    
+    this.validateConnection();
     return await this.getDialogsImpl(options);
   }
 
@@ -292,10 +283,7 @@ class TelegramClientStrategy {
    * @returns {Promise<any[]>}
    */
   async getMessages(peer: string, options: any = {}): Promise<any[]> {
-    if (!this.isConnected || !this.client) {
-      throw new Error('Client not connected');
-    }
-    
+    this.validateConnection();
     return await this.client.getMessages(peer, options);
   }
 
