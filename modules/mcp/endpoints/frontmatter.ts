@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { App } from 'obsidian';
 import { BaseEndpoint } from './base';
-import { updateFrontmatterForFiles } from '../../../lib/obsidian';
+import { updateFrontmatterForFiles } from '../../obsidian';
 
 const FrontmatterUpdateSchema = z.object({
 	files: z.array(z.string()).describe('Array of file paths to update.'),

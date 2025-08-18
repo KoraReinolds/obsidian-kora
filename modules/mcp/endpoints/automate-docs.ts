@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { App } from 'obsidian';
 import { BaseEndpoint } from './base';
-import { getAutomateDocs } from '../../../lib/obsidian';
+import { getAutomateDocs } from '../../obsidian';
 
 interface AutomateDoc {
 	path: string;

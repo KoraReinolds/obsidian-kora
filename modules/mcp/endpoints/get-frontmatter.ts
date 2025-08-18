@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { App } from 'obsidian';
 import { BaseEndpoint } from './base';
-import { getFrontmatterForFiles } from '../../../lib/obsidian';
+import { getFrontmatterForFiles } from '../../obsidian';
 
 const GetFrontmatterSchema = z.object({
 	files: z.array(z.string()).describe('Array of file paths to read frontmatter from.'),

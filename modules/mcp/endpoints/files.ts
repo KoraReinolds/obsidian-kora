@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { App } from 'obsidian';
 import { BaseEndpoint } from './base';
-import { getMarkdownFiles } from '../../../lib/obsidian';
+import { getMarkdownFiles } from '../../obsidian';
 
 interface FilesOutput {
 	files: string[];
@@ -15,7 +15,8 @@ export class FilesEndpoint extends BaseEndpoint<Record<string, never>, string[]>
 	inputSchema = {} as Record<string, never>; // No input parameters
 
 	async handler(app: App, _input: Record<string, never>): Promise<string[]> {
-		return await getMarkdownFiles(app);
+		const files = await getMarkdownFiles(app);
+		return files.map(file => file.path);
 	}
 
 	protected formatMcpResponse(files: string[]): {

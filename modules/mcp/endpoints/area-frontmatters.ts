@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { App } from 'obsidian';
 import { BaseEndpoint } from './base';
-import { getAreaFrontmatters } from '../../../lib/obsidian';
+import { getAreaFrontmatters } from '../../obsidian';
 
 export class AreaFrontmattersEndpoint extends BaseEndpoint<Record<string, never>, any[]> {
 	path = '/area_frontmatters';
