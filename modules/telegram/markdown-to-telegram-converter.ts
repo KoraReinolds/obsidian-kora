@@ -161,6 +161,17 @@ export class MarkdownToTelegramConverter {
     const blockquoteResult = this.processBlockquotes(text, []);
     text = blockquoteResult.text;
     entities.push(...blockquoteResult.entities);
+    
+    // Create a map of already processed areas (where inline formatting was handled within blockquotes)
+    const processedAreas: Array<{ start: number; end: number }> = [];
+    blockquoteResult.entities
+      .filter(e => e.type === 'blockquote' || e.type === 'expandable_blockquote')
+      .forEach(blockquote => {
+        processedAreas.push({
+          start: blockquote.offset,
+          end: blockquote.offset + blockquote.length
+        });
+      });
 
     // Step 3: Process remaining markdown patterns (now code blocks and blockquotes are protected)
     const patterns = [
@@ -190,13 +201,26 @@ export class MarkdownToTelegramConverter {
       const regex = new RegExp(pattern.regex);
       console.log(`🔍 Searching for pattern: ${pattern.type} - ${pattern.regex}`);
       while ((match = regex.exec(text)) !== null) {
-        console.log(`   Found match: "${match[0]}" at [${match.index}:${match.index + match[0].length}]`);
+        const matchStart = match.index;
+        const matchEnd = match.index + match[0].length;
+        
+        // Check if this match is within a processed area (blockquote)
+        const isInProcessedArea = processedAreas.some(area => 
+          matchStart >= area.start && matchEnd <= area.end
+        );
+        
+        if (isInProcessedArea) {
+          console.log(`   Skipping match "${match[0]}" at [${matchStart}:${matchEnd}] - already processed in blockquote`);
+          continue;
+        }
+        
+        console.log(`   Found match: "${match[0]}" at [${matchStart}:${matchEnd}]`);
         
         matches.push({
           type: pattern.type,
           content: match[1],
-          start: match.index,
-          end: match.index + match[0].length,
+          start: matchStart,
+          end: matchEnd,
           removedChars: pattern.removedChars,
           match: match[0]
         });
@@ -422,14 +446,26 @@ export class MarkdownToTelegramConverter {
         const blockContent = contentLines.join('\n');
         console.log(`🔧 Expandable blockquote (${isCollapsed ? 'collapsed' : 'expanded'}): content="${blockContent}" at offset ${blockStartOffset}`);
         
-        // Add the content to processed lines
-        processedLines.push(blockContent);
+        // Process formatting within this blockquote
+        const blockResult = this.processInlineFormatting(blockContent);
+        const processedBlockContent = blockResult.text;
         
-        // Add entity
+        // Add the processed content to processed lines
+        processedLines.push(processedBlockContent);
+        
+        // Add blockquote entity
         newEntities.push({
           type: isCollapsed ? 'expandable_blockquote' : 'blockquote',
           offset: blockStartOffset,
-          length: blockContent.length,
+          length: processedBlockContent.length,
+        });
+        
+        // Add inline entities with adjusted offsets
+        blockResult.entities.forEach(entity => {
+          newEntities.push({
+            ...entity,
+            offset: blockStartOffset + entity.offset,
+          });
         });
         
         // Skip all processed lines
@@ -453,14 +489,26 @@ export class MarkdownToTelegramConverter {
         const blockContent = contentLines.join('\n');
         console.log(`🔧 Regular blockquote: content="${blockContent}" at offset ${blockStartOffset}`);
         
-        // Add the content to processed lines
-        processedLines.push(blockContent);
+        // Process formatting within this blockquote
+        const blockResult = this.processInlineFormatting(blockContent);
+        const processedBlockContent = blockResult.text;
         
-        // Add entity
+        // Add the processed content to processed lines
+        processedLines.push(processedBlockContent);
+        
+        // Add blockquote entity
         newEntities.push({
           type: 'blockquote',
           offset: blockStartOffset,
-          length: blockContent.length,
+          length: processedBlockContent.length,
+        });
+        
+        // Add inline entities with adjusted offsets
+        blockResult.entities.forEach(entity => {
+          newEntities.push({
+            ...entity,
+            offset: blockStartOffset + entity.offset,
+          });
         });
         
         // Skip all processed lines
@@ -474,6 +522,75 @@ export class MarkdownToTelegramConverter {
     }
 
     return { text: processedLines.join('\n'), entities: newEntities };
+  }
+
+  /**
+   * Process inline formatting (bold, italic, spoilers, etc.) within a text block
+   */
+  private processInlineFormatting(text: string): { text: string; entities: TelegramMessageEntity[] } {
+    let processedText = text;
+    const entities: TelegramMessageEntity[] = [];
+
+    // Use the same patterns as main processing
+    const patterns = [
+      { regex: /\*\*(.*?)\*\*/g, type: 'bold', removedChars: 4 },
+      { regex: /__(.*?)__/g, type: 'bold', removedChars: 4 },
+      { regex: /(?<!\*)\*([^*]+?)\*(?!\*)/g, type: 'italic', removedChars: 2 },
+      { regex: /(?<!_)_([^_]+?)_(?!_)/g, type: 'italic', removedChars: 2 },
+      { regex: /`([^`]+?)`/g, type: 'code', removedChars: 2 },
+      { regex: /~~(.*?)~~/g, type: 'strikethrough', removedChars: 4 },
+      { regex: /\[([^\]]+?)\](?!\()/g, type: 'spoiler', removedChars: 2 },
+    ];
+
+    // Find all matches and sort by position
+    const matches: Array<{
+      type: string;
+      content: string;
+      start: number;
+      end: number;
+      removedChars: number;
+      match: string;
+    }> = [];
+
+    patterns.forEach(pattern => {
+      let match;
+      const regex = new RegExp(pattern.regex);
+      while ((match = regex.exec(processedText)) !== null) {
+        matches.push({
+          type: pattern.type,
+          content: match[1],
+          start: match.index,
+          end: match.index + match[0].length,
+          removedChars: pattern.removedChars,
+          match: match[0]
+        });
+      }
+    });
+
+    // Sort matches by start position
+    matches.sort((a, b) => a.start - b.start);
+
+    // Process matches in order and track offset changes
+    let offsetDelta = 0;
+    for (const match of matches) {
+      const adjustedOffset = match.start - offsetDelta;
+      
+      entities.push({
+        type: match.type,
+        offset: adjustedOffset,
+        length: match.content.length,
+      });
+      
+      offsetDelta += match.removedChars;
+    }
+
+    // Apply all replacements in one pass (from end to start to avoid offset issues)
+    const sortedMatches = [...matches].sort((a, b) => b.start - a.start);
+    for (const match of sortedMatches) {
+      processedText = processedText.slice(0, match.start) + match.content + processedText.slice(match.end);
+    }
+
+    return { text: processedText, entities };
   }
 
   /**
