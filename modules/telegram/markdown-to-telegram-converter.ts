@@ -39,9 +39,19 @@ export class MarkdownToTelegramConverter {
    * Convert markdown content to Telegram format
    */
   convert(markdown: string, options: ConversionOptions = {}): ConversionResult {
+    // Handle null/undefined inputs gracefully
+    if (markdown == null) {
+      return {
+        text: '',
+        entities: [],
+        truncated: false,
+        originalLength: 0,
+      };
+    }
+
     const opts = { ...this.defaultOptions, ...options };
     
-    let text = markdown
+    let text = markdown;
     let entities: TelegramMessageEntity[] = [];
 
     // Step 1: Remove frontmatter
@@ -64,9 +74,6 @@ export class MarkdownToTelegramConverter {
     let truncated = false;
     
     if (opts.maxLength && text.length > opts.maxLength) {
-      const beforeTruncation = text.length;
-      const entitiesBeforeTruncation = entities.length;
-      
       text = this.truncateText(text, opts.maxLength);
       truncated = true;
       
@@ -363,13 +370,11 @@ export class MarkdownToTelegramConverter {
 
 
     // Convert headers (h2-h6) to bold text
-    let headerMatches = 0;
     text = text.replace(/^#{2,6} (.+)$/gm, (match, headerText) => {
       return `*${headerText}*`;
     });
 
     // Clean up extra whitespace and newlines
-    const beforeCleanup = text.length;
     text = text.replace(/\n{3,}/g, '\n\n'); // Max 2 consecutive newlines
     text = text.replace(/^\s+|\s+$/g, ''); // Trim start and end
 
@@ -388,10 +393,13 @@ export class MarkdownToTelegramConverter {
       return text;
     }
 
+    // Reserve 3 characters for '...'
+    const targetLength = maxLength - 3;
+    
     // Try to truncate at word boundary
-    const truncated = text.substring(0, maxLength);
+    const truncated = text.substring(0, targetLength);
     const lastSpaceIndex = truncated.lastIndexOf(' ');
-    const wordBoundaryThreshold = maxLength * 0.8;
+    const wordBoundaryThreshold = targetLength * 0.8;
     
     if (lastSpaceIndex > wordBoundaryThreshold) {
       // If we found a space in the last 20% of the text, truncate there
