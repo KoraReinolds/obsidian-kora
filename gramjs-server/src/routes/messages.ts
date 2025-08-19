@@ -6,6 +6,7 @@
 import type { Express, Request, Response } from 'express';
 import { initClient } from '../services/strategy-service.js';
 import { formatTelegramMessage } from '../utils/format.js';
+import type { MessagesResponse } from '../../../telegram-types.js';
 
 /**
  * JSDoc: Registers GET /messages endpoint.
@@ -38,14 +39,16 @@ export function registerMessageRoutes(app: Express): void {
 
       const formatted = filtered.map(formatTelegramMessage);
 
-      res.json({
+      const response: MessagesResponse = {
         success: true,
         messages: formatted,
         total: formatted.length,
         peer,
         mode: strategy.getMode(),
         dateRange: { start: start?.toISOString() || null, end: end?.toISOString() || null },
-      });
+      };
+      
+      res.json(response);
     } catch (error: any) {
       // eslint-disable-next-line no-console
       console.error('[messages] Error:', error);

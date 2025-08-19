@@ -15,6 +15,10 @@ main.js
 # Exclude sourcemaps
 *.map
 
+# Exclude generated TypeScript files from root types
+telegram-types.js
+telegram-types.d.ts
+
 # obsidian
 data.json
 

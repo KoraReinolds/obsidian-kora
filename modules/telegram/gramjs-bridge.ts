@@ -4,78 +4,22 @@
  */
 
 import { Notice } from 'obsidian';
-
-interface GramJSBridgeConfig {
-  host: string;
-  port: number;
-  timeout: number;
-}
-
-interface SendMessageRequest {
-  peer: string;
-  message: string;
-  entities?: MessageEntity[];
-  parseMode?: string;
-  buttons?: InlineButton[][];
-  disableWebPagePreview?: boolean;
-}
-
-interface InlineButton {
-  text: string;
-  url?: string;
-  data?: string;
-}
-
-interface MessageEntity {
-  type: string;
-  offset: number;
-  length: number;
-  custom_emoji_id?: string;
-}
-
-interface SendFileRequest {
-  peer: string;
-  filePath: string;
-  caption?: string;
-}
-
-interface Channel {
-  id: string;
-  title: string;
-  username?: string;
-  type: 'channel' | 'group' | 'chat';
-  participantsCount?: number;
-  isChannel: boolean;
-  isGroup: boolean;
-  isUser: boolean;
-  accessHash?: string;
-  date: Date;
-}
-
-interface Message {
-  id: number;
-  message?: string;
-  date: string;
-  fromId?: string;
-  peerId: any;
-  out: boolean;
-  mentioned?: boolean;
-  mediaUnread?: boolean;
-  silent?: boolean;
-  post?: boolean;
-  fromScheduled?: boolean;
-  legacy?: boolean;
-  editHide?: boolean;
-  pinned?: boolean;
-  noforwards?: boolean;
-  media?: any;
-  views?: number;
-  forwards?: number;
-  replies?: any;
-  editDate?: string;
-  postAuthor?: string;
-  groupedId?: string;
-}
+import type {
+  GramJSBridgeConfig,
+  SendMessageRequest,
+  EditMessageRequest,
+  SendFileRequest,
+  SendMessageResponse,
+  InlineButton,
+  MessageEntity,
+  Channel,
+  ChannelsResponse,
+  Message,
+  MessagesResponse,
+  GramJSConfig,
+  ConfigResponse,
+  UserInfo
+} from '../../telegram-types';
 
 export class GramJSBridge {
   private config: GramJSBridgeConfig;
@@ -109,12 +53,14 @@ export class GramJSBridge {
   /**
    * Send text message via GramJS userbot with MarkdownV2 support
    */
-  async sendMessage(peer: string, message: string, entities?: MessageEntity[], buttons?: InlineButton[][], disableWebPagePreview?: boolean): Promise<{ success: boolean; messageId?: number }> {
+  async sendMessage(peer: string, message: string, entities?: MessageEntity[], buttons?: InlineButton[][], disableWebPagePreview?: boolean): Promise<SendMessageResponse> {
     try {
+      const requestData: SendMessageRequest = { peer, message, entities, buttons, disableWebPagePreview };
+      
       const response = await fetch(`${this.baseUrl}/send_message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ peer, message, entities, buttons, disableWebPagePreview } as SendMessageRequest),
+        body: JSON.stringify(requestData),
       });
 
       if (!response.ok) {
@@ -122,8 +68,11 @@ export class GramJSBridge {
         throw new Error(error.error || 'Failed to send message');
       }
 
-      const result = await response.json();
-      return { success: true, messageId: result.result?.messageId || result.result?.id };
+      const result: SendMessageResponse = await response.json();
+      return {
+        ...result,
+        messageId: result.result?.messageId || result.result?.id,
+      };
     } catch (error) {
       console.error('Error sending message via GramJS:', error);
       new Notice(`Ошибка отправки сообщения: ${error.message}`);
@@ -136,10 +85,12 @@ export class GramJSBridge {
    */
   async editMessage(peer: string, messageId: number, message: string, entities?: MessageEntity[], buttons?: InlineButton[][], disableWebPagePreview?: boolean): Promise<boolean> {
     try {
+      const requestData: EditMessageRequest = { peer, messageId, message, entities, buttons, disableWebPagePreview };
+      
       const response = await fetch(`${this.baseUrl}/edit_message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ peer, messageId, message, entities, buttons, disableWebPagePreview }),
+        body: JSON.stringify(requestData),
       });
 
       if (!response.ok) {
@@ -160,10 +111,12 @@ export class GramJSBridge {
    */
   async sendFile(peer: string, filePath: string, caption?: string): Promise<boolean> {
     try {
+      const requestData: SendFileRequest = { peer, filePath, caption };
+      
       const response = await fetch(`${this.baseUrl}/send_file`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ peer, filePath, caption } as SendFileRequest),
+        body: JSON.stringify(requestData),
       });
 
       if (!response.ok) {
@@ -182,7 +135,7 @@ export class GramJSBridge {
   /**
    * Get current user info from GramJS
    */
-  async getMe(): Promise<any> {
+  async getMe(): Promise<UserInfo> {
     try {
       const response = await fetch(`${this.baseUrl}/me`, {
         method: 'GET',
@@ -216,8 +169,8 @@ export class GramJSBridge {
         throw new Error(error.error || 'Failed to get channels');
       }
 
-      const data = await response.json();
-      return data.channels.map((channel: any) => ({
+      const data: ChannelsResponse = await response.json();
+      return data.channels.map((channel) => ({
         ...channel,
         date: new Date(channel.date)
       }));
@@ -247,7 +200,7 @@ export class GramJSBridge {
         throw new Error(error.error || 'Failed to get messages');
       }
 
-      const data = await response.json();
+      const data: MessagesResponse = await response.json();
       return data.messages;
     } catch (error) {
       console.error('Error getting messages from GramJS:', error);
@@ -259,13 +212,7 @@ export class GramJSBridge {
   /**
    * Update GramJS server configuration
    */
-  async updateConfig(config: {
-    mode?: 'bot' | 'userbot';
-    botToken?: string;
-    apiId?: number;
-    apiHash?: string;
-    stringSession?: string;
-  }): Promise<boolean> {
+  async updateConfig(config: GramJSConfig): Promise<boolean> {
     try {
       const response = await fetch(`${this.baseUrl}/config`, {
         method: 'POST',
@@ -278,7 +225,7 @@ export class GramJSBridge {
         throw new Error(error.error || 'Failed to update configuration');
       }
 
-      const data = await response.json();
+      const data: ConfigResponse = await response.json();
       console.log('[updateConfig] Configuration updated:', data.currentConfig);
       return true;
     } catch (error) {

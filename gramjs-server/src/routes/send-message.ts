@@ -6,7 +6,7 @@
 import type { Express, Request, Response } from 'express';
 import { initClient } from '../services/strategy-service.js';
 import { createInlineKeyboard } from '../utils/keyboard.js';
-import type { MessageOptions } from '../types/http.js';
+import type { MessageOptions, SendMessageRequest, SendMessageResponse } from '../../../telegram-types.js';
 import { processMessage, validateMessageParams } from '../utils/markdown-converter.js';
 
 /**
@@ -15,6 +15,7 @@ import { processMessage, validateMessageParams } from '../utils/markdown-convert
 export function registerSendMessageRoute(app: Express): void {
   app.post('/send_message', async (req: Request, res: Response) => {
     try {
+      const requestData: SendMessageRequest = req.body;
       const { 
         peer, 
         message, 
@@ -22,7 +23,7 @@ export function registerSendMessageRoute(app: Express): void {
         entities, 
         buttons, 
         disableWebPagePreview 
-      } = req.body;
+      } = requestData;
       
       // Validate required parameters
       validateMessageParams('send', { peer, message });
@@ -44,7 +45,9 @@ export function registerSendMessageRoute(app: Express): void {
       const messageOptions: MessageOptions = { message: processed.finalMessage };
 
       if (processed.finalEntities.length > 0) {
-        messageOptions.formattingEntities = processed.finalEntities;
+        messageOptions.formattingEntities = processed.finalEntities as unknown as Array<{
+          [key: string]: unknown;
+        }>;
       }
 
       if (processed.disableWebPagePreview !== undefined) {
@@ -59,7 +62,7 @@ export function registerSendMessageRoute(app: Express): void {
 
       const result = await strategy.sendMessage(peer, messageOptions);
       
-      const response: any = { 
+      const response: SendMessageResponse = { 
         success: true, 
         message: 'Message sent successfully', 
         mode, 

@@ -1,36 +1,27 @@
 /**
  * Types: Shared HTTP request options and Telegram message/file options.
  * Everything here is strictly related to API shape and reused by routes.
+ * 
+ * @deprecated Use types from '../../../telegram-types.js' instead for consistency
  */
 
-export interface MessageEntityEmoji {
-  offset: number;
-  length: number;
-  custom_emoji_id: string;
-}
-
-/**
- * JSDoc: Options for sending a message through Telegram strategies.
- */
-export interface MessageOptions {
-  message?: string;
-  entities?: MessageEntityEmoji[];
-  buttons?: Array<Array<{ text: string; url?: string; data?: string }>>;
-  parseMode?: string;
-  replyMarkup?: any;
-  formattingEntities?: any[];
-  disableWebPagePreview?: boolean;
-  [key: string]: any;
-}
-
-/**
- * JSDoc: Options for sending a file through Telegram strategies.
- */
-export interface FileOptions {
-  file: string;
-  caption?: string;
-  buttons?: Array<Array<{ text: string; url?: string; data?: string }>>;
-  parseMode?: string;
-  replyMarkup?: any;
-  [key: string]: any;
-}
+// Re-export from root telegram types for backward compatibility
+export type {
+  MessageEntityEmoji,
+  MessageOptions,
+  FileOptions,
+  InlineButton,
+  MessageEntity,
+  SendMessageRequest,
+  EditMessageRequest,
+  SendFileRequest,
+  SendMessageResponse,
+  Channel,
+  ChannelsResponse,
+  Message,
+  MessagesResponse,
+  GramJSConfig,
+  ConfigResponse,
+  UserInfo,
+  HealthResponse
+} from '../../../telegram-types.js';

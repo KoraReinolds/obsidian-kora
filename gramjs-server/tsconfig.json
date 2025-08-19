@@ -10,7 +10,7 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": "../",
     "declaration": true,
     "sourceMap": true,
     "resolveJsonModule": true,
@@ -18,7 +18,8 @@
   },
   "include": [
     "src/**/*",
-    "types/**/*"
+    "types/**/*",
+    "../telegram-types.ts"
   ],
   "exclude": [
     "node_modules",

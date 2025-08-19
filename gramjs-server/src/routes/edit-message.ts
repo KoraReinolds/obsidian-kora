@@ -5,7 +5,7 @@
 
 import type { Express, Request, Response } from 'express';
 import { initClient } from '../services/strategy-service.js';
-import type { MessageOptions } from '../types/http.js';
+import type { MessageOptions, EditMessageRequest, SendMessageResponse } from '../../../telegram-types.js';
 import { processMessage, validateMessageParams } from '../utils/markdown-converter.js';
 
 /**
@@ -14,15 +14,15 @@ import { processMessage, validateMessageParams } from '../utils/markdown-convert
 export function registerEditMessageRoute(app: Express): void {
   app.post('/edit_message', async (req: Request, res: Response) => {
     try {
+      const requestData: EditMessageRequest = req.body;
       const { 
         peer, 
         messageId, 
         message, 
-        fileName,
         entities, 
         buttons,
         disableWebPagePreview 
-      } = req.body;
+      } = requestData;
 
       // Validate required parameters
       validateMessageParams('edit', { peer, messageId, message });
@@ -34,7 +34,7 @@ export function registerEditMessageRoute(app: Express): void {
       const processed = processMessage({
         peer,
         message,
-        fileName,
+        fileName: undefined, // EditMessageRequest doesn't have fileName
         entities,
         buttons,
         disableWebPagePreview,
@@ -44,7 +44,9 @@ export function registerEditMessageRoute(app: Express): void {
       const messageOptions: MessageOptions = { message: processed.finalMessage };
 
       if (processed.finalEntities.length > 0) {
-        messageOptions.formattingEntities = processed.finalEntities;
+        messageOptions.formattingEntities = processed.finalEntities as unknown as Array<{
+          [key: string]: unknown;
+        }>;
       }
 
       if (processed.disableWebPagePreview !== undefined) {
@@ -58,7 +60,7 @@ export function registerEditMessageRoute(app: Express): void {
 
       const result = await strategy.editMessage(peer, messageId, messageOptions);
       
-      const response: any = { 
+      const response: SendMessageResponse = { 
         success: true, 
         message: 'Message edited successfully', 
         mode, 
@@ -71,10 +73,11 @@ export function registerEditMessageRoute(app: Express): void {
       }
       
       res.json(response);
-    } catch (error: any) {
+    } catch (error: unknown) {
       // eslint-disable-next-line no-console
       console.error('[edit_message] Error:', error);
-      res.status(500).json({ error: error.message });
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      res.status(500).json({ error: message });
     }
   });
 }
