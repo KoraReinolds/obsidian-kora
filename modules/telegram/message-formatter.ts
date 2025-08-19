@@ -149,16 +149,13 @@ export class MessageFormatter {
     // Конвертируем markdown в telegram формат
     const conversionResult = this.markdownConverter.convert(markdownContent, options);
     
-    // Добавляем заголовок с именем файла
-    const header = `📝 *${this.escapeMarkdownV2(fileName)}*\n\n`;
-    
     // Объединяем заголовок с контентом
-    const finalText = header + conversionResult.text;
+    const finalText = conversionResult.text;
     
     // Корректируем offset'ы entities с учетом добавленного заголовка
     const adjustedEntities = conversionResult.entities?.map(entity => ({
       ...entity,
-      offset: entity.offset + header.length
+      offset: entity.offset
     })) || [];
 
     return {

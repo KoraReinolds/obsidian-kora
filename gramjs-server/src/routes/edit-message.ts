@@ -26,6 +26,9 @@ export function registerEditMessageRoute(app: Express): void {
 
       // Validate required parameters
       validateMessageParams('edit', { peer, messageId, message });
+    
+      const strategy = await initClient();
+      const mode = strategy.getMode();
 
       // Process message (handles both regular and markdown)
       const processed = processMessage({
@@ -33,11 +36,11 @@ export function registerEditMessageRoute(app: Express): void {
         message,
         fileName,
         entities,
-        buttons,  // Important: now edit_message also supports buttons!
-        disableWebPagePreview
+        buttons,
+        disableWebPagePreview,
+        mode,
       }); 
 
-      const strategy = await initClient();
       const messageOptions: MessageOptions = { message: processed.finalMessage };
 
       if (processed.finalEntities.length > 0) {
@@ -52,13 +55,13 @@ export function registerEditMessageRoute(app: Express): void {
       if (processed.replyMarkup) {
         messageOptions.replyMarkup = processed.replyMarkup;
       }
-      console.log('MESSAGE OPTIONS', messageOptions);
+
       const result = await strategy.editMessage(peer, messageId, messageOptions);
       
       const response: any = { 
         success: true, 
         message: 'Message edited successfully', 
-        mode: strategy.getMode(), 
+        mode, 
         result 
       };
       

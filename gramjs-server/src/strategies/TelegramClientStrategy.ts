@@ -182,7 +182,6 @@ class TelegramClientStrategy {
    */
   async editMessage(peer: string, messageId: number, options: MessageOptions): Promise<any> {
     this.validateConnection();
-    
     const targetPeer = this.resolveTargetPeer(peer);
     
     const editOptions = {
@@ -193,7 +192,7 @@ class TelegramClientStrategy {
     
     this.processLinkPreview(editOptions, options);
     this.processReplyMarkup(editOptions, options, false); // Don't remove replyMarkup for edit operations
-    
+   console.log('!!!',targetPeer, editOptions) 
     const result = await this.client.editMessage(targetPeer, editOptions);
     return this.sanitizeResult(result);
   }

@@ -27,6 +27,9 @@ export function registerSendMessageRoute(app: Express): void {
       // Validate required parameters
       validateMessageParams('send', { peer, message });
 
+      const strategy = await initClient();
+      const mode = strategy.getMode();
+
       // Process message (handles both regular and markdown)
       const processed = processMessage({
         peer,
@@ -34,10 +37,10 @@ export function registerSendMessageRoute(app: Express): void {
         fileName,
         entities,
         buttons,
-        disableWebPagePreview
+        disableWebPagePreview,
+        mode
       });
 
-      const strategy = await initClient();
       const messageOptions: MessageOptions = { message: processed.finalMessage };
 
       if (processed.finalEntities.length > 0) {
@@ -59,7 +62,7 @@ export function registerSendMessageRoute(app: Express): void {
       const response: any = { 
         success: true, 
         message: 'Message sent successfully', 
-        mode: strategy.getMode(), 
+        mode, 
         result 
       };
       

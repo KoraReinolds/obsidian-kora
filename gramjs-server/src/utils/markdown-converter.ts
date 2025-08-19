@@ -86,6 +86,7 @@ export interface MessageProcessingOptions {
   entities?: any[];
   buttons?: any[];
   disableWebPagePreview?: boolean;
+  mode: string;
 }
 
 export interface ProcessedMessage {
@@ -108,7 +109,8 @@ export function processMessage(options: MessageProcessingOptions): ProcessedMess
     message, 
     entities, 
     buttons, 
-    disableWebPagePreview 
+    disableWebPagePreview,
+    mode
   } = options;
 
   let finalMessage = message || '';
@@ -130,7 +132,11 @@ export function processMessage(options: MessageProcessingOptions): ProcessedMess
   
   // Always process entities if they exist (regardless of message presence)
   if (entities && entities.length > 0) {
-    finalEntities = convertToGramJSEntities(entities);
+    if (mode === 'bot') {
+      finalEntities = entities;
+    } else if (mode === 'userbot') {
+      finalEntities = convertToGramJSEntities(entities);
+    }
     
     // Update entities count in conversionInfo if it exists
     if (conversionInfo) {
