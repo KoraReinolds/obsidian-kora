@@ -237,14 +237,14 @@ export class UIManager {
     if (channelConfig.messageId) {
       // Edit existing message - FIXED: preserve buttons during editing
       const buttons = this.createNavigationButtons(file);
-      const success = await this.gramjsBridge.editMessage(
-        peer, 
-        channelConfig.messageId, 
-        processedText, 
-        combinedEntities, 
+      const success = await this.gramjsBridge.editMessage({
+        peer,
+        messageId: channelConfig.messageId,
+        message: processedText,
+        entities: combinedEntities,
         buttons, // CRITICAL FIX: Include buttons when editing
-        true, // disableWebPagePreview
-      );
+        disableWebPagePreview: true
+      });
       if (success) {
         new Notice(`Сообщение в ${channelConfig.name} обновлено!`);
         // Re-inject buttons to update UI
@@ -253,13 +253,13 @@ export class UIManager {
     } else {
       // Send new message
       const buttons = this.createNavigationButtons(file);
-      const result = await this.gramjsBridge.sendMessage(
-        peer, 
-        processedText, 
-        combinedEntities, 
-        buttons, 
-        true, // disableWebPagePreview
-      );
+      const result = await this.gramjsBridge.sendMessage({
+        peer,
+        message: processedText,
+        entities: combinedEntities,
+        buttons,
+        disableWebPagePreview: true
+      });
       if (result.success && result.messageId) {
         // For default channel (legacy migration), save to both formats for compatibility
         if (channelConfig.name === 'Telegram' && !this.getChannelConfigs(file).some(ch => ch.name === 'Telegram')) {

@@ -57,6 +57,13 @@ export interface SendFileRequest {
   parseMode?: string;
 }
 
+export interface GetMessagesRequest {
+  peer: string;
+  startDate?: string;
+  endDate?: string;
+  limit?: number;
+}
+
 // Response interfaces
 export interface SendMessageResponse {
   success: boolean;

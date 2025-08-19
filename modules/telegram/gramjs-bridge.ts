@@ -9,9 +9,8 @@ import type {
   SendMessageRequest,
   EditMessageRequest,
   SendFileRequest,
+  GetMessagesRequest,
   SendMessageResponse,
-  InlineButton,
-  MessageEntity,
   Channel,
   ChannelsResponse,
   Message,
@@ -53,9 +52,9 @@ export class GramJSBridge {
   /**
    * Send text message via GramJS userbot with MarkdownV2 support
    */
-  async sendMessage(peer: string, message: string, entities?: MessageEntity[], buttons?: InlineButton[][], disableWebPagePreview?: boolean): Promise<SendMessageResponse> {
+  async sendMessage(request: SendMessageRequest): Promise<SendMessageResponse> {
     try {
-      const requestData: SendMessageRequest = { peer, message, entities, buttons, disableWebPagePreview };
+      const requestData: SendMessageRequest = request;
       
       const response = await fetch(`${this.baseUrl}/send_message`, {
         method: 'POST',
@@ -83,9 +82,9 @@ export class GramJSBridge {
   /**
    * Edit existing message via GramJS userbot
    */
-  async editMessage(peer: string, messageId: number, message: string, entities?: MessageEntity[], buttons?: InlineButton[][], disableWebPagePreview?: boolean): Promise<boolean> {
+  async editMessage(request: EditMessageRequest): Promise<boolean> {
     try {
-      const requestData: EditMessageRequest = { peer, messageId, message, entities, buttons, disableWebPagePreview };
+      const requestData: EditMessageRequest = request;
       
       const response = await fetch(`${this.baseUrl}/edit_message`, {
         method: 'POST',
@@ -109,9 +108,9 @@ export class GramJSBridge {
   /**
    * Send file via GramJS userbot
    */
-  async sendFile(peer: string, filePath: string, caption?: string): Promise<boolean> {
+  async sendFile(request: SendFileRequest): Promise<boolean> {
     try {
-      const requestData: SendFileRequest = { peer, filePath, caption };
+      const requestData: SendFileRequest = request;
       
       const response = await fetch(`${this.baseUrl}/send_file`, {
         method: 'POST',
@@ -184,8 +183,9 @@ export class GramJSBridge {
   /**
    * Get messages from a specific channel/chat between dates
    */
-  async getMessages(peer: string, startDate?: string, endDate?: string, limit = 100): Promise<Message[]> {
+  async getMessages(request: GetMessagesRequest): Promise<Message[]> {
     try {
+      const { peer, startDate, endDate, limit = 100 } = request;
       const params = new URLSearchParams({ peer, limit: limit.toString() });
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
