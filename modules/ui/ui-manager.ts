@@ -150,32 +150,7 @@ export class UIManager {
       if (file) {
         const channelConfigs = this.getChannelConfigs(file);
         // If no channel configs, create default channel config from settings
-        if (channelConfigs.length === 0) {
-          const defaultChannelId = this.settings.gramjs?.chatId || this.settings.telegram.chatId;
-          if (defaultChannelId) {
-            // Check if there's an existing message ID in legacy format
-            const telegramMessageId = this.frontmatterUtils.getFrontmatterField(file, 'telegram_message_id');
-            
-            const defaultChannelConfig: ChannelConfig = {
-              name: 'Telegram',
-              channelId: defaultChannelId,
-              messageId: telegramMessageId || undefined
-            };
-            
-            const buttonText = defaultChannelConfig.messageId 
-              ? '✏️ Редактировать пост' 
-              : '📤 Отправить в TG';
-            const buttonColor = defaultChannelConfig.messageId ? '#f59e0b' : '#0088cc';
-            
-            const buttonGramJSText = this.createButton(
-              buttonText,
-              'kora-gramjs-text',
-              () => this.sendNoteToChannel(leaf, defaultChannelConfig),
-              { backgroundColor: buttonColor }
-            );
-            buttons.push(buttonGramJSText);
-          }
-        } else {
+        if (channelConfigs.length !== 0) {
           // Create button for each channel config
           channelConfigs.forEach(channelConfig => {
             const buttonText = channelConfig.messageId 

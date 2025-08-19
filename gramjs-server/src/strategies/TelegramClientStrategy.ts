@@ -129,7 +129,7 @@ class TelegramClientStrategy {
    * @param {MessageOptions} sourceOptions - Source options
    * @param {boolean} removeReplyMarkup - Whether to remove original replyMarkup property
    */
-  private processReplyMarkup(targetOptions: any, sourceOptions: MessageOptions, removeReplyMarkup: boolean = true): void {
+  private processReplyMarkup(targetOptions: any, sourceOptions: MessageOptions, removeReplyMarkup = true): void {
     if (sourceOptions.replyMarkup) {
       // Convert different button formats for GramJS compatibility
       if (sourceOptions.replyMarkup.inline_keyboard) {
