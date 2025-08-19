@@ -157,7 +157,12 @@ export class MarkdownToTelegramConverter {
       return placeholder;
     });
 
-    // Step 2: Process remaining markdown patterns (now code blocks are protected)
+    // Step 2: Process blockquotes first (before other patterns to avoid conflicts)
+    const blockquoteResult = this.processBlockquotes(text, []);
+    text = blockquoteResult.text;
+    entities.push(...blockquoteResult.entities);
+
+    // Step 3: Process remaining markdown patterns (now code blocks and blockquotes are protected)
     const patterns = [
       { regex: /\*\*(.*?)\*\*/g, type: 'bold', removedChars: 4 },
       { regex: /__(.*?)__/g, type: 'bold', removedChars: 4 },
@@ -165,6 +170,7 @@ export class MarkdownToTelegramConverter {
       { regex: /(?<!_)_([^_]+?)_(?!_)/g, type: 'italic', removedChars: 2 },
       { regex: /`([^`]+?)`/g, type: 'code', removedChars: 2 },
       { regex: /~~(.*?)~~/g, type: 'strikethrough', removedChars: 4 },
+      { regex: /\[([^\]]+?)\](?!\()/g, type: 'spoiler', removedChars: 2 },
     ];
 
     // Find all matches and sort by position
@@ -204,7 +210,7 @@ export class MarkdownToTelegramConverter {
     let offsetDelta = 0;
     for (const match of matches) {
       const adjustedOffset = match.start - offsetDelta;
-      console.log(`🔧 ${match.type}: "${match.match}" at offset ${match.start}, delta ${offsetDelta}, adjusted ${adjustedOffset}`);
+      console.log(`🔧 ${match.type}: "${match.match}" at offset ${match.start}, delta ${offsetDelta}, adjusted ${adjustedOffset}, content: "${match.content}"`);
       
       entities.push({
         type: match.type,
@@ -213,23 +219,47 @@ export class MarkdownToTelegramConverter {
       });
       
       offsetDelta += match.removedChars;
+      console.log(`   New offsetDelta: ${offsetDelta}`);
     }
 
     // Apply all replacements in one pass (from end to start to avoid offset issues)
     const sortedMatches = [...matches].sort((a, b) => b.start - a.start);
+    console.log(`📝 Text before replacements: "${text}"`);
     for (const match of sortedMatches) {
+      const before = text;
       text = text.slice(0, match.start) + match.content + text.slice(match.end);
+      console.log(`   Replaced "${match.match}" → "${match.content}" at ${match.start}: "${before}" → "${text}"`);
     }
+    console.log(`📝 Text after replacements: "${text}"`)
 
     // Step 3: Restore code blocks and calculate their positions
-    let currentOffset = 0;
-    for (const codeBlock of codeBlockPlaceholders) {
+    // Process in order of appearance to correctly adjust offsets
+    const sortedCodeBlocks = codeBlockPlaceholders.sort((a, b) => {
+      const aIndex = text.indexOf(a.placeholder);
+      const bIndex = text.indexOf(b.placeholder);
+      return aIndex - bIndex;
+    });
+
+    for (const codeBlock of sortedCodeBlocks) {
       const placeholderIndex = text.indexOf(codeBlock.placeholder);
       if (placeholderIndex !== -1) {
-        console.log(`🔧 Restoring code block at position ${placeholderIndex}`);
+        const placeholderLength = codeBlock.placeholder.length;
+        const contentLength = codeBlock.content.length;
+        const lengthDelta = contentLength - placeholderLength;
+        
+        console.log(`🔧 Restoring code block at position ${placeholderIndex}, placeholder "${codeBlock.placeholder}" → content length ${contentLength}, delta: ${lengthDelta}`);
         
         // Replace placeholder with actual content
         text = text.replace(codeBlock.placeholder, codeBlock.content);
+        
+        // Adjust offset of all entities that come after this placeholder
+        entities.forEach(entity => {
+          if (entity.offset > placeholderIndex) {
+            const oldOffset = entity.offset;
+            entity.offset += lengthDelta;
+            console.log(`   Adjusted entity ${entity.type} offset: ${oldOffset} → ${entity.offset}`);
+          }
+        });
         
         // Add entity if preserving code blocks
         if (codeBlock.entity) {
@@ -240,25 +270,73 @@ export class MarkdownToTelegramConverter {
     }
 
     // Step 4: Process links (they can contain other formatting)
+    // We need to collect all link matches first, then process them from end to start
+    const linkMatches: Array<{
+      match: string;
+      linkText: string;
+      url?: string;
+      start: number;
+      end: number;
+      lengthDelta: number;
+    }> = [];
+
+    // Find all link matches
     if (options.preserveLinks) {
-      let linkOffsetDelta = 0;
-      text = text.replace(/\[([^\]]+?)\]\(([^)]+?)\)/g, (match, linkText, url, offset) => {
-        const adjustedOffset = offset - linkOffsetDelta;
+      const linkRegex = /\[([^\]]+?)\]\(([^)]+?)\)/g;
+      let match;
+      while ((match = linkRegex.exec(text)) !== null) {
+        linkMatches.push({
+          match: match[0],
+          linkText: match[1],
+          url: match[2],
+          start: match.index,
+          end: match.index + match[0].length,
+          lengthDelta: match[0].length - match[1].length
+        });
+      }
+    } else {
+      const linkRegex = /\[([^\]]+?)\]\([^)]+?\)/g;
+      let match;
+      while ((match = linkRegex.exec(text)) !== null) {
+        linkMatches.push({
+          match: match[0],
+          linkText: match[1],
+          start: match.index,
+          end: match.index + match[0].length,
+          lengthDelta: match[0].length - match[1].length
+        });
+      }
+    }
+
+    // Process links from end to start to avoid offset issues
+    const sortedLinkMatches = linkMatches.sort((a, b) => b.start - a.start);
+    for (const linkMatch of sortedLinkMatches) {
+      console.log(`🔗 Processing link "${linkMatch.match}" at offset ${linkMatch.start}`);
+      
+      // Replace link with just the text
+      text = text.slice(0, linkMatch.start) + linkMatch.linkText + text.slice(linkMatch.end);
+      
+      // Add entity if preserving links
+      if (options.preserveLinks && linkMatch.url) {
         entities.push({
           type: 'text_link',
-          offset: adjustedOffset,
-          length: linkText.length,
-          url: url,
+          offset: linkMatch.start,
+          length: linkMatch.linkText.length,
+          url: linkMatch.url,
         });
-        linkOffsetDelta += match.length - linkText.length;
-        return linkText;
-      });
-    } else {
-      // Just keep the link text
-      text = text.replace(/\[([^\]]+?)\]\([^)]+?\)/g, (match, linkText) => {
-        return linkText;
+      }
+      
+      // Adjust offset of entities that come after this link
+      entities.forEach(entity => {
+        if (entity.offset > linkMatch.start && entity.type !== 'text_link') {
+          const oldOffset = entity.offset;
+          entity.offset -= linkMatch.lengthDelta;
+          console.log(`   Adjusted entity ${entity.type} offset after link: ${oldOffset} → ${entity.offset}`);
+        }
       });
     }
+
+
 
     // Convert headers (h2-h6) to bold text
     let headerMatches = 0;
@@ -300,6 +378,102 @@ export class MarkdownToTelegramConverter {
       const result = truncated + '...';
       return result;
     }
+  }
+
+  /**
+   * Process blockquotes (both regular and expandable)
+   * Groups consecutive blockquote lines into single blocks
+   */
+  private processBlockquotes(text: string, currentEntities: TelegramMessageEntity[]): { text: string; entities: TelegramMessageEntity[] } {
+    const newEntities: TelegramMessageEntity[] = [];
+    const lines = text.split('\n');
+    const processedLines: string[] = [];
+    
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      
+      // Check if this line starts a blockquote block
+      const expandableMatch = line.match(/^>\[!\s*[^\]]*\](-?)\s*(.*)$/);
+      const regularMatch = line.match(/^>\s*(.+)$/);
+      
+      if (expandableMatch) {
+        // Process expandable blockquote block
+        const isCollapsed = expandableMatch[1] === '-';
+        const firstLineContent = expandableMatch[2];
+        const blockStartOffset = processedLines.join('\n').length + (processedLines.length > 0 ? 1 : 0);
+        
+        // Collect all content lines for this blockquote
+        const contentLines: string[] = [];
+        if (firstLineContent.trim()) {
+          contentLines.push(firstLineContent);
+        }
+        
+        // Look for following blockquote lines
+        let j = i + 1;
+        while (j < lines.length && lines[j].match(/^>\s*(.*)$/)) {
+          const nextMatch = lines[j].match(/^>\s*(.*)$/);
+          if (nextMatch) {
+            contentLines.push(nextMatch[1]);
+          }
+          j++;
+        }
+        
+        const blockContent = contentLines.join('\n');
+        console.log(`🔧 Expandable blockquote (${isCollapsed ? 'collapsed' : 'expanded'}): content="${blockContent}" at offset ${blockStartOffset}`);
+        
+        // Add the content to processed lines
+        processedLines.push(blockContent);
+        
+        // Add entity
+        newEntities.push({
+          type: isCollapsed ? 'expandable_blockquote' : 'blockquote',
+          offset: blockStartOffset,
+          length: blockContent.length,
+        });
+        
+        // Skip all processed lines
+        i = j;
+        
+      } else if (regularMatch && !expandableMatch) {
+        // Process regular blockquote block
+        const blockStartOffset = processedLines.join('\n').length + (processedLines.length > 0 ? 1 : 0);
+        
+        // Collect all content lines for this blockquote
+        const contentLines: string[] = [];
+        let j = i;
+        while (j < lines.length && lines[j].match(/^>\s*(.*)$/)) {
+          const match = lines[j].match(/^>\s*(.*)$/);
+          if (match) {
+            contentLines.push(match[1]);
+          }
+          j++;
+        }
+        
+        const blockContent = contentLines.join('\n');
+        console.log(`🔧 Regular blockquote: content="${blockContent}" at offset ${blockStartOffset}`);
+        
+        // Add the content to processed lines
+        processedLines.push(blockContent);
+        
+        // Add entity
+        newEntities.push({
+          type: 'blockquote',
+          offset: blockStartOffset,
+          length: blockContent.length,
+        });
+        
+        // Skip all processed lines
+        i = j;
+        
+      } else {
+        // Regular line, keep as is
+        processedLines.push(line);
+        i++;
+      }
+    }
+
+    return { text: processedLines.join('\n'), entities: newEntities };
   }
 
   /**

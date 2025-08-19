@@ -66,6 +66,22 @@ export function convertToGramJSEntities(entities: any[] = []): Api.TypeMessageEn
           length: entity.length,
           documentId: entity.custom_emoji_id,
         });
+      case 'spoiler':
+        return new Api.MessageEntitySpoiler({
+          offset: entity.offset,
+          length: entity.length,
+        });
+      case 'blockquote':
+        return new Api.MessageEntityBlockquote({
+          offset: entity.offset,
+          length: entity.length,
+        });
+      case 'expandable_blockquote':
+        // Fallback to regular blockquote if expandable not available
+        return new Api.MessageEntityBlockquote({
+          offset: entity.offset,
+          length: entity.length,
+        });
       default:
         // Fallback for unknown entity types
         return new Api.MessageEntityCode({
