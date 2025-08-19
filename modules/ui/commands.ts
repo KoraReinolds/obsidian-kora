@@ -109,6 +109,7 @@ export class PluginCommands {
         telegramMessageId, 
         processedText, 
         undefined, 
+        undefined,
         this.settings.telegram.disableWebPagePreview
       );
       if (success) {

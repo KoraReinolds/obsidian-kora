@@ -310,6 +310,30 @@ export class UIManager {
   }
 
   /**
+   * Generate Telegram post URL from channel ID and message ID
+   */
+  private generatePostUrl(channelId: string, messageId: number): string {
+    // Remove @ symbol if present and handle different channel ID formats
+    const cleanChannelId = channelId.replace(/^@/, '');
+    
+    // If channelId is numeric, use the format with c/ prefix for channel links
+    // If channelId is a username, use it directly
+    if (/^-?\d+$/.test(cleanChannelId)) {
+      // Numeric channel ID - remove -100 prefix if present
+      let numericId = cleanChannelId;
+      if (numericId.startsWith('-100')) {
+        numericId = numericId.slice(4); // Remove '-100' prefix
+      } else if (numericId.startsWith('-')) {
+        numericId = numericId.slice(1); // Remove just '-' prefix
+      }
+      return `https://t.me/c/${numericId}/${messageId}`;
+    } else {
+      // Username format
+      return `https://t.me/${cleanChannelId}/${messageId}`;
+    }
+  }
+
+  /**
    * Update channel configuration in frontmatter
    */
   private async updateChannelConfig(file: TFile, channelName: string, messageId: number): Promise<void> {
@@ -321,6 +345,16 @@ export class UIManager {
       channels[channelIndex] = { ...channels[channelIndex], messageId };
       await this.frontmatterUtils.setFrontmatterField(file, 'telegram_channels', channels);
     }
+  }
+
+  /**
+   * Get Telegram post URL for a channel configuration
+   */
+  getPostUrl(channelConfig: ChannelConfig): string | null {
+    if (!channelConfig.messageId) {
+      return null;
+    }
+    return this.generatePostUrl(channelConfig.channelId, channelConfig.messageId);
   }
 
   /**
