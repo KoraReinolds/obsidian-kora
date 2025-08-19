@@ -7,6 +7,12 @@ import {
   type ConversionOptions, 
   type ConversionResult 
 } from './markdown-to-telegram-converter';
+import { App } from 'obsidian';
+import { 
+  FrontmatterUtils, 
+  findFileByName, 
+  generateTelegramPostUrl 
+} from '../obsidian';
 
 export interface EmojiMapping {
   standard: string;      // Обычный эмодзи (например: "📝")
@@ -21,15 +27,23 @@ export interface MessageEntity {
   custom_emoji_id?: string;
 }
 
+
+
 export class MessageFormatter {
   private customEmojis: EmojiMapping[];
   private useCustomEmojis: boolean;
   private markdownConverter: MarkdownToTelegramConverter;
+  private app?: App;
+  private frontmatterUtils?: FrontmatterUtils;
 
-  constructor(customEmojis: EmojiMapping[] = [], useCustomEmojis = false) {
+  constructor(customEmojis: EmojiMapping[] = [], useCustomEmojis = false, app?: App) {
     this.customEmojis = customEmojis;
     this.useCustomEmojis = useCustomEmojis;
     this.markdownConverter = new MarkdownToTelegramConverter();
+    this.app = app;
+    if (app) {
+      this.frontmatterUtils = new FrontmatterUtils(app);
+    }
   }
 
   /**
@@ -146,8 +160,11 @@ export class MessageFormatter {
    * Форматировать markdown заметку для Telegram
    */
   formatMarkdownNote(fileName: string, markdownContent: string, options?: ConversionOptions): ConversionResult {
+    // Конвертируем Obsidian ссылки в telegram URL перед обработкой
+    const processedContent = this.convertObsidianLinksToTelegramUrls(markdownContent);
+    
     // Конвертируем markdown в telegram формат
-    const conversionResult = this.markdownConverter.convert(markdownContent, options);
+    const conversionResult = this.markdownConverter.convert(processedContent, options);
     
     // Объединяем заголовок с контентом
     const finalText = conversionResult.text;
@@ -178,4 +195,60 @@ export class MessageFormatter {
   getMarkdownConverter(): MarkdownToTelegramConverter {
     return this.markdownConverter;
   }
+
+  /**
+   * Конвертировать Obsidian ссылки [[file|text]] в Telegram URL [text](https://t.me/...)
+   */
+  private convertObsidianLinksToTelegramUrls(content: string): string {
+    if (!this.app || !this.frontmatterUtils) {
+      throw new Error('App instance required for link conversion');
+    }
+
+    // Регулярное выражение для поиска Obsidian ссылок: [[filename]] или [[filename|display text]]
+    const obsidianLinkRegex = /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
+    
+    return content.replace(obsidianLinkRegex, (match, fileName, displayText) => {
+      try {
+        // Используем displayText если есть, иначе fileName
+        const linkText = displayText || fileName;
+        
+        // Получаем файл по имени
+        if (!this.app) {
+          throw new Error('App instance required for link conversion');
+        }
+        
+        const file = findFileByName(this.app, fileName);
+        if (!file) {
+          throw new Error(`File "${fileName}" not found`);
+        }
+        
+        // Получаем конфигурацию каналов для файла
+        if (!this.frontmatterUtils) {
+          throw new Error('FrontmatterUtils instance required for link conversion');
+        }
+        
+        const channelConfigs = this.frontmatterUtils.getChannelConfigs(file);
+        if (channelConfigs.length === 0) {
+          throw new Error(`No channel configuration found for file "${fileName}"`);
+        }
+        
+        // Используем первую доступную конфигурацию с messageId
+        const publishedConfig = channelConfigs.find(config => config.messageId);
+        if (!publishedConfig || !publishedConfig.messageId) {
+          throw new Error(`File "${fileName}" is not published (no messageId found)`);
+        }
+        
+        // Генерируем URL
+        const telegramUrl = generateTelegramPostUrl(publishedConfig.channelId, publishedConfig.messageId);
+        
+        // Возвращаем markdown ссылку
+        return `[${linkText}](${telegramUrl})`;
+      } catch (error) {
+        // Если произошла ошибка, выбрасываем её для обработки на верхнем уровне
+        throw new Error(`Failed to convert link ${match}: ${error.message}`);
+      }
+    });
+  }
+
+
 }

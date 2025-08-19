@@ -23,7 +23,8 @@ export class PluginCommands {
     this.gramjsBridge = gramjsBridge;
     this.messageFormatter = new MessageFormatter(
       settings.telegram.customEmojis,
-      settings.telegram.useCustomEmojis
+      settings.telegram.useCustomEmojis,
+      app
     );
     this.duplicateTimeFixer = new DuplicateTimeFixer(app);
     this.frontmatterUtils = new FrontmatterUtils(app);

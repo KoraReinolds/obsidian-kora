@@ -4,19 +4,10 @@
 
 import { TFile, Notice, WorkspaceLeaf, App } from 'obsidian';
 import { GramJSBridge, MessageFormatter } from '../telegram';
-import { FrontmatterUtils } from '../obsidian';
+import { FrontmatterUtils, type ChannelConfig } from '../obsidian';
 import { NoteUISystem } from './note-ui-system';
 import { VectorBridge } from '../vector';
 import type { KoraMcpPluginSettings } from '../../main';
-
-/**
- * Configuration for a Telegram channel
- */
-interface ChannelConfig {
-  name: string;
-  channelId: string;
-  messageId?: number;
-}
 
 export class UIManager {
   private app: App;
@@ -45,7 +36,8 @@ export class UIManager {
     this.getFileContent = getFileContent;
     this.messageFormatter = new MessageFormatter(
       settings.telegram.customEmojis,
-      settings.telegram.useCustomEmojis
+      settings.telegram.useCustomEmojis,
+      app
     );
     this.frontmatterUtils = new FrontmatterUtils(app);
     this.noteUISystem = new NoteUISystem();
@@ -148,7 +140,7 @@ export class UIManager {
     if (this.settings.useGramJsUserbot) {
       const file = (leaf.view as any).file as TFile;
       if (file) {
-        const channelConfigs = this.getChannelConfigs(file);
+        const channelConfigs = this.frontmatterUtils.getChannelConfigs(file);
         // If no channel configs, create default channel config from settings
         if (channelConfigs.length !== 0) {
           // Create button for each channel config
@@ -262,7 +254,7 @@ export class UIManager {
       });
       if (result.success && result.messageId) {
         // For default channel (legacy migration), save to both formats for compatibility
-        if (channelConfig.name === 'Telegram' && !this.getChannelConfigs(file).some(ch => ch.name === 'Telegram')) {
+        if (channelConfig.name === 'Telegram' && !this.frontmatterUtils.getChannelConfigs(file).some(ch => ch.name === 'Telegram')) {
           // This is a legacy default channel, save to old format for backward compatibility
           await this.frontmatterUtils.setFrontmatterField(file, 'telegram_message_id', result.messageId);
         } else {
@@ -292,48 +284,6 @@ export class UIManager {
   }
 
   /**
-   * Get channel configurations from frontmatter
-   */
-  private getChannelConfigs(file: TFile): ChannelConfig[] {
-    const frontmatter = this.frontmatterUtils.getFrontmatter(file);
-    const channels = frontmatter.telegram_channels;
-    
-    if (!Array.isArray(channels)) {
-      return [];
-    }
-    
-    return channels.filter(channel => 
-      typeof channel === 'object' &&
-       channel.name &&
-       channel.channelId
-    );
-  }
-
-  /**
-   * Generate Telegram post URL from channel ID and message ID
-   */
-  private generatePostUrl(channelId: string, messageId: number): string {
-    // Remove @ symbol if present and handle different channel ID formats
-    const cleanChannelId = channelId.replace(/^@/, '');
-    
-    // If channelId is numeric, use the format with c/ prefix for channel links
-    // If channelId is a username, use it directly
-    if (/^-?\d+$/.test(cleanChannelId)) {
-      // Numeric channel ID - remove -100 prefix if present
-      let numericId = cleanChannelId;
-      if (numericId.startsWith('-100')) {
-        numericId = numericId.slice(4); // Remove '-100' prefix
-      } else if (numericId.startsWith('-')) {
-        numericId = numericId.slice(1); // Remove just '-' prefix
-      }
-      return `https://t.me/c/${numericId}/${messageId}`;
-    } else {
-      // Username format
-      return `https://t.me/${cleanChannelId}/${messageId}`;
-    }
-  }
-
-  /**
    * Update channel configuration in frontmatter
    */
   private async updateChannelConfig(file: TFile, channelName: string, messageId: number): Promise<void> {
@@ -345,16 +295,6 @@ export class UIManager {
       channels[channelIndex] = { ...channels[channelIndex], messageId };
       await this.frontmatterUtils.setFrontmatterField(file, 'telegram_channels', channels);
     }
-  }
-
-  /**
-   * Get Telegram post URL for a channel configuration
-   */
-  getPostUrl(channelConfig: ChannelConfig): string | null {
-    if (!channelConfig.messageId) {
-      return null;
-    }
-    return this.generatePostUrl(channelConfig.channelId, channelConfig.messageId);
   }
 
   /**

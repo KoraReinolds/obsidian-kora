@@ -120,3 +120,45 @@ export async function getAutomateDocs(app: App): Promise<any[]> {
 		includeTitle: true
 	});
 }
+
+/**
+ * Find a file by its name (with or without .md extension).
+ * Searches both by direct path and by basename across all markdown files.
+ * @param app The Obsidian application instance.
+ * @param fileName The file name to search for.
+ * @returns The found TFile or null if not found.
+ */
+export function findFileByName(app: App, fileName: string): TFile | null {
+	// Add .md extension if not present
+	const fullFileName = fileName.endsWith('.md') ? fileName : `${fileName}.md`;
+	
+	// Try direct path lookup first
+	const file = app.vault.getAbstractFileByPath(fullFileName);
+	if (file instanceof TFile) {
+		return file;
+	}
+	
+	// If not found by direct path, search all markdown files
+	const allFiles = app.vault.getMarkdownFiles();
+	return allFiles.find(f => f.basename === fileName || f.name === fullFileName) || null;
+}
+
+/**
+ * Generate Telegram post URL from channel ID and message ID.
+ * @param channelId The channel ID (numeric or username).
+ * @param messageId The message ID.
+ * @returns The Telegram post URL.
+ */
+export function generateTelegramPostUrl(channelId: string, messageId: number): string {
+	if (/^-?\d+$/.test(channelId)) {
+		let numericId = `${channelId}`;
+		if (numericId.startsWith('-100')) {
+			numericId = numericId.slice(4); // Remove '-100' prefix
+		} else if (numericId.startsWith('-')) {
+			numericId = numericId.slice(1); // Remove just '-' prefix
+		}
+		return `https://t.me/c/${numericId}/${messageId}`;
+	} else {
+		throw new Error('Unknown channel format');
+	}
+}
