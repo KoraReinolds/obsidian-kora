@@ -357,9 +357,9 @@ export class MarkdownToTelegramConverter {
         });
       }
       
-      // Adjust offset of entities that come after this link
+      // Adjust offset of entities that come after this link (including other links)
       entities.forEach(entity => {
-        if (entity.offset > linkMatch.start && entity.type !== 'text_link') {
+        if (entity.offset > linkMatch.start) {
           const oldOffset = entity.offset;
           entity.offset -= linkMatch.lengthDelta;
           console.log(`   Adjusted entity ${entity.type} offset after link: ${oldOffset} → ${entity.offset}`);
