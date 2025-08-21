@@ -186,10 +186,29 @@ export default class KoraMcpPlugin extends Plugin {
 
 	async loadSettings() {
     const data: any = await this.loadData();
+    
+    // Инициализируем структуру данных если она отсутствует
+    if (!data) {
+      this.settings = Object.assign({}, DEFAULT_SETTINGS);
+      return;
+    }
+    
+    // Инициализируем telegram настройки если отсутствуют
+    if (!data.telegram) {
+      data.telegram = {};
+    }
+    
+    // Инициализируем customEmojis если отсутствуют
     if (!data.telegram.customEmojis) {
       data.telegram.customEmojis = DEFAULT_SETTINGS.telegram.customEmojis;
     }
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
+    
+    // Инициализируем folderConfigs если отсутствуют
+    if (!data.telegram.folderConfigs) {
+      data.telegram.folderConfigs = [];
+    }
+    
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
 	}
 
 	async saveSettings() {

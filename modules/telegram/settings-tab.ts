@@ -1,5 +1,6 @@
 import KoraMcpPlugin, { TelegramChannelConfig, TelegramFolderConfig } from "main";
 import { App, PluginSettingTab, Setting, Notice } from "obsidian";
+import { FolderSuggest } from "../obsidian/suggester";
 
 export class TelegramSettingTab extends PluginSettingTab {
 	private plugin: KoraMcpPlugin;
@@ -7,14 +8,18 @@ export class TelegramSettingTab extends PluginSettingTab {
 	constructor(app: App, plugin: KoraMcpPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
+    // @ts-ignore
 		this.id = "kora-telegram-settings";
+    // @ts-ignore
 		this.name = "Kora: Telegram";
 	}
 
 	display(): void {
+		console.log('TelegramSettingTab display() called');
 		const { containerEl } = this;
 		containerEl.empty();
 
+		console.log('Current telegram settings:', this.plugin.settings.telegram);
 		this.renderTelegramBasics(containerEl);
 		this.renderFolderConfigs(containerEl);
 		this.renderGramJs(containerEl);
@@ -41,7 +46,12 @@ export class TelegramSettingTab extends PluginSettingTab {
 		containerEl.createEl('h3', { text: 'Folder-based Posting Configuration' });
 		containerEl.createEl('p', { text: 'Configure folders and their associated Telegram channels for automatic posting.', cls: 'setting-item-description' });
 
-		const folderConfigs = this.plugin.settings.telegram.folderConfigs || [];
+		// Убеждаемся что folderConfigs инициализирован
+		if (!this.plugin.settings.telegram.folderConfigs) {
+			this.plugin.settings.telegram.folderConfigs = [];
+		}
+		
+		const folderConfigs = this.plugin.settings.telegram.folderConfigs;
 
 		folderConfigs.forEach((config: TelegramFolderConfig, configIndex: number) => {
 			const configContainer = containerEl.createDiv('telegram-folder-config');
@@ -52,15 +62,18 @@ export class TelegramSettingTab extends PluginSettingTab {
 
 			new Setting(configContainer)
 				.setName(`Folder ${configIndex + 1}`)
-				.setDesc('Select the folder for this configuration')
-				.addSearch((search) => {
-					search
+				.setDesc('Type to search for folders in your vault')
+				.addText((text) => {
+					text
 						.setPlaceholder('Type folder path...')
 						.setValue(config.folder)
 						.onChange(async (value) => {
 							config.folder = value;
 							await this.plugin.saveSettings();
 						});
+					
+					// Добавляем FolderSuggest к текстовому полю
+					new FolderSuggest(text.inputEl, this.app);
 				})
 				.addButton((button) =>
 					button
@@ -100,10 +113,23 @@ export class TelegramSettingTab extends PluginSettingTab {
 					.setButtonText('Add Configuration')
 					.setCta()
 					.onClick(async () => {
-						const newConfig: TelegramFolderConfig = { folder: '', channels: [] };
-						this.plugin.settings.telegram.folderConfigs.push(newConfig);
-						await this.plugin.saveSettings();
-						this.display();
+						console.log('Add Configuration button clicked');
+						try {
+							const newConfig: TelegramFolderConfig = { folder: '', channels: [] };
+							console.log('Creating new config:', newConfig);
+							
+							this.plugin.settings.telegram.folderConfigs.push(newConfig);
+							console.log('Config added, current folderConfigs:', this.plugin.settings.telegram.folderConfigs);
+							
+							await this.plugin.saveSettings();
+							console.log('Settings saved');
+							
+							this.display();
+							console.log('Display refreshed');
+						} catch (error) {
+							console.error('Error adding folder configuration:', error);
+							new Notice('Ошибка при добавлении конфигурации: ' + error.message);
+						}
 					})
 			);
 	}
@@ -268,6 +294,8 @@ export class TelegramSettingTab extends PluginSettingTab {
 			containerEl.createEl('div', { text: '⚠️ Userbot mode: Uses your personal Telegram account. Use responsibly and respect Telegram\'s terms.', cls: 'setting-item-description' });
 		}
 	}
+
+
 }
 
 
