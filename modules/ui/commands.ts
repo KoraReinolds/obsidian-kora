@@ -90,7 +90,7 @@ export class PluginCommands {
     }
 
     const content = await this.app.vault.read(file);
-    const peer = this.settings.gramjs?.chatId || this.settings.telegram.chatId;
+    const peer = this.settings.gramjs?.chatId;
     
     if (!peer) {
       new Notice('Chat ID не настроен');

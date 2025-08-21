@@ -1,5 +1,5 @@
-import { App, PluginSettingTab, Setting, TFolder, Notice } from "obsidian";
-import type KoraMcpPlugin, { TelegramFolderConfig, TelegramChannelConfig } from "../../main";
+import KoraMcpPlugin, { TelegramChannelConfig, TelegramFolderConfig } from "main";
+import { App, PluginSettingTab, Setting, Notice } from "obsidian";
 
 export class TelegramSettingTab extends PluginSettingTab {
 	private plugin: KoraMcpPlugin;
@@ -16,26 +16,12 @@ export class TelegramSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		this.renderTelegramBasics(containerEl);
-		this.renderCustomEmojis(containerEl);
 		this.renderFolderConfigs(containerEl);
 		this.renderGramJs(containerEl);
 	}
 
 	private renderTelegramBasics(containerEl: HTMLElement) {
 		containerEl.createEl('h2', { text: 'Telegram Settings' });
-
-		new Setting(containerEl)
-			.setName('Chat ID')
-			.setDesc('Channel or chat ID (e.g., @mychannel or -1001234567890)')
-			.addText((text) =>
-				text
-					.setPlaceholder('Enter chat ID')
-					.setValue(this.plugin.settings.telegram.chatId)
-					.onChange(async (value) => {
-						this.plugin.settings.telegram.chatId = value;
-						await this.plugin.saveSettings();
-					})
-			);
 
 		new Setting(containerEl)
 			.setName('Disable Link Preview')
@@ -50,112 +36,6 @@ export class TelegramSettingTab extends PluginSettingTab {
 			);
 	}
 
-	private renderCustomEmojis(containerEl: HTMLElement) {
-		containerEl.createEl('h3', { text: 'Custom Emojis' });
-
-		new Setting(containerEl)
-			.setName('Enable Custom Emojis')
-			.setDesc('Replace standard emojis with custom ones from your packs')
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.telegram.useCustomEmojis || false)
-					.onChange(async (value) => {
-						this.plugin.settings.telegram.useCustomEmojis = value;
-						await this.plugin.saveSettings();
-						this.display();
-					})
-			);
-
-		if (!this.plugin.settings.telegram.useCustomEmojis) return;
-
-		const mappings = this.plugin.settings.telegram.customEmojis || [];
-
-		const descEl = containerEl.createEl('div', {
-			cls: 'setting-item-description',
-			text: 'To get custom_emoji_id: send a custom emoji to @userinfobot, it will reply with JSON containing custom_emoji_id.'
-		});
-		descEl.style.marginBottom = '15px';
-		descEl.style.fontStyle = 'italic';
-
-		mappings.forEach((mapping: any) => {
-			const setting = new Setting(containerEl)
-				.setName(`${mapping.standard} → Custom`)
-				.setDesc(mapping.description || `Mapping for emoji ${mapping.standard}`)
-				.addButton((button) =>
-					button
-						.setButtonText('Remove')
-						.setWarning()
-						.onClick(async () => {
-							if (this.plugin.settings.telegram.customEmojis) {
-								this.plugin.settings.telegram.customEmojis = this.plugin.settings.telegram.customEmojis.filter(
-									(m: any) => m.standard !== mapping.standard
-								);
-							}
-							await this.plugin.saveSettings();
-							this.display();
-						})
-				);
-
-			const customIdEl = setting.settingEl.createEl('div', {
-				text: `ID: ${mapping.customId}`,
-				cls: 'setting-item-description'
-			});
-			customIdEl.style.marginTop = '5px';
-			customIdEl.style.fontFamily = 'monospace';
-			customIdEl.style.fontSize = '12px';
-		});
-
-		const addContainer = containerEl.createEl('div', { cls: 'setting-item' });
-		addContainer.createEl('h4', { text: 'Add New Mapping' });
-
-		let newStandardEmoji = '';
-		let newCustomId = '';
-		let newDescription = '';
-
-		new Setting(addContainer)
-			.setName('Standard Emoji')
-			.setDesc('Standard emoji to replace (e.g., 📝)')
-			.addText((text) => text.setPlaceholder('📝').onChange((value) => { newStandardEmoji = value; }));
-
-		new Setting(addContainer)
-			.setName('Custom Emoji ID')
-			.setDesc('ID of the custom emoji from Telegram')
-			.addText((text) => text.setPlaceholder('5789574674987654321').onChange((value) => { newCustomId = value; }));
-
-		new Setting(addContainer)
-			.setName('Description (optional)')
-			.setDesc('Description for convenience')
-			.addText((text) => text.setPlaceholder('Beautiful note').onChange((value) => { newDescription = value; }));
-
-		new Setting(addContainer)
-			.setName('Add Mapping')
-			.addButton((button) =>
-				button
-					.setButtonText('Add')
-					.setCta()
-					.onClick(async () => {
-						if (newStandardEmoji && newCustomId) {
-							if (!this.plugin.settings.telegram.customEmojis) {
-								this.plugin.settings.telegram.customEmojis = [];
-							}
-							const existingIndex = this.plugin.settings.telegram.customEmojis.findIndex((m: any) => m.standard === newStandardEmoji);
-							if (existingIndex !== -1) {
-								this.plugin.settings.telegram.customEmojis[existingIndex] = {
-									standard: newStandardEmoji,
-									customId: newCustomId,
-									description: newDescription || undefined
-								};
-							} else {
-								this.plugin.settings.telegram.customEmojis.push({ standard: newStandardEmoji, customId: newCustomId, description: newDescription || undefined });
-							}
-							await this.plugin.saveSettings();
-							this.display();
-						} else {
-							new Notice('Please provide both Standard emoji and Custom Emoji ID');
-						}
-					})
-			);
-	}
 
 	private renderFolderConfigs(containerEl: HTMLElement) {
 		containerEl.createEl('h3', { text: 'Folder-based Posting Configuration' });
@@ -181,15 +61,6 @@ export class TelegramSettingTab extends PluginSettingTab {
 							config.folder = value;
 							await this.plugin.saveSettings();
 						});
-
-					const folders = this.plugin.app.vault.getAllLoadedFiles().filter((file: any) => file instanceof TFolder).map((folder: TFolder) => folder.path);
-					search.containerEl.addEventListener('input', () => {
-						const query = search.getValue().toLowerCase();
-						const suggestions = folders.filter((path: string) => path.toLowerCase().includes(query));
-						if (suggestions.length > 0 && query.length > 0) {
-							search.containerEl.title = `Suggestions: ${suggestions.slice(0, 3).join(', ')}`;
-						}
-					});
 				})
 				.addButton((button) =>
 					button
@@ -199,19 +70,6 @@ export class TelegramSettingTab extends PluginSettingTab {
 							this.plugin.settings.telegram.folderConfigs.splice(configIndex, 1);
 							await this.plugin.saveSettings();
 							this.display();
-						})
-				);
-
-			new Setting(configContainer)
-				.setName('Bot Token')
-				.setDesc('Telegram bot token for this folder')
-				.addText((text) =>
-					text
-						.setPlaceholder('Enter bot token')
-						.setValue(config.botToken)
-						.onChange(async (value) => {
-							config.botToken = value;
-							await this.plugin.saveSettings();
 						})
 				);
 
@@ -242,7 +100,7 @@ export class TelegramSettingTab extends PluginSettingTab {
 					.setButtonText('Add Configuration')
 					.setCta()
 					.onClick(async () => {
-						const newConfig: TelegramFolderConfig = { folder: '', botToken: '', channels: [] };
+						const newConfig: TelegramFolderConfig = { folder: '', channels: [] };
 						this.plugin.settings.telegram.folderConfigs.push(newConfig);
 						await this.plugin.saveSettings();
 						this.display();
@@ -283,21 +141,6 @@ export class TelegramSettingTab extends PluginSettingTab {
 
 	private renderGramJs(containerEl: HTMLElement) {
 		containerEl.createEl('h2', { text: 'GramJS Settings' });
-
-		new Setting(containerEl)
-			.setName('Use GramJS')
-			.setDesc('Enable GramJS integration for Telegram functionality')
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.useGramJsUserbot || false)
-					.onChange(async (value) => {
-						this.plugin.settings.useGramJsUserbot = value;
-						await this.plugin.saveSettings();
-						this.display();
-					})
-			);
-
-		if (!this.plugin.settings.useGramJsUserbot) return;
 
 		const gram = this.plugin.settings.gramjs || {};
 		this.plugin.settings.gramjs = gram; // ensure object exists, do not reset later

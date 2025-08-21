@@ -161,7 +161,8 @@ export class UIManager {
       folderConfig.channels.forEach(channelConfig => {
         configs.push(this.createChannelConfigFromFolder(folderConfig, channelConfig, file));
       });
-    } else if (this.settings.useGramJsUserbot) {
+    } else {
+      // tododo
       // Fallback to legacy frontmatter-based configuration
       const legacyConfigs = this.frontmatterUtils.getChannelConfigs(file);
       configs.push(...legacyConfigs);
@@ -178,7 +179,7 @@ export class UIManager {
       ? `✏️ ${channelConfig.name}` 
       : `📤 ${channelConfig.name}`;
     const buttonColor = channelConfig.messageId ? '#f59e0b' : '#0088cc';
-    const cssClass = channelConfig.botToken ? 'kora-telegram' : 'kora-gramjs';
+    const cssClass = 'kora-telegram';
     
     return this.createButton(
       buttonText,
@@ -239,14 +240,6 @@ export class UIManager {
       return;
     }
 
-    // Configure GramJS server for bot mode if botToken is provided
-    if (channelConfig.botToken) {
-      await this.gramjsBridge.updateConfig({
-        mode: 'bot',
-        botToken: channelConfig.botToken
-      });
-    }
-
     // Convert markdown to Telegram format and process custom emojis
     const conversionResult = this.messageFormatter.formatMarkdownNote(file.basename, content);
     const { processedText, entities: customEmojiEntities } = this.messageFormatter.processCustomEmojis(conversionResult.text);
@@ -283,17 +276,8 @@ export class UIManager {
         disableWebPagePreview: this.settings.telegram.disableWebPagePreview || true
       });
       if (result.success && result.messageId) {
-        // For folder-based configs, use new post_ids format
-        if (channelConfig.botToken) {
-          await this.updatePostIds(file, channelConfig.channelId, result.messageId);
-        } else {
-          // For legacy configs, maintain backward compatibility
-          if (channelConfig.name === 'Telegram' && !this.frontmatterUtils.getChannelConfigs(file).some(ch => ch.name === 'Telegram')) {
-            await this.frontmatterUtils.setFrontmatterField(file, 'telegram_message_id', result.messageId);
-          } else {
-            await this.updateChannelConfig(file, channelConfig.name, result.messageId);
-          }
-        }
+        // Always use new post_ids format
+        await this.updatePostIds(file, channelConfig.channelId, result.messageId);
         new Notice(`Заметка отправлена в ${channelConfig.name}!`);
         await this.injectButtons(leaf);
       }
@@ -340,8 +324,7 @@ export class UIManager {
     return {
       name: channelConfig.name,
       channelId: channelConfig.channelId,
-      messageId,
-      botToken: folderConfig.botToken
+      messageId
     };
   }
 

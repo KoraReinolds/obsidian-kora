@@ -19,14 +19,10 @@ export interface TelegramChannelConfig {
 
 export interface TelegramFolderConfig {
 	folder: string;
-	botToken: string;
 	channels: TelegramChannelConfig[];
 }
 
 export interface TelegramSettings {
-	botToken: string;
-	chatId: string;
-	enabled: boolean;
 	customEmojis?: EmojiMapping[];
 	useCustomEmojis?: boolean;
 	disableWebPagePreview?: boolean;
@@ -37,7 +33,6 @@ export interface TelegramSettings {
 export interface KoraMcpPluginSettings {
 	port: number;
 	telegram: TelegramSettings;
-	useGramJsUserbot?: boolean;
 	gramjs?: {
 		mode?: 'bot' | 'userbot';
 		apiId?: number;
@@ -52,9 +47,6 @@ export interface KoraMcpPluginSettings {
 const DEFAULT_SETTINGS: KoraMcpPluginSettings = {
 	port: 8123,
 	telegram: {
-		botToken: '',
-		chatId: '',
-		enabled: false,
 		customEmojis: [
 			{ standard: '🗿', customId: '5346283626868812660', description: 'Moai' },
 			{ standard: '🧠', customId: '5346180109567028520', description: 'Brain' },
@@ -72,7 +64,6 @@ const DEFAULT_SETTINGS: KoraMcpPluginSettings = {
 		disableWebPagePreview: true,
 		folderConfigs: [],
 	},
-	useGramJsUserbot: false,
 	gramjs: {
 		apiId: 0,
 		apiHash: '',
@@ -218,7 +209,7 @@ export default class KoraMcpPlugin extends Plugin {
 	 * Синхронизировать конфигурацию GramJS сервера
 	 */
 	private async syncGramJSConfig() {
-		if (!this.settings.useGramJsUserbot || !this.settings.gramjs) {
+		if (!this.settings.gramjs) {
 			return;
 		}
 
