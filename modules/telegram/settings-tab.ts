@@ -11,7 +11,7 @@ export class TelegramSettingTab extends PluginSettingTab {
     // @ts-ignore
 		this.id = "kora-telegram-settings";
     // @ts-ignore
-		this.name = "Kora: Telegram";
+		this.name = "- Kora: Telegram";
 	}
 
 	display(): void {
@@ -51,18 +51,41 @@ export class TelegramSettingTab extends PluginSettingTab {
 			this.plugin.settings.telegram.folderConfigs = [];
 		}
 		
+    new Setting(containerEl)
+    .setName('Add Folder Configuration')
+    .setDesc('Add a new folder with Telegram bot configuration')
+    .addButton((button) =>
+      button
+        .setIcon('plus')
+        .setTooltip('Add folder configuration')
+        .onClick(async () => {
+          console.log('Add Configuration button clicked');
+          try {
+            const newConfig: TelegramFolderConfig = { folder: '', channels: [] };
+            console.log('Creating new config:', newConfig);
+            
+            this.plugin.settings.telegram.folderConfigs.push(newConfig);
+            console.log('Config added, current folderConfigs:', this.plugin.settings.telegram.folderConfigs);
+            
+            await this.plugin.saveSettings();
+            console.log('Settings saved');
+            
+            this.display();
+            console.log('Display refreshed');
+          } catch (error) {
+            console.error('Error adding folder configuration:', error);
+            new Notice('Ошибка при добавлении конфигурации: ' + error.message);
+          }
+        })
+    );
+
 		const folderConfigs = this.plugin.settings.telegram.folderConfigs;
 
 		folderConfigs.forEach((config: TelegramFolderConfig, configIndex: number) => {
-			const configContainer = containerEl.createDiv('telegram-folder-config');
-			configContainer.style.border = '1px solid var(--background-modifier-border)';
-			configContainer.style.borderRadius = '8px';
-			configContainer.style.padding = '16px';
-			configContainer.style.marginBottom = '16px';
-
-			new Setting(configContainer)
+			// Линия 1: Папка + удаление + добавить канал
+			new Setting(containerEl)
 				.setName(`Folder ${configIndex + 1}`)
-				.setDesc('Type to search for folders in your vault')
+				.setDesc('Select folder and manage channels')
 				.addText((text) => {
 					text
 						.setPlaceholder('Type folder path...')
@@ -72,30 +95,22 @@ export class TelegramSettingTab extends PluginSettingTab {
 							await this.plugin.saveSettings();
 						});
 					
-					// Добавляем FolderSuggest к текстовому полю
 					new FolderSuggest(text.inputEl, this.app);
 				})
 				.addButton((button) =>
 					button
-						.setButtonText('Remove')
-						.setWarning()
+						.setIcon('trash')
+						.setTooltip('Remove folder')
 						.onClick(async () => {
 							this.plugin.settings.telegram.folderConfigs.splice(configIndex, 1);
 							await this.plugin.saveSettings();
 							this.display();
 						})
-				);
-
-			const channelsContainer = configContainer.createDiv();
-			channelsContainer.createEl('h4', { text: 'Channels' });
-			this.renderChannels(channelsContainer, config, configIndex);
-
-			new Setting(configContainer)
-				.setName('Add Channel')
-				.setDesc('Add a new channel for this folder')
+				)
 				.addButton((button) =>
 					button
-						.setButtonText('Add Channel')
+						.setIcon('plus')
+						.setTooltip('Add channel')
 						.onClick(async () => {
 							const newChannel: TelegramChannelConfig = { name: '', channelId: '' };
 							config.channels.push(newChannel);
@@ -103,67 +118,47 @@ export class TelegramSettingTab extends PluginSettingTab {
 							this.display();
 						})
 				);
+
+      
+
+			// Линии для каналов: имя канала + ID канала + удаление
+			config.channels.forEach((channel: TelegramChannelConfig, channelIndex: number) => {
+				new Setting(containerEl)
+					.setName(`${String.fromCharCode(8194)}${String.fromCharCode(8194)}Channel ${channelIndex + 1}`)
+					.setDesc('Channel name and ID')
+					.addText((text) => 
+						text
+							.setPlaceholder('Channel name')
+							.setValue(channel.name)
+							.onChange(async (value) => {
+								channel.name = value;
+								await this.plugin.saveSettings();
+							})
+					)
+					.addText((text) => 
+						text
+							.setPlaceholder('@channel or -1001234567890')
+							.setValue(channel.channelId)
+							.onChange(async (value) => {
+								channel.channelId = value;
+								await this.plugin.saveSettings();
+							})
+					)
+					.addButton((button) =>
+						button
+							.setIcon('trash')
+							.setTooltip('Remove channel')
+							.onClick(async () => {
+								config.channels.splice(channelIndex, 1);
+								await this.plugin.saveSettings();
+								this.display();
+							})
+					);
+			});
 		});
+  }
 
-		new Setting(containerEl)
-			.setName('Add Folder Configuration')
-			.setDesc('Add a new folder with Telegram bot configuration')
-			.addButton((button) =>
-				button
-					.setButtonText('Add Configuration')
-					.setCta()
-					.onClick(async () => {
-						console.log('Add Configuration button clicked');
-						try {
-							const newConfig: TelegramFolderConfig = { folder: '', channels: [] };
-							console.log('Creating new config:', newConfig);
-							
-							this.plugin.settings.telegram.folderConfigs.push(newConfig);
-							console.log('Config added, current folderConfigs:', this.plugin.settings.telegram.folderConfigs);
-							
-							await this.plugin.saveSettings();
-							console.log('Settings saved');
-							
-							this.display();
-							console.log('Display refreshed');
-						} catch (error) {
-							console.error('Error adding folder configuration:', error);
-							new Notice('Ошибка при добавлении конфигурации: ' + error.message);
-						}
-					})
-			);
-	}
 
-	private renderChannels(containerEl: HTMLElement, config: TelegramFolderConfig, configIndex: number) {
-		config.channels.forEach((channel: TelegramChannelConfig, channelIndex: number) => {
-			const channelContainer = containerEl.createDiv('telegram-channel-config');
-			channelContainer.style.marginLeft = '20px';
-			channelContainer.style.padding = '8px';
-			channelContainer.style.border = '1px solid var(--background-modifier-border-hover)';
-			channelContainer.style.borderRadius = '4px';
-			channelContainer.style.marginBottom = '8px';
-
-			new Setting(channelContainer)
-				.setName(`Channel ${channelIndex + 1} Name`)
-				.setDesc('Display name for the channel (shown on button)')
-				.addText((text) => text.setPlaceholder('Channel name').setValue(channel.name).onChange(async (value) => { channel.name = value; await this.plugin.saveSettings(); }));
-
-			new Setting(channelContainer)
-				.setName('Channel ID')
-				.setDesc('Telegram channel ID (e.g., @mychannel or -1001234567890)')
-				.addText((text) => text.setPlaceholder('Channel ID').setValue(channel.channelId).onChange(async (value) => { channel.channelId = value; await this.plugin.saveSettings(); }))
-				.addButton((button) =>
-					button
-						.setButtonText('Remove')
-						.setWarning()
-						.onClick(async () => {
-							config.channels.splice(channelIndex, 1);
-							await this.plugin.saveSettings();
-							this.display();
-						})
-				);
-		});
-	}
 
 	private renderGramJs(containerEl: HTMLElement) {
 		containerEl.createEl('h2', { text: 'GramJS Settings' });

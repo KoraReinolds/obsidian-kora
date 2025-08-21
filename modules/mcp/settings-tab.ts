@@ -7,8 +7,10 @@ export class McpServerSettingTab extends PluginSettingTab {
 	constructor(app: App, plugin: KoraMcpPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
+		// @ts-ignore
 		this.id = "kora-mcp-server-settings";
-		this.name = "Kora: MCP Server";
+		// @ts-ignore
+		this.name = "- Kora: MCP Server";
 	}
 
 	display(): void {

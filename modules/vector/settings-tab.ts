@@ -7,8 +7,10 @@ export class VectorSettingTab extends PluginSettingTab {
 	constructor(app: App, plugin: KoraMcpPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
+		// @ts-ignore
 		this.id = 'kora-vector-settings';
-		this.name = 'Kora: Vector';
+		// @ts-ignore
+		this.name = '- Kora: Vector';
 	}
 
 	display(): void {
