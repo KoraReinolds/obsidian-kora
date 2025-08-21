@@ -25,6 +25,17 @@ function matchesPattern(path: string, pattern: string): boolean {
 }
 
 /**
+ * Checks include pattern: if pattern has wildcards, use glob matching; otherwise use simple substring search.
+ */
+function matchesInclude(path: string, pattern: string): boolean {
+    const hasWildcard = pattern.includes('*');
+    if (hasWildcard) {
+        return matchesPattern(path, pattern);
+    }
+    return path.includes(pattern);
+}
+
+/**
  * Retrieves markdown files from the vault.
  * @param app The Obsidian application instance.
  * @param options Optional parameters for filtering and content inclusion.
@@ -49,15 +60,15 @@ export async function getMarkdownFiles(
 
 	// Apply include filter if provided
 	if (options?.include && options.include.length > 0) {
-		filteredFiles = filteredFiles.filter(file => 
-			options.include!.some(pattern => matchesPattern(file.path, pattern))
+		filteredFiles = filteredFiles.filter(file =>
+			options.include!.some(pattern => matchesInclude(file.path, pattern))
 		);
 	}
 
 	// Apply exclude filter if provided
 	if (options?.exclude && options.exclude.length > 0) {
 		filteredFiles = filteredFiles.filter(file => 
-			!options.exclude!.some(pattern => matchesPattern(file.path, pattern))
+			!options.exclude!.some(pattern => matchesInclude(file.path, pattern))
 		);
 	}
 	

@@ -7,7 +7,7 @@ import { GramJSBridge, MessageFormatter } from '../telegram';
 import { FrontmatterUtils, type ChannelConfig } from '../obsidian';
 import { NoteUISystem } from './note-ui-system';
 import { VectorBridge } from '../vector';
-import type { KoraMcpPluginSettings } from '../../main';
+import type { KoraMcpPluginSettings, TelegramFolderConfig, TelegramChannelConfig } from '../../main';
 
 export class UIManager {
   private app: App;
@@ -136,33 +136,56 @@ export class UIManager {
     });
     buttons.push(buttonNotes);
 
-    // GramJS Post buttons (only if GramJS is enabled)
-    if (this.settings.useGramJsUserbot) {
-      const file = (leaf.view as any).file as TFile;
-      if (file) {
-        const channelConfigs = this.frontmatterUtils.getChannelConfigs(file);
-        // If no channel configs, create default channel config from settings
-        if (channelConfigs.length !== 0) {
-          // Create button for each channel config
-          channelConfigs.forEach(channelConfig => {
-            const buttonText = channelConfig.messageId 
-              ? `✏️ ${channelConfig.name}` 
-              : `📤 ${channelConfig.name}`;
-            const buttonColor = channelConfig.messageId ? '#f59e0b' : '#0088cc';
-            
-            const channelButton = this.createButton(
-              buttonText,
-              `kora-gramjs-${channelConfig.name.toLowerCase().replace(/\s+/g, '-')}`,
-              () => this.sendNoteToChannel(leaf, channelConfig),
-              { backgroundColor: buttonColor }
-            );
-            buttons.push(channelButton);
-          });
-        }
-      }
+    // Telegram buttons
+    const file = (leaf.view as any).file as TFile;
+    if (file) {
+      const channelConfigs = this.getChannelConfigsForFile(file);
+      channelConfigs.forEach(channelConfig => {
+        const channelButton = this.createChannelButton(leaf, channelConfig);
+        buttons.push(channelButton);
+      });
     }
 
     return buttons;
+  }
+
+  /**
+   * Get all channel configurations for a file (folder-based + legacy)
+   */
+  private getChannelConfigsForFile(file: TFile): ChannelConfig[] {
+    const configs: ChannelConfig[] = [];
+    
+    // Try folder-based configuration first
+    const folderConfig = this.getFolderConfigForFile(file);
+    if (folderConfig) {
+      folderConfig.channels.forEach(channelConfig => {
+        configs.push(this.createChannelConfigFromFolder(folderConfig, channelConfig, file));
+      });
+    } else if (this.settings.useGramJsUserbot) {
+      // Fallback to legacy frontmatter-based configuration
+      const legacyConfigs = this.frontmatterUtils.getChannelConfigs(file);
+      configs.push(...legacyConfigs);
+    }
+    
+    return configs;
+  }
+
+  /**
+   * Create a channel button with unified logic
+   */
+  private createChannelButton(leaf: WorkspaceLeaf, channelConfig: ChannelConfig): HTMLElement {
+    const buttonText = channelConfig.messageId 
+      ? `✏️ ${channelConfig.name}` 
+      : `📤 ${channelConfig.name}`;
+    const buttonColor = channelConfig.messageId ? '#f59e0b' : '#0088cc';
+    const cssClass = channelConfig.botToken ? 'kora-telegram' : 'kora-gramjs';
+    
+    return this.createButton(
+      buttonText,
+      `${cssClass}-${channelConfig.name.toLowerCase().replace(/\s+/g, '-')}`,
+      () => this.sendNoteToChannel(leaf, channelConfig),
+      { backgroundColor: buttonColor }
+    );
   }
 
   /*
@@ -216,6 +239,14 @@ export class UIManager {
       return;
     }
 
+    // Configure GramJS server for bot mode if botToken is provided
+    if (channelConfig.botToken) {
+      await this.gramjsBridge.updateConfig({
+        mode: 'bot',
+        botToken: channelConfig.botToken
+      });
+    }
+
     // Convert markdown to Telegram format and process custom emojis
     const conversionResult = this.messageFormatter.formatMarkdownNote(file.basename, content);
     const { processedText, entities: customEmojiEntities } = this.messageFormatter.processCustomEmojis(conversionResult.text);
@@ -227,42 +258,43 @@ export class UIManager {
     ].sort((a, b) => a.offset - b.offset);
  
     if (channelConfig.messageId) {
-      // Edit existing message - FIXED: preserve buttons during editing
+      // Edit existing message
       const buttons = this.createNavigationButtons(file);
       const success = await this.gramjsBridge.editMessage({
-        peer,
+        peer: channelConfig.channelId,
         messageId: channelConfig.messageId,
         message: processedText,
         entities: combinedEntities,
-        buttons, // CRITICAL FIX: Include buttons when editing
-        disableWebPagePreview: true
+        buttons,
+        disableWebPagePreview: this.settings.telegram.disableWebPagePreview || true
       });
       if (success) {
         new Notice(`Сообщение в ${channelConfig.name} обновлено!`);
-        // Re-inject buttons to update UI
         await this.injectButtons(leaf);
       }
     } else {
       // Send new message
       const buttons = this.createNavigationButtons(file);
       const result = await this.gramjsBridge.sendMessage({
-        peer,
+        peer: channelConfig.channelId,
         message: processedText,
         entities: combinedEntities,
         buttons,
-        disableWebPagePreview: true
+        disableWebPagePreview: this.settings.telegram.disableWebPagePreview || true
       });
       if (result.success && result.messageId) {
-        // For default channel (legacy migration), save to both formats for compatibility
-        if (channelConfig.name === 'Telegram' && !this.frontmatterUtils.getChannelConfigs(file).some(ch => ch.name === 'Telegram')) {
-          // This is a legacy default channel, save to old format for backward compatibility
-          await this.frontmatterUtils.setFrontmatterField(file, 'telegram_message_id', result.messageId);
+        // For folder-based configs, use new post_ids format
+        if (channelConfig.botToken) {
+          await this.updatePostIds(file, channelConfig.channelId, result.messageId);
         } else {
-          // Save message ID to channel config
-          await this.updateChannelConfig(file, channelConfig.name, result.messageId);
+          // For legacy configs, maintain backward compatibility
+          if (channelConfig.name === 'Telegram' && !this.frontmatterUtils.getChannelConfigs(file).some(ch => ch.name === 'Telegram')) {
+            await this.frontmatterUtils.setFrontmatterField(file, 'telegram_message_id', result.messageId);
+          } else {
+            await this.updateChannelConfig(file, channelConfig.name, result.messageId);
+          }
         }
         new Notice(`Заметка отправлена в ${channelConfig.name}!`);
-        // Re-inject buttons to update UI
         await this.injectButtons(leaf);
       }
     }
@@ -296,6 +328,59 @@ export class UIManager {
       await this.frontmatterUtils.setFrontmatterField(file, 'telegram_channels', channels);
     }
   }
+
+  /**
+   * Create a ChannelConfig from folder and channel configurations
+   */
+  private createChannelConfigFromFolder(folderConfig: TelegramFolderConfig, channelConfig: TelegramChannelConfig, file?: TFile): ChannelConfig {
+    const targetFile = file || this.app.workspace.getActiveFile() as TFile;
+    const postIds = this.getPostIds(targetFile);
+    const messageId = postIds?.[channelConfig.channelId] || undefined;
+    
+    return {
+      name: channelConfig.name,
+      channelId: channelConfig.channelId,
+      messageId,
+      botToken: folderConfig.botToken
+    };
+  }
+
+  /**
+   * Get folder configuration for a file based on its path
+   */
+  private getFolderConfigForFile(file: TFile): TelegramFolderConfig | null {
+    const filePath = file.path;
+    
+    // Find the folder config that matches this file's path
+    for (const config of this.settings.telegram.folderConfigs) {
+      if (config.folder && filePath.startsWith(config.folder)) {
+        return config;
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * Get post IDs from frontmatter (new simplified format)
+   */
+  private getPostIds(file: TFile): Record<string, number> | null {
+    const frontmatter = this.frontmatterUtils.getFrontmatter(file);
+    return frontmatter.post_ids || null;
+  }
+
+  /**
+   * Update post IDs in frontmatter
+   */
+  private async updatePostIds(file: TFile, channelId: string, messageId: number): Promise<void> {
+    const frontmatter = this.frontmatterUtils.getFrontmatter(file);
+    const postIds = frontmatter.post_ids || {};
+    
+    postIds[channelId] = messageId;
+    await this.frontmatterUtils.setFrontmatterField(file, 'post_ids', postIds);
+  }
+
+
 
   /**
    * Cleanup note UI system

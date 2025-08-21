@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { App, TFile } from 'obsidian';
+import { App, TFile } from 'obsidian';
 import { BaseEndpoint } from './base';
 
 const FileContentSchema = z.object({

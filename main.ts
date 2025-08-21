@@ -5,10 +5,23 @@ import { GramJSBridge } from './modules/telegram';
 import { PluginCommands, UIManager } from './modules/ui';
 import { VectorBridge } from './modules/vector';
 import { McpServerManager } from './modules/mcp';
-import { McpSettingTab } from './settings';
+import { McpServerSettingTab } from './modules/mcp/settings-tab';
+import { TelegramSettingTab } from './modules/telegram/settings-tab';
+import { VectorSettingTab } from './modules/vector/settings-tab';
 import type { EmojiMapping } from './modules/telegram';
-import type { VectorSettingsInterface } from './settings/VectorSettings';
-import { defaultVectorSettings } from './settings/VectorSettings';
+import type { VectorSettingsInterface } from './modules/vector';
+import { defaultVectorSettings } from './modules/vector';
+
+export interface TelegramChannelConfig {
+	name: string;
+	channelId: string;
+}
+
+export interface TelegramFolderConfig {
+	folder: string;
+	botToken: string;
+	channels: TelegramChannelConfig[];
+}
 
 export interface TelegramSettings {
 	botToken: string;
@@ -17,6 +30,8 @@ export interface TelegramSettings {
 	customEmojis?: EmojiMapping[];
 	useCustomEmojis?: boolean;
 	disableWebPagePreview?: boolean;
+	// New folder-based configuration
+	folderConfigs: TelegramFolderConfig[];
 }
 
 export interface KoraMcpPluginSettings {
@@ -55,6 +70,7 @@ const DEFAULT_SETTINGS: KoraMcpPluginSettings = {
 		],
 		useCustomEmojis: false,
 		disableWebPagePreview: true,
+		folderConfigs: [],
 	},
 	useGramJsUserbot: false,
 	gramjs: {
@@ -77,7 +93,9 @@ export default class KoraMcpPlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 
-		this.addSettingTab(new McpSettingTab(this.app, this));
+		this.addSettingTab(new McpServerSettingTab(this.app, this));
+		this.addSettingTab(new TelegramSettingTab(this.app, this));
+		this.addSettingTab(new VectorSettingTab(this.app, this));
 		
 		// Инициализируем MCP сервер
 		this.mcpServerManager = new McpServerManager(this.app);

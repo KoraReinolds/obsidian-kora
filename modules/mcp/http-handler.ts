@@ -14,7 +14,11 @@ export class McpHttpHandler {
 	}
 
 	async handleRequest(url: string, method: string, req: any, res: any): Promise<void> {
-		const endpoint = this.endpoints.get(url);
+		// Парсим URL, чтобы отделить путь от query
+		const parsedUrl = new URL(url, 'http://localhost');
+		const path = parsedUrl.pathname;
+
+		const endpoint = this.endpoints.get(path);
 		
 		if (!endpoint) {
 			res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -36,13 +40,18 @@ export class McpHttpHandler {
 				input = await this.readRequestBody(req);
 			}
 
+			// Для GET запросов читаем query параметры
+			if (method === 'GET' && parsedUrl.search) {
+				input = this.parseQuery(parsedUrl.searchParams);
+			}
+
 			// Вызываем handler эндпоинта
 			const result = await endpoint.handler(this.app, input);
 			
 			res.writeHead(200, { 'Content-Type': 'application/json' });
 			res.end(JSON.stringify(result));
 		} catch (error: any) {
-			console.error(`Error in endpoint ${url}:`, error);
+			console.error(`Error in endpoint ${path}:`, error);
 			
 			const statusCode = error.message === 'File not found' ? 404 : 400;
 			res.writeHead(statusCode, { 'Content-Type': 'application/json' });
@@ -50,6 +59,49 @@ export class McpHttpHandler {
 				error: error.message || 'Internal server error' 
 			}));
 		}
+	}
+
+	private parseQuery(params: URLSearchParams): any {
+		const input: any = {};
+		const arrayKeys = new Set(['include', 'exclude']);
+		const booleanKeys = new Set(['includeContent', 'includeTitle']);
+
+		for (const [rawKey, rawValue] of params.entries()) {
+			const key = rawKey.endsWith('[]') ? rawKey.slice(0, -2) : rawKey;
+			const isArrayKey = arrayKeys.has(key) || rawKey.endsWith('[]');
+			const splitValues = rawValue.includes(',')
+				? rawValue.split(',').map(v => v.trim()).filter(Boolean)
+				: [rawValue];
+
+			const coerce = (k: string, v: string) => {
+				if (booleanKeys.has(k)) {
+					return v === 'true' || v === '1';
+				}
+				return v;
+			};
+
+			if (isArrayKey) {
+				if (!Array.isArray(input[key])) input[key] = [];
+				input[key].push(...splitValues.map(v => coerce(key, v)));
+			} else {
+				const coercedValues = splitValues.map(v => coerce(key, v));
+				if (key in input) {
+					if (Array.isArray(input[key])) {
+						input[key].push(...coercedValues);
+					} else {
+						input[key] = [input[key], ...coercedValues];
+					}
+				} else {
+					input[key] = coercedValues.length === 1 ? coercedValues[0] : coercedValues;
+				}
+			}
+		}
+
+		// Ensure include/exclude are arrays if present
+		if (typeof input.include === 'string') input.include = [input.include];
+		if (typeof input.exclude === 'string') input.exclude = [input.exclude];
+
+		return input;
 	}
 
 	private async readRequestBody(req: any): Promise<any> {

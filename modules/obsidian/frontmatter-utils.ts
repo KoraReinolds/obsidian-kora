@@ -151,4 +151,5 @@ export interface ChannelConfig {
   name: string;
   channelId: string;
   messageId?: number;
+  botToken?: string; // For folder-based posting with Bot API
 }

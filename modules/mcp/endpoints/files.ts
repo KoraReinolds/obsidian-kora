@@ -10,7 +10,7 @@ interface FilesInput {
 
 export class FilesEndpoint extends BaseEndpoint<FilesInput, string[]> {
 	path = '/files';
-	method = 'POST' as const;
+	method = 'GET' as const;
 	description = 'Return an array of markdown files from the vault with optional include/exclude filters';
 	toolName = 'get_obsidian_files';
 	inputSchema = z.object({
