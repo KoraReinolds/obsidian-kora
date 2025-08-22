@@ -7,7 +7,7 @@ import { GramJSBridge, MessageFormatter, ChannelConfigService, type ChannelConfi
 import { FrontmatterUtils } from '../obsidian';
 import { DuplicateTimeFixer } from '../utils';
 import { RELATED_CHUNKS_VIEW_TYPE } from '../chunking/ui/related-chunks-view';
-import { ChannelSuggester } from './channel-suggester';
+import { ChannelSuggester } from '../obsidian/suggester';
 import type { KoraMcpPluginSettings } from '../../main';
 
 export class PluginCommands {

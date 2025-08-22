@@ -1,6 +1,18 @@
-import { App, TFolder } from "obsidian";
+/**
+ * Universal Suggester System - Unified suggestion components for different use cases
+ */
 
-// Базовый класс для suggester
+import { App, TFolder, FuzzySuggestModal, TFile, Notice } from 'obsidian';
+import { ChannelConfigService, ChannelConfig } from '../telegram/channel-config-service';
+import type { KoraMcpPluginSettings } from '../../main';
+
+// ============================================================================
+// BASE CLASSES
+// ============================================================================
+
+/**
+ * Base class for input-based suggestion functionality
+ */
 abstract class TextInputSuggest<T> {
 	protected inputEl: HTMLInputElement;
 	protected suggestEl: HTMLElement;
@@ -134,7 +146,91 @@ abstract class TextInputSuggest<T> {
 	}
 }
 
-// Реализация для поиска папок
+/**
+ * Base class for modal-based suggestion functionality with common styling and behavior
+ */
+abstract class BaseFuzzySuggestModal<T> extends FuzzySuggestModal<T> {
+	protected onSelectCallback: (item: T) => void;
+
+	constructor(app: App, onSelect: (item: T) => void) {
+		super(app);
+		this.onSelectCallback = onSelect;
+	}
+
+	/**
+	 * Enhanced suggestion rendering with consistent styling
+	 */
+	protected renderSuggestionWithStyling(
+		container: HTMLElement,
+		title: string,
+		subtitle?: string,
+		statusInfo?: { text: string; className: string }
+	): void {
+		// Main title
+		const nameEl = container.createDiv({ cls: 'suggestion-title' });
+		nameEl.setText(title);
+		
+		// Subtitle with additional info
+		if (subtitle || statusInfo) {
+			const infoEl = container.createDiv({ cls: 'suggestion-info' });
+			
+			if (subtitle) {
+				infoEl.createSpan({ cls: 'suggestion-subtitle', text: subtitle });
+			}
+			
+			if (statusInfo) {
+				infoEl.createSpan({ 
+					cls: `suggestion-status ${statusInfo.className}`, 
+					text: statusInfo.text 
+				});
+			}
+		}
+
+		// Apply consistent styling
+		this.applySuggestionStyling(container, Boolean(subtitle || statusInfo));
+	}
+
+	private applySuggestionStyling(container: HTMLElement, hasSubtitle: boolean): void {
+		container.style.padding = '8px 0';
+		
+		const titleEl = container.querySelector('.suggestion-title') as HTMLElement;
+		if (titleEl) {
+			titleEl.style.fontWeight = 'bold';
+			if (hasSubtitle) {
+				titleEl.style.marginBottom = '4px';
+			}
+		}
+		
+		const infoEl = container.querySelector('.suggestion-info') as HTMLElement;
+		if (infoEl) {
+			infoEl.style.fontSize = '0.85em';
+			infoEl.style.color = 'var(--text-muted)';
+		}
+		
+		// Status-specific styling
+		const publishedEl = container.querySelector('.published') as HTMLElement;
+		if (publishedEl) {
+			publishedEl.style.color = 'var(--text-success)';
+		}
+		
+		const newEl = container.querySelector('.new') as HTMLElement;
+		if (newEl) {
+			newEl.style.color = 'var(--text-accent)';
+		}
+	}
+
+	onChooseItem(item: T): void {
+		this.onSelectCallback(item);
+	}
+}
+
+// ============================================================================
+// SPECIALIZED IMPLEMENTATIONS
+// ============================================================================
+
+/**
+ * Folder suggestion for text input fields
+ */
 export class FolderSuggest extends TextInputSuggest<TFolder> {
 	getSuggestions(inputStr: string): TFolder[] {
 		const allFiles = this.app.vault.getAllLoadedFiles();
@@ -159,3 +255,145 @@ export class FolderSuggest extends TextInputSuggest<TFolder> {
 		this.inputEl.trigger('input');
 	}
 }
+
+/**
+ * Channel suggester modal for selecting channels to send notes to
+ */
+export class ChannelSuggester extends BaseFuzzySuggestModal<ChannelConfig> {
+	private file: TFile;
+	private channelConfigService: ChannelConfigService;
+	private availableChannels: ChannelConfig[];
+
+	constructor(
+		app: App, 
+		file: TFile, 
+		settings: KoraMcpPluginSettings,
+		onSelect: (channel: ChannelConfig) => void
+	) {
+		super(app, onSelect);
+		this.file = file;
+		this.channelConfigService = new ChannelConfigService(app, settings);
+		this.availableChannels = [];
+
+		// Set modal title
+		this.setPlaceholder('Выберите канал для отправки заметки...');
+	}
+
+	/**
+	 * Open the suggester and check if channels are available
+	 */
+	public openSuggester(): void {
+		// Check if file is in a configured folder
+		const folderConfig = this.channelConfigService.getFolderConfigForFile(this.file);
+		if (!folderConfig) {
+			new Notice('Файл не находится в папке с настроенным конфигом каналов');
+			return;
+		}
+
+		// Get available channels for this file
+		this.availableChannels = this.channelConfigService.getChannelConfigsForFile(this.file);
+		
+		if (this.availableChannels.length === 0) {
+			new Notice('Нет доступных каналов для этой папки');
+			return;
+		}
+
+		// Open the modal
+		this.open();
+	}
+
+	/**
+	 * Get all available channel items for the fuzzy search
+	 */
+	getItems(): ChannelConfig[] {
+		return this.availableChannels;
+	}
+
+	/**
+	 * Get the text to display for each item in the suggester
+	 */
+	getItemText(channel: ChannelConfig): string {
+		return channel.name;
+	}
+
+	/**
+	 * Render additional information for each suggestion
+	 */
+	renderSuggestion(value: { item: ChannelConfig }, el: HTMLElement): void {
+		const channel = value.item as ChannelConfig;
+		
+		// Create main container
+		const container = el.createDiv({ cls: 'channel-suggestion' });
+		
+		// Channel ID (shortened for display)
+		const channelIdShort = channel.channelId.length > 20 
+			? `${channel.channelId.slice(0, 10)}...${channel.channelId.slice(-7)}`
+			: channel.channelId;
+		
+		// Status information
+		const statusInfo = channel.messageId 
+			? { text: ' • Опубликовано', className: 'published' }
+			: { text: ' • Новое сообщение', className: 'new' };
+
+		// Use the enhanced rendering method
+		this.renderSuggestionWithStyling(
+			container,
+			channel.name,
+			`ID: ${channelIdShort}`,
+			statusInfo
+		);
+	}
+}
+
+// ============================================================================
+// FACTORY AND UTILITY FUNCTIONS
+// ============================================================================
+
+/**
+ * Factory for creating different types of suggesters
+ */
+export class SuggesterFactory {
+	/**
+	 * Create a folder suggester for input fields
+	 */
+	static createFolderSuggest(inputEl: HTMLInputElement, app: App): FolderSuggest {
+		return new FolderSuggest(inputEl, app);
+	}
+
+	/**
+	 * Create a channel suggester modal
+	 */
+	static createChannelSuggester(
+		app: App,
+		file: TFile,
+		settings: KoraMcpPluginSettings,
+		onSelect: (channel: ChannelConfig) => void
+	): ChannelSuggester {
+		return new ChannelSuggester(app, file, settings, onSelect);
+	}
+}
+
+/**
+ * Utility functions for suggester operations
+ */
+export class SuggesterUtils {
+	/**
+	 * Format text for display in suggestions with length limits
+	 */
+	static formatTextForDisplay(text: string, maxLength = 50): string {
+		if (text.length <= maxLength) return text;
+		return `${text.slice(0, maxLength - 3)}...`;
+	}
+
+	/**
+	 * Create shortened ID display
+	 */
+	static formatIdForDisplay(id: string, startLength = 10, endLength = 7): string {
+		if (id.length <= startLength + endLength + 3) return id;
+		return `${id.slice(0, startLength)}...${id.slice(-endLength)}`;
+	}
+}
+
+// Re-export commonly used types
+export type { ChannelConfig };
+export { TextInputSuggest, BaseFuzzySuggestModal };
