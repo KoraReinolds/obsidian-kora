@@ -7,8 +7,8 @@ import { GramJSBridge, MessageFormatter, ChannelConfigService, type ChannelConfi
 import { FrontmatterUtils } from '../obsidian';
 import { DuplicateTimeFixer } from '../utils';
 import { RELATED_CHUNKS_VIEW_TYPE } from '../chunking/ui/related-chunks-view';
-import { ChannelSuggester } from '../obsidian/suggester';
-import type { KoraMcpPluginSettings } from '../../main';
+import { ChannelSuggester, FolderConfigSuggester } from '../obsidian/suggester';
+import type { KoraMcpPluginSettings, TelegramFolderConfig } from '../../main';
 
 export class PluginCommands {
   private app: App;
@@ -85,6 +85,11 @@ export class PluginCommands {
         id: 'send-note-to-channel',
         name: 'Отправить заметку в канал',
         callback: () => this.sendNoteToChannel(),
+      },
+      {
+        id: 'send-folder-notes-to-channels',
+        name: 'Отправить заметки первого уровня папки в каналы',
+        callback: () => this.sendFolderNotesToChannels(),
       },
     ];
   }
@@ -340,6 +345,90 @@ export class PluginCommands {
         new Notice(`Заметка отправлена в ${channelConfig.name}!`);
       }
     }
+  }
+
+  /**
+   * Send all notes from a selected folder to channels (first level only)
+   */
+  private async sendFolderNotesToChannels(): Promise<void> {
+    // Create folder config suggester and open it
+    const folderConfigSuggester = new FolderConfigSuggester(
+      this.app,
+      this.settings,
+      async (folderConfig) => {
+        try {
+          await this.sendAllNotesFromFolder(folderConfig);
+        } catch (error) {
+          new Notice(`Ошибка отправки файлов папки: ${error}`);
+        }
+      }
+    );
+
+    folderConfigSuggester.openSuggester();
+  }
+
+  /**
+   * Send all notes from a folder to their configured channels (first level only)
+   */
+  private async sendAllNotesFromFolder(folderConfig: TelegramFolderConfig): Promise<void> {
+    const folderPath = folderConfig.folder;
+    
+    // Get all markdown files from the folder (first level only)
+    const allFiles = this.app.vault.getMarkdownFiles();
+    const folderFiles = allFiles.filter(file => {
+      // Check if file is in the exact folder (not in subfolders)
+      const filePath = file.path;
+      const relativePath = filePath.substring(folderPath.length);
+      
+      // File is in first level if it's directly in the folder
+      // (no additional path separators except the initial one)
+      return filePath.startsWith(folderPath) && 
+             (relativePath === file.name || 
+              relativePath === '/' + file.name ||
+              relativePath === '\\' + file.name);
+    });
+    
+    if (folderFiles.length === 0) {
+      new Notice(`В папке ${folderPath} нет markdown файлов первого уровня`);
+      return;
+    }
+
+    new Notice(`Начинаю отправку ${folderFiles.length} файлов первого уровня из папки ${folderPath}...`);
+    
+    let successCount = 0;
+    let errorCount = 0;
+    const errors: string[] = [];
+
+    // Process files sequentially to avoid overwhelming the API
+    for (const file of folderFiles) {
+      try {
+        // Get channel configs for this file
+        const channelConfigs = this.channelConfigService.getChannelConfigsForFile(file);
+        
+        if (channelConfigs.length === 0) {
+          console.log(`Пропускаю файл ${file.name}: нет настроенных каналов`);
+          continue;
+        }
+
+        // Send to each configured channel
+        for (const channelConfig of channelConfigs) {
+          await this.sendToSelectedChannel(file, channelConfig);
+          // Small delay between sends to be respectful to the API
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        
+        successCount++;
+      } catch (error) {
+        errorCount++;
+        const errorMsg = `${file.name}: ${error}`;
+        errors.push(errorMsg);
+        console.error(`Ошибка отправки файла ${file.name}:`, error);
+      }
+    }
+
+    // Show final results
+    const resultMessage = `Готово! Успешно: ${successCount}, Ошибок: ${errorCount}`;
+    new Notice(resultMessage);
   }
 
 
