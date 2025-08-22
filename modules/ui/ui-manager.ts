@@ -3,7 +3,7 @@
  */
 
 import { TFile, Notice, WorkspaceLeaf, App } from 'obsidian';
-import { GramJSBridge, MessageFormatter, ChannelConfigService, type ChannelConfig } from '../telegram';
+import { GramJSBridge, MessageFormatter, ChannelConfigService, type ChannelConfig, createNavigationButtons } from '../telegram';
 import { FrontmatterUtils } from '../obsidian';
 import { NoteUISystem } from './note-ui-system';
 import { VectorBridge } from '../vector';
@@ -236,7 +236,7 @@ export class UIManager {
  
     if (channelConfig.messageId) {
       // Edit existing message
-      const buttons = this.createNavigationButtons(file);
+      const buttons = createNavigationButtons(file);
       const success = await this.gramjsBridge.editMessage({
         peer: channelConfig.channelId,
         messageId: channelConfig.messageId,
@@ -251,7 +251,7 @@ export class UIManager {
       }
     } else {
       // Send new message
-      const buttons = this.createNavigationButtons(file);
+      const buttons = createNavigationButtons(file);
       const result = await this.gramjsBridge.sendMessage({
         peer: channelConfig.channelId,
         message: processedText,
@@ -267,33 +267,6 @@ export class UIManager {
       }
     }
   }
-
-  /**
-   * Create navigation buttons for the post
-   */
-  private createNavigationButtons(file: TFile): any[][] {
-    const buttons = [
-      [
-          { text: '📝', data: 'view_note:test.md' },
-          { text: '✏️', data: 'edit_note:test.md' },
-          { text: '🗂️', data: 'browse_folder' },
-          { text: '🔍', data: 'search_vault' },
-      ],
-   ]; 
-   return buttons;
-  }
-
-
-
-
-
-
-
-
-
-
-
-
 
   /**
    * Cleanup note UI system

@@ -3,10 +3,11 @@
  */
 
 import { App, TFile, Notice, Command } from 'obsidian';
-import { GramJSBridge, MessageFormatter, ChannelConfigService } from '../telegram';
+import { GramJSBridge, MessageFormatter, ChannelConfigService, type ChannelConfig, createNavigationButtons } from '../telegram';
 import { FrontmatterUtils } from '../obsidian';
 import { DuplicateTimeFixer } from '../utils';
 import { RELATED_CHUNKS_VIEW_TYPE } from '../chunking/ui/related-chunks-view';
+import { ChannelSuggester } from './channel-suggester';
 import type { KoraMcpPluginSettings } from '../../main';
 
 export class PluginCommands {
@@ -79,6 +80,11 @@ export class PluginCommands {
         id: 'open-related-chunks',
         name: 'Open Related Chunks',
         callback: () => this.openRelatedChunks(),
+      },
+      {
+        id: 'send-note-to-channel',
+        name: 'Отправить заметку в канал',
+        callback: () => this.sendNoteToChannel(),
       },
     ];
   }
@@ -252,4 +258,89 @@ export class PluginCommands {
       new Notice(`Error opening Related Chunks view: ${error}`);
     }
   }
+
+  /**
+   * Send current note to channel via suggester modal
+   */
+  private async sendNoteToChannel(): Promise<void> {
+    const file = this.app.workspace.getActiveFile();
+    if (!file) {
+      new Notice('Нет активного файла');
+      return;
+    }
+
+    // Create channel suggester and open it
+    const channelSuggester = new ChannelSuggester(
+      this.app,
+      file,
+      this.settings,
+      async (channelConfig) => {
+        try {
+          await this.sendToSelectedChannel(file, channelConfig);
+        } catch (error) {
+          new Notice(`Ошибка отправки: ${error}`);
+        }
+      }
+    );
+
+    channelSuggester.openSuggester();
+  }
+
+  /**
+   * Send file to the selected channel (reusing logic from UI Manager)
+   */
+  private async sendToSelectedChannel(file: TFile, channelConfig: ChannelConfig): Promise<void> {
+    const content = await this.app.vault.read(file);
+    const peer = channelConfig.channelId;
+    
+    if (!peer) {
+      new Notice(`Channel ID не настроен для ${channelConfig.name}`);
+      return;
+    }
+
+    // Convert markdown to Telegram format and process custom emojis
+    const conversionResult = this.messageFormatter.formatMarkdownNote(file.basename, content);
+    const { processedText, entities: customEmojiEntities } = this.messageFormatter.processCustomEmojis(conversionResult.text);
+    
+    // Combine markdown entities with custom emoji entities
+    const combinedEntities = [
+      ...(conversionResult.entities || []),
+      ...customEmojiEntities
+    ].sort((a, b) => a.offset - b.offset);
+
+    // Create navigation buttons using shared utility
+    const buttons = createNavigationButtons(file);
+ 
+    if (channelConfig.messageId) {
+      // Edit existing message
+      const success = await this.gramjsBridge.editMessage({
+        peer: channelConfig.channelId,
+        messageId: channelConfig.messageId,
+        message: processedText,
+        entities: combinedEntities,
+        buttons,
+        disableWebPagePreview: this.settings.telegram.disableWebPagePreview || true
+      });
+      if (success) {
+        new Notice(`Сообщение в ${channelConfig.name} обновлено!`);
+      }
+    } else {
+      // Send new message  
+      const buttons = createNavigationButtons(file);
+      const result = await this.gramjsBridge.sendMessage({
+        peer: channelConfig.channelId,
+        message: processedText,
+        entities: combinedEntities,
+        buttons,
+        disableWebPagePreview: this.settings.telegram.disableWebPagePreview || true
+      });
+      if (result.success && result.messageId) {
+        // Always use new post_ids format
+        await this.channelConfigService.updatePostIds(file, channelConfig.channelId, result.messageId);
+        new Notice(`Заметка отправлена в ${channelConfig.name}!`);
+      }
+    }
+  }
+
+
 }
