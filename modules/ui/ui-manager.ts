@@ -3,11 +3,11 @@
  */
 
 import { TFile, Notice, WorkspaceLeaf, App } from 'obsidian';
-import { GramJSBridge, MessageFormatter } from '../telegram';
+import { GramJSBridge, MessageFormatter, ChannelConfigService } from '../telegram';
 import { FrontmatterUtils, type ChannelConfig } from '../obsidian';
 import { NoteUISystem } from './note-ui-system';
 import { VectorBridge } from '../vector';
-import type { KoraMcpPluginSettings, TelegramFolderConfig, TelegramChannelConfig } from '../../main';
+import type { KoraMcpPluginSettings } from '../../main';
 
 export class UIManager {
   private app: App;
@@ -19,6 +19,7 @@ export class UIManager {
   private getFileContent: (file: TFile) => Promise<string>;
   private noteUISystem: NoteUISystem;
   private vectorBridge: VectorBridge;
+  private channelConfigService: ChannelConfigService;
 
   constructor(
     app: App,
@@ -41,6 +42,7 @@ export class UIManager {
     );
     this.frontmatterUtils = new FrontmatterUtils(app);
     this.noteUISystem = new NoteUISystem();
+    this.channelConfigService = new ChannelConfigService(app, settings);
   }
 
   /**
@@ -52,6 +54,7 @@ export class UIManager {
       settings.telegram.customEmojis || [],
       settings.telegram.useCustomEmojis || false
     );
+    this.channelConfigService.updateSettings(settings);
   }
 
   /**
@@ -139,7 +142,7 @@ export class UIManager {
     // Telegram buttons
     const file = (leaf.view as any).file as TFile;
     if (file) {
-      const channelConfigs = this.getChannelConfigsForFile(file);
+      const channelConfigs = this.channelConfigService.getChannelConfigsForFile(file);
       channelConfigs.forEach(channelConfig => {
         const channelButton = this.createChannelButton(leaf, channelConfig);
         buttons.push(channelButton);
@@ -149,27 +152,7 @@ export class UIManager {
     return buttons;
   }
 
-  /**
-   * Get all channel configurations for a file (folder-based + legacy)
-   */
-  private getChannelConfigsForFile(file: TFile): ChannelConfig[] {
-    const configs: ChannelConfig[] = [];
-    
-    // Try folder-based configuration first
-    const folderConfig = this.getFolderConfigForFile(file);
-    if (folderConfig) {
-      folderConfig.channels.forEach(channelConfig => {
-        configs.push(this.createChannelConfigFromFolder(folderConfig, channelConfig, file));
-      });
-    } else {
-      // tododo
-      // Fallback to legacy frontmatter-based configuration
-      const legacyConfigs = this.frontmatterUtils.getChannelConfigs(file);
-      configs.push(...legacyConfigs);
-    }
-    
-    return configs;
-  }
+
 
   /**
    * Create a channel button with unified logic
@@ -277,7 +260,7 @@ export class UIManager {
       });
       if (result.success && result.messageId) {
         // Always use new post_ids format
-        await this.updatePostIds(file, channelConfig.channelId, result.messageId);
+        await this.channelConfigService.updatePostIds(file, channelConfig.channelId, result.messageId);
         new Notice(`Заметка отправлена в ${channelConfig.name}!`);
         await this.injectButtons(leaf);
       }
@@ -299,69 +282,15 @@ export class UIManager {
    return buttons;
   }
 
-  /**
-   * Update channel configuration in frontmatter
-   */
-  private async updateChannelConfig(file: TFile, channelName: string, messageId: number): Promise<void> {
-    const frontmatter = this.frontmatterUtils.getFrontmatter(file);
-    const channels = Array.isArray(frontmatter.telegram_channels) ? frontmatter.telegram_channels : [];
-    
-    const channelIndex = channels.findIndex((ch: any) => ch.name === channelName);
-    if (channelIndex !== -1) {
-      channels[channelIndex] = { ...channels[channelIndex], messageId };
-      await this.frontmatterUtils.setFrontmatterField(file, 'telegram_channels', channels);
-    }
-  }
 
-  /**
-   * Create a ChannelConfig from folder and channel configurations
-   */
-  private createChannelConfigFromFolder(folderConfig: TelegramFolderConfig, channelConfig: TelegramChannelConfig, file?: TFile): ChannelConfig {
-    const targetFile = file || this.app.workspace.getActiveFile() as TFile;
-    const postIds = this.getPostIds(targetFile);
-    const messageId = postIds?.[channelConfig.channelId] || undefined;
-    
-    return {
-      name: channelConfig.name,
-      channelId: channelConfig.channelId,
-      messageId
-    };
-  }
 
-  /**
-   * Get folder configuration for a file based on its path
-   */
-  private getFolderConfigForFile(file: TFile): TelegramFolderConfig | null {
-    const filePath = file.path;
-    
-    // Find the folder config that matches this file's path
-    for (const config of this.settings.telegram.folderConfigs) {
-      if (config.folder && filePath.startsWith(config.folder)) {
-        return config;
-      }
-    }
-    
-    return null;
-  }
 
-  /**
-   * Get post IDs from frontmatter (new simplified format)
-   */
-  private getPostIds(file: TFile): Record<string, number> | null {
-    const frontmatter = this.frontmatterUtils.getFrontmatter(file);
-    return frontmatter.post_ids || null;
-  }
 
-  /**
-   * Update post IDs in frontmatter
-   */
-  private async updatePostIds(file: TFile, channelId: string, messageId: number): Promise<void> {
-    const frontmatter = this.frontmatterUtils.getFrontmatter(file);
-    const postIds = frontmatter.post_ids || {};
-    
-    postIds[channelId] = messageId;
-    await this.frontmatterUtils.setFrontmatterField(file, 'post_ids', postIds);
-  }
+
+
+
+
+
 
 
 
