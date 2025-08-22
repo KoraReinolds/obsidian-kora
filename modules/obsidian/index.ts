@@ -3,7 +3,7 @@
  */
 
 export { VaultOperations } from './vault-operations';
-export { FrontmatterUtils, type ChannelConfig } from './frontmatter-utils';
+export { FrontmatterUtils } from './frontmatter-utils';
 export { 
   getMarkdownFiles, 
   getAreas, 

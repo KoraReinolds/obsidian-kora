@@ -3,8 +3,8 @@
  */
 
 import { TFile, Notice, WorkspaceLeaf, App } from 'obsidian';
-import { GramJSBridge, MessageFormatter, ChannelConfigService } from '../telegram';
-import { FrontmatterUtils, type ChannelConfig } from '../obsidian';
+import { GramJSBridge, MessageFormatter, ChannelConfigService, type ChannelConfig } from '../telegram';
+import { FrontmatterUtils } from '../obsidian';
 import { NoteUISystem } from './note-ui-system';
 import { VectorBridge } from '../vector';
 import type { KoraMcpPluginSettings } from '../../main';
@@ -35,14 +35,15 @@ export class UIManager {
     this.vectorBridge = vectorBridge;
     this.moveFileToFolder = moveFileToFolder;
     this.getFileContent = getFileContent;
-    this.messageFormatter = new MessageFormatter(
-      settings.telegram.customEmojis,
-      settings.telegram.useCustomEmojis,
-      app
-    );
     this.frontmatterUtils = new FrontmatterUtils(app);
     this.noteUISystem = new NoteUISystem();
     this.channelConfigService = new ChannelConfigService(app, settings);
+    this.messageFormatter = new MessageFormatter(
+      settings.telegram.customEmojis,
+      settings.telegram.useCustomEmojis,
+      app,
+      this.channelConfigService
+    );
   }
 
   /**

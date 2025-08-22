@@ -2,7 +2,7 @@
 
 ## Overview
 
-The new folder-based Telegram posting system allows you to configure different Telegram bots and channels for different folders in your Obsidian vault. This replaces the old frontmatter-based channel configuration with a more flexible settings-based approach.
+The folder-based Telegram posting system allows you to configure different Telegram bots and channels for different folders in your Obsidian vault. This uses a settings-based approach for maximum flexibility.
 
 ## Configuration
 
@@ -28,22 +28,13 @@ For each folder, you can add multiple channels:
 
 Telegram posting buttons only appear for files that are located in configured folders:
 - Files in configured folders → Show buttons for that folder's channels
-- Files outside configured folders → Show legacy GramJS buttons (if enabled)
+- Files outside configured folders → No Telegram buttons (use GramJS commands if needed)
 - No configuration → No Telegram buttons
 
-### Frontmatter Changes
+### Frontmatter Structure
 
-The new system simplifies frontmatter structure:
+The system uses a simple frontmatter structure:
 
-**Old Format:**
-```yaml
-telegram_channels:
-  - name: "My Channel"
-    channelId: "@mychannel"
-    messageId: 123
-```
-
-**New Format:**
 ```yaml
 post_ids:
   "@mychannel": 123
@@ -55,9 +46,9 @@ The `post_ids` object maps channel IDs to message IDs for tracking published pos
 ### Bot API vs GramJS
 
 - **Folder-based posting**: Uses Telegram Bot API (proper bot functionality)
-- **Legacy posting**: Uses GramJS (userbot functionality)
+- **GramJS commands**: Uses GramJS (userbot functionality)
 
-This allows you to use official Telegram bots for folder-based posting while maintaining backward compatibility with existing GramJS setups.
+This allows you to use official Telegram bots for folder-based posting, while GramJS commands remain available for advanced use cases.
 
 ## Button Behavior
 
@@ -71,14 +62,14 @@ This allows you to use official Telegram bots for folder-based posting while mai
 - Updates existing Telegram message
 - Uses saved message ID from `post_ids`
 
-## Migration Guide
+## Setup Guide
 
-### From Legacy System
+### Initial Setup
 
 1. Set up folder configurations in settings
-2. Existing files with `telegram_channels` frontmatter will continue to work
-3. New posts will use the simplified `post_ids` format
-4. Gradually migrate by moving files to configured folders
+2. Create bot tokens via @BotFather
+3. Configure channels and permissions
+4. Test posting to ensure everything works
 
 ### Bot Setup
 
@@ -125,7 +116,7 @@ Channels:
 - Check if bot has admin permissions in the channel
 - Confirm channel ID format is correct
 
-### Migration Issues
-- Old `telegram_channels` frontmatter is preserved
-- New `post_ids` format is used for new posts
-- Both formats can coexist during migration
+### Common Issues
+- Ensure bot has admin permissions in channels
+- Verify folder paths match exactly (case sensitive)
+- Check that bot tokens are correctly configured

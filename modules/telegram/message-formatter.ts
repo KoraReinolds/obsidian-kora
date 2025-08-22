@@ -8,11 +8,8 @@ import {
   type ConversionResult 
 } from './markdown-to-telegram-converter';
 import { App } from 'obsidian';
-import { 
-  FrontmatterUtils, 
-  findFileByName, 
-  generateTelegramPostUrl 
-} from '../obsidian';
+import { FrontmatterUtils, findFileByName, generateTelegramPostUrl } from '../obsidian';
+import { ChannelConfigService } from './channel-config-service';
 
 export interface EmojiMapping {
   standard: string;      // Обычный эмодзи (например: "📝")
@@ -35,12 +32,14 @@ export class MessageFormatter {
   private markdownConverter: MarkdownToTelegramConverter;
   private app?: App;
   private frontmatterUtils?: FrontmatterUtils;
+  private channelConfigService?: ChannelConfigService;
 
-  constructor(customEmojis: EmojiMapping[] = [], useCustomEmojis = false, app?: App) {
+  constructor(customEmojis: EmojiMapping[] = [], useCustomEmojis = false, app?: App, channelConfigService?: ChannelConfigService) {
     this.customEmojis = customEmojis;
     this.useCustomEmojis = useCustomEmojis;
     this.markdownConverter = new MarkdownToTelegramConverter();
     this.app = app;
+    this.channelConfigService = channelConfigService;
     if (app) {
       this.frontmatterUtils = new FrontmatterUtils(app);
     }
@@ -200,10 +199,6 @@ export class MessageFormatter {
    * Конвертировать Obsidian ссылки [[file|text]] в Telegram URL [text](https://t.me/...)
    */
   private convertObsidianLinksToTelegramUrls(content: string): string {
-    if (!this.app || !this.frontmatterUtils) {
-      throw new Error('App instance required for link conversion');
-    }
-
     // Регулярное выражение для поиска Obsidian ссылок: [[filename]] или [[filename|display text]]
     const obsidianLinkRegex = /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
     
@@ -222,12 +217,11 @@ export class MessageFormatter {
           throw new Error(`File "${fileName}" not found`);
         }
         
-        // Получаем конфигурацию каналов для файла
-        if (!this.frontmatterUtils) {
-          throw new Error('FrontmatterUtils instance required for link conversion');
+        if (!this.app || !this.channelConfigService) {
+          throw new Error('App instance and ChannelConfigService required for link conversion');
         }
-        
-        const channelConfigs = this.frontmatterUtils.getChannelConfigs(file);
+
+        const channelConfigs = this.channelConfigService.getChannelConfigsForFile(file);
         if (channelConfigs.length === 0) {
           throw new Error(`No channel configuration found for file "${fileName}"`);
         }

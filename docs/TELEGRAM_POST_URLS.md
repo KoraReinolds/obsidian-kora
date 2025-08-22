@@ -2,25 +2,22 @@
 
 ## Описание
 
-При отправке заметки в Telegram через плагин сохраняется ID поста, а ссылка на пост генерируется по требованию с использованием функций `getPostUrl()`.
+При отправке заметки в Telegram через плагин сохраняется ID поста в объекте `post_ids`, а ссылка на пост генерируется по требованию с использованием функций `generateTelegramPostUrl()`.
 
 ## Как это работает
 
-### 1. Для новой системы каналов (telegram_channels)
+### Новая система каналов (post_ids)
 
-Когда заметка отправляется в канал через новую систему, в массив `telegram_channels` добавляются:
-- `messageId` - ID сообщения в Telegram
+Когда заметка отправляется в канал через систему folder-based конфигурации, в объект `post_ids` добавляется маппинг:
+- ключ: `channelId` - ID канала в Telegram  
+- значение: `messageId` - ID сообщения в Telegram
 
 Пример frontmatter:
 ```yaml
 ---
-telegram_channels:
-  - name: "Мой канал"
-    channelId: "@myChannel"
-    messageId: 123
-  - name: "Другой канал"
-    channelId: "-1001754376016"
-    messageId: 456
+post_ids:
+  "@myChannel": 123
+  "-1001754376016": 456
 ---
 ```
 
@@ -28,12 +25,13 @@ telegram_channels:
 
 ### Функции для получения ссылок
 
-#### 1. `getPostUrl(channelConfig: ChannelConfig): string | null`
-Возвращает ссылку на пост для конфигурации канала из массива `telegram_channels`.
+#### 1. `generateTelegramPostUrl(channelId: string, messageId: number): string`
+Генерирует ссылку на пост для указанного канала и сообщения.
 
 ```typescript
-const channels = uiManager.getChannelConfigs(file);
-const url = uiManager.getPostUrl(channels[0]); // "https://t.me/c/1754376016/456"
+const postIds = frontmatterUtils.getFrontmatterField(file, 'post_ids');
+const messageId = postIds['@myChannel'];
+const url = generateTelegramPostUrl('@myChannel', messageId); // "https://t.me/myChannel/123"
 ```
 
 ## Формат ссылок
@@ -57,7 +55,7 @@ https://t.me/c/1754376016/456
 
 1. **Генерация по требованию** - ссылки создаются только когда нужны
 2. **Экономия места** - не засоряем frontmatter лишними данными
-3. **Обратная совместимость** - поддержка legacy формата
+3. **Простая структура** - объект post_ids легко читается и редактируется
 4. **Интеграция** - можно использовать в UI или других компонентах
 
 ## Технические детали
@@ -69,5 +67,4 @@ https://t.me/c/1754376016/456
 - Формирование соответствующей ссылки
 
 Функция реализована в:
-- `modules/ui/ui-manager.ts` - основная реализация с публичными методами
-- `modules/ui/commands.ts` - для legacy команд
+- `modules/obsidian/file-operations.ts` - основная реализация генерации URL

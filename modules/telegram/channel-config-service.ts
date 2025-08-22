@@ -3,8 +3,17 @@
  */
 
 import { App, TFile } from 'obsidian';
-import { FrontmatterUtils, type ChannelConfig } from '../obsidian';
+import { FrontmatterUtils } from '../obsidian';
 import type { KoraMcpPluginSettings, TelegramFolderConfig, TelegramChannelConfig } from '../../main';
+
+/**
+ * Configuration for a Telegram channel (new format)
+ */
+export interface ChannelConfig {
+  name: string;
+  channelId: string;
+  messageId?: number;
+}
 
 export class ChannelConfigService {
   private app: App;
@@ -25,21 +34,17 @@ export class ChannelConfigService {
   }
 
   /**
-   * Get all channel configurations for a file (folder-based + legacy)
+   * Get all channel configurations for a file (folder-based only)
    */
   getChannelConfigsForFile(file: TFile): ChannelConfig[] {
     const configs: ChannelConfig[] = [];
     
-    // Try folder-based configuration first
+    // Get folder-based configuration
     const folderConfig = this.getFolderConfigForFile(file);
     if (folderConfig) {
       folderConfig.channels.forEach(channelConfig => {
         configs.push(this.createChannelConfigFromFolder(folderConfig, channelConfig, file));
       });
-    } else {
-      // Fallback to legacy frontmatter-based configuration
-      const legacyConfigs = this.frontmatterUtils.getChannelConfigs(file);
-      configs.push(...legacyConfigs);
     }
     
     return configs;
@@ -99,17 +104,5 @@ export class ChannelConfigService {
     await this.frontmatterUtils.setFrontmatterField(file, 'post_ids', postIds);
   }
 
-  /**
-   * Update channel configuration in frontmatter (legacy support)
-   */
-  async updateChannelConfig(file: TFile, channelName: string, messageId: number): Promise<void> {
-    const frontmatter = this.frontmatterUtils.getFrontmatter(file);
-    const channels = Array.isArray(frontmatter.telegram_channels) ? frontmatter.telegram_channels : [];
-    
-    const channelIndex = channels.findIndex((ch: any) => ch.name === channelName);
-    if (channelIndex !== -1) {
-      channels[channelIndex] = { ...channels[channelIndex], messageId };
-      await this.frontmatterUtils.setFrontmatterField(file, 'telegram_channels', channels);
-    }
-  }
+
 }

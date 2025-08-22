@@ -3,7 +3,7 @@
  */
 
 import { App, TFile, Notice, Command } from 'obsidian';
-import { GramJSBridge, MessageFormatter } from '../telegram';
+import { GramJSBridge, MessageFormatter, ChannelConfigService } from '../telegram';
 import { FrontmatterUtils } from '../obsidian';
 import { DuplicateTimeFixer } from '../utils';
 import { RELATED_CHUNKS_VIEW_TYPE } from '../chunking/ui/related-chunks-view';
@@ -16,18 +16,21 @@ export class PluginCommands {
   private messageFormatter: MessageFormatter;
   private duplicateTimeFixer: DuplicateTimeFixer;
   private frontmatterUtils: FrontmatterUtils;
+  private channelConfigService: ChannelConfigService;
 
   constructor(app: App, settings: KoraMcpPluginSettings, gramjsBridge: GramJSBridge) {
     this.app = app;
     this.settings = settings;
     this.gramjsBridge = gramjsBridge;
+    this.duplicateTimeFixer = new DuplicateTimeFixer(app);
+    this.frontmatterUtils = new FrontmatterUtils(app);
+    this.channelConfigService = new ChannelConfigService(app, settings);
     this.messageFormatter = new MessageFormatter(
       settings.telegram.customEmojis,
       settings.telegram.useCustomEmojis,
-      app
+      app,
+      this.channelConfigService
     );
-    this.duplicateTimeFixer = new DuplicateTimeFixer(app);
-    this.frontmatterUtils = new FrontmatterUtils(app);
   }
 
   /**
@@ -35,6 +38,7 @@ export class PluginCommands {
    */
   updateSettings(settings: KoraMcpPluginSettings) {
     this.settings = settings;
+    this.channelConfigService.updateSettings(settings);
     this.messageFormatter.updateEmojiSettings(
       settings.telegram.customEmojis || [],
       settings.telegram.useCustomEmojis || false

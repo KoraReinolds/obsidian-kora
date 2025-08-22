@@ -123,32 +123,4 @@ export class FrontmatterUtils {
     return this.getFrontmatterForFiles(filePaths);
   }
 
-  /**
-   * Get channel configurations from file frontmatter.
-   * @param file The file to get channel configs from.
-   * @returns Array of channel configurations.
-   */
-  getChannelConfigs(file: TFile): ChannelConfig[] {
-    const frontmatter = this.getFrontmatter(file);
-    const channels = frontmatter.telegram_channels;
-    
-    if (!Array.isArray(channels)) {
-      return [];
-    }
-    
-    return channels.filter(channel => 
-      typeof channel === 'object' &&
-      channel.name &&
-      channel.channelId
-    );
-  }
-}
-
-/**
- * Configuration for a Telegram channel.
- */
-export interface ChannelConfig {
-  name: string;
-  channelId: string;
-  messageId?: number;
 }
