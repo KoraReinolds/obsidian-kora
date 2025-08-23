@@ -36,18 +36,18 @@ export class ChannelConfigService {
   /**
    * Get all channel configurations for a file (folder-based only)
    */
-  getChannelConfigsForFile(file: TFile): ChannelConfig[] {
-    const configs: ChannelConfig[] = [];
-    
+  async getChannelConfigsForFile(file: TFile): Promise<ChannelConfig[]> {
     // Get folder-based configuration
     const folderConfig = this.getFolderConfigForFile(file);
     if (folderConfig) {
-      folderConfig.channels.forEach(channelConfig => {
-        configs.push(this.createChannelConfigFromFolder(folderConfig, channelConfig, file));
-      });
+      const configs = await Promise.all(
+        folderConfig.channels.map(channelConfig =>
+          this.createChannelConfigFromFolder(channelConfig, file)
+        )
+      );
+      return configs;
     }
-    
-    return configs;
+    return [];
   }
 
   /**
@@ -69,13 +69,12 @@ export class ChannelConfigService {
   /**
    * Create a ChannelConfig from folder and channel configurations
    */
-  createChannelConfigFromFolder(
-    folderConfig: TelegramFolderConfig, 
+  async createChannelConfigFromFolder(
     channelConfig: TelegramChannelConfig, 
     file?: TFile
-  ): ChannelConfig {
+  ): Promise<ChannelConfig> {
     const targetFile = file || this.app.workspace.getActiveFile() as TFile;
-    const postIds = this.getPostIds(targetFile);
+    const postIds = await this.getPostIds(targetFile);
     const messageId = postIds?.[channelConfig.channelId] || undefined;
     
     return {
@@ -88,8 +87,8 @@ export class ChannelConfigService {
   /**
    * Get post IDs from frontmatter (new simplified format)
    */
-  getPostIds(file: TFile): Record<string, number> | null {
-    const frontmatter = this.frontmatterUtils.getFrontmatter(file);
+  async getPostIds(file: TFile): Promise<Record<string, number> | null> {
+    const frontmatter = await this.frontmatterUtils.getFrontmatter(file);
     return frontmatter.post_ids || null;
   }
 
@@ -97,7 +96,7 @@ export class ChannelConfigService {
    * Update post IDs in frontmatter
    */
   async updatePostIds(file: TFile, channelId: string, messageId: number): Promise<void> {
-    const frontmatter = this.frontmatterUtils.getFrontmatter(file);
+    const frontmatter = await this.frontmatterUtils.getFrontmatter(file);
     const postIds = frontmatter.post_ids || {};
     
     postIds[channelId] = messageId;

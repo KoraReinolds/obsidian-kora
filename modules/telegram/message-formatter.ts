@@ -158,9 +158,9 @@ export class MessageFormatter {
   /**
    * Форматировать markdown заметку для Telegram
    */
-  formatMarkdownNote(fileName: string, markdownContent: string, options?: ConversionOptions): ConversionResult {
+  async formatMarkdownNote(fileName: string, markdownContent: string, options?: ConversionOptions): Promise<ConversionResult> {
     // Конвертируем Obsidian ссылки в telegram URL перед обработкой
-    const processedContent = this.convertObsidianLinksToTelegramUrls(markdownContent);
+    const processedContent = await this.convertObsidianLinksToTelegramUrls(markdownContent);
     
     // Конвертируем markdown в telegram формат
     const conversionResult = this.markdownConverter.convert(processedContent, options);
@@ -198,50 +198,69 @@ export class MessageFormatter {
   /**
    * Конвертировать Obsidian ссылки [[file|text]] в Telegram URL [text](https://t.me/...)
    */
-  private convertObsidianLinksToTelegramUrls(content: string): string {
+  private async convertObsidianLinksToTelegramUrls(content: string): Promise<string> {
     // Регулярное выражение для поиска Obsidian ссылок: [[filename]] или [[filename|display text]]
     const obsidianLinkRegex = /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
     
-    return content.replace(obsidianLinkRegex, (match, fileName, displayText) => {
-      try {
-        // Используем displayText если есть, иначе fileName
-        const linkText = displayText || fileName;
+    const processedContent = await Promise.all(
+      Array.from(content.matchAll(obsidianLinkRegex), async (match) => {
+        const fileName = match[1];
+        const displayText = match[2];
         
-        // Получаем файл по имени
-        if (!this.app) {
-          throw new Error('App instance required for link conversion');
-        }
-        
-        const file = findFileByName(this.app, fileName);
-        if (!file) {
-          throw new Error(`File "${fileName}" not found`);
-        }
-        
-        if (!this.app || !this.channelConfigService) {
-          throw new Error('App instance and ChannelConfigService required for link conversion');
-        }
+        try {
+          // Используем displayText если есть, иначе fileName
+          const linkText = displayText || fileName;
+          
+          // Получаем файл по имени
+          if (!this.app) {
+            throw new Error('App instance required for link conversion');
+          }
+          
+          const file = findFileByName(this.app, fileName);
+          if (!file) {
+            throw new Error(`File "${fileName}" not found`);
+          }
+          
+          if (!this.app || !this.channelConfigService) {
+            throw new Error('App instance and ChannelConfigService required for link conversion');
+          }
 
-        const channelConfigs = this.channelConfigService.getChannelConfigsForFile(file);
-        if (channelConfigs.length === 0) {
-          throw new Error(`No channel configuration found for file "${fileName}"`);
+          const channelConfigs = await this.channelConfigService.getChannelConfigsForFile(file);
+          if (channelConfigs.length === 0) {
+            throw new Error(`No channel configuration found for file "${fileName}"`);
+          }
+          
+          // Используем первую доступную конфигурацию с messageId
+          const publishedConfig = channelConfigs.find(config => config.messageId);
+          if (!publishedConfig || !publishedConfig.messageId) {
+            throw new Error(`File "${fileName}" is not published (no messageId found)`);
+          }
+          
+          // Генерируем URL
+          const telegramUrl = generateTelegramPostUrl(publishedConfig.channelId, publishedConfig.messageId);
+          
+          // Возвращаем markdown ссылку
+          return `[${linkText}](${telegramUrl})`;
+        } catch (error) {
+          // Если произошла ошибка, выбрасываем её для обработки на верхнем уровне
+          throw new Error(`Failed to convert link ${match[0]}: ${error.message}`);
         }
-        
-        // Используем первую доступную конфигурацию с messageId
-        const publishedConfig = channelConfigs.find(config => config.messageId);
-        if (!publishedConfig || !publishedConfig.messageId) {
-          throw new Error(`File "${fileName}" is not published (no messageId found)`);
-        }
-        
-        // Генерируем URL
-        const telegramUrl = generateTelegramPostUrl(publishedConfig.channelId, publishedConfig.messageId);
-        
-        // Возвращаем markdown ссылку
-        return `[${linkText}](${telegramUrl})`;
-      } catch (error) {
-        // Если произошла ошибка, выбрасываем её для обработки на верхнем уровне
-        throw new Error(`Failed to convert link ${match}: ${error.message}`);
+      })
+    );
+    
+    // Заменяем все совпадения
+    let result = content;
+    const offset = 0;
+    
+    for (const processedLink of processedContent) {
+      const match = result.match(obsidianLinkRegex);
+      if (match) {
+        result = result.replace(obsidianLinkRegex, processedLink);
+        break; // Заменяем только первое совпадение
       }
-    });
+    }
+    
+    return result;
   }
 
 

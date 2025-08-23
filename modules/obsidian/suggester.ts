@@ -373,8 +373,13 @@ export class ChannelSuggester extends BaseFuzzySuggestModal<ChannelConfig> {
 	/**
 	 * Open the suggester and check if channels are available
 	 */
-	public openSuggester(): void {
-		// Check if file is in a configured folder
+	public async openSuggester(): Promise<void> {
+		if (!this.file) {
+			new Notice('Нет активного файла');
+			return;
+		}
+
+		// Check if file is in a folder with channel configuration
 		const folderConfig = this.channelConfigService.getFolderConfigForFile(this.file);
 		if (!folderConfig) {
 			new Notice('Файл не находится в папке с настроенным конфигом каналов');
@@ -382,7 +387,7 @@ export class ChannelSuggester extends BaseFuzzySuggestModal<ChannelConfig> {
 		}
 
 		// Get available channels for this file
-		this.availableChannels = this.channelConfigService.getChannelConfigsForFile(this.file);
+		this.availableChannels = await this.channelConfigService.getChannelConfigsForFile(this.file);
 		
 		if (this.availableChannels.length === 0) {
 			new Notice('Нет доступных каналов для этой папки');

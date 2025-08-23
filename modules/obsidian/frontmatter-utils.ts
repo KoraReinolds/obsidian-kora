@@ -10,25 +10,23 @@ export class FrontmatterUtils {
   /**
    * Get frontmatter from file
    */
-  getFrontmatter(file: TFile): any {
-    const cache = this.app.metadataCache.getFileCache(file);
-    return cache?.frontmatter || {};
+  async getFrontmatter(file: TFile): Promise<any> {
+    const results = await this.getFrontmatterForFiles([file.path]);
+    return results[0]?.frontmatter || {};
   }
 
   /**
    * Update frontmatter
    */
   async updateFrontmatter(file: TFile, updates: Record<string, any>): Promise<void> {
-    await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
-      Object.assign(frontmatter, updates);
-    });
+    await this.updateFrontmatterForFiles([file.path], updates);
   }
 
   /**
    * Get specific frontmatter field
    */
-  getFrontmatterField(file: TFile, field: string): any {
-    const frontmatter = this.getFrontmatter(file);
+  async getFrontmatterField(file: TFile, field: string): Promise<any> {
+    const frontmatter = await this.getFrontmatter(file);
     return frontmatter[field];
   }
 

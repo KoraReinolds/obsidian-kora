@@ -8,18 +8,18 @@ import { FrontmatterUtils } from '.';
 import { DuplicateTimeFixer } from '../utils';
 import { RELATED_CHUNKS_VIEW_TYPE } from '../chunking/ui/related-chunks-view';
 import { ChannelSuggester, FolderConfigSuggester } from './suggester';
-import type { KoraMcpPluginSettings, TelegramFolderConfig } from '../../main';
+import type { KoraMcpPluginSettings as KoraPluginSettings, TelegramFolderConfig } from '../../main';
 
 export class PluginCommands {
   private app: App;
-  private settings: KoraMcpPluginSettings;
+  private settings: KoraPluginSettings;
   private gramjsBridge: GramJSBridge;
   private messageFormatter: MessageFormatter;
   private duplicateTimeFixer: DuplicateTimeFixer;
   private frontmatterUtils: FrontmatterUtils;
   private channelConfigService: ChannelConfigService;
 
-  constructor(app: App, settings: KoraMcpPluginSettings, gramjsBridge: GramJSBridge) {
+  constructor(app: App, settings: KoraPluginSettings, gramjsBridge: GramJSBridge) {
     this.app = app;
     this.settings = settings;
     this.gramjsBridge = gramjsBridge;
@@ -37,7 +37,8 @@ export class PluginCommands {
   /**
    * Update settings reference
    */
-  updateSettings(settings: KoraMcpPluginSettings) {
+  updateSettings(settings: KoraPluginSettings) {
+    debugger
     this.settings = settings;
     this.channelConfigService.updateSettings(settings);
     this.messageFormatter.updateEmojiSettings(
@@ -63,17 +64,17 @@ export class PluginCommands {
       },
       {
         id: 'move-to-notes',
-        name: 'Переместить файл в Notes',
+        name: 'Move to Notes',
         callback: () => this.moveToNotes(),
       },
       {
         id: 'find-duplicate-creation-times',
-        name: 'Найти дубликаты времени создания',
+        name: 'Find duplicate creation times',
         callback: () => this.findDuplicateCreationTimes(),
       },
       {
         id: 'fix-duplicate-creation-times',
-        name: 'Исправить дубликаты времени создания',
+        name: 'Fix duplicate creation times',
         callback: () => this.fixDuplicateCreationTimes(),
       },
       {
@@ -83,12 +84,12 @@ export class PluginCommands {
       },
       {
         id: 'send-note-to-channel',
-        name: 'Отправить заметку в канал',
+        name: 'Send note to channel',
         callback: () => this.sendNoteToChannel(),
       },
       {
         id: 'send-folder-notes-to-channels',
-        name: 'Отправить заметки первого уровня папки в каналы',
+        name: 'Send first level folder notes to channels',
         callback: () => this.sendFolderNotesToChannels(),
       },
     ];
@@ -113,7 +114,7 @@ export class PluginCommands {
     }
 
     // Check if note is already linked to a Telegram post
-    const telegramMessageId = this.frontmatterUtils.getFrontmatterField(file, 'telegram_message_id');
+    const telegramMessageId = await this.frontmatterUtils.getFrontmatterField(file, 'telegram_message_id');
 
     // Format message with custom emojis support
     const { processedText } = this.messageFormatter.processCustomEmojis(content);
@@ -295,7 +296,7 @@ export class PluginCommands {
       }
     );
 
-    channelSuggester.openSuggester();
+    await channelSuggester.openSuggester();
   }
 
   /**
@@ -311,7 +312,7 @@ export class PluginCommands {
     }
 
     // Convert markdown to Telegram format and process custom emojis
-    const conversionResult = this.messageFormatter.formatMarkdownNote(file.basename, content);
+    const conversionResult = await this.messageFormatter.formatMarkdownNote(file.basename, content);
     const { processedText, entities: customEmojiEntities } = this.messageFormatter.processCustomEmojis(conversionResult.text);
     
     // Combine markdown entities with custom emoji entities
@@ -371,7 +372,7 @@ export class PluginCommands {
       }
     );
 
-    folderConfigSuggester.openSuggester();
+    await folderConfigSuggester.openSuggester();
   }
 
   /**
@@ -410,7 +411,7 @@ export class PluginCommands {
     for (const file of folderFiles) {
       try {
         // Get channel configs for this file
-        const channelConfigs = this.channelConfigService.getChannelConfigsForFile(file);
+        const channelConfigs = await this.channelConfigService.getChannelConfigsForFile(file);
         
         if (channelConfigs.length === 0) {
           console.log(`Пропускаю файл ${file.name}: нет настроенных каналов`);
