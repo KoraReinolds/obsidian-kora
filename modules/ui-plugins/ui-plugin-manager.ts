@@ -14,12 +14,6 @@ export class UIPluginManager {
     this.settings = settings;
   }
 
-  /**
-   * Update settings
-   */
-  updateSettings(settings: UIPluginSettings) {
-    this.settings = settings;
-  }
 
 
   /**

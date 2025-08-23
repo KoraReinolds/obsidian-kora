@@ -34,18 +34,6 @@ export class PluginCommands {
     );
 }
 
-  /**
-   * Update settings reference
-   */
-  updateSettings(settings: KoraPluginSettings) {
-    debugger
-    this.settings = settings;
-    this.channelConfigService.updateSettings(settings);
-    this.messageFormatter.updateEmojiSettings(
-      settings.telegram.customEmojis || [],
-      settings.telegram.useCustomEmojis || false
-    );
-  }
 
   /**
    * Get all commands

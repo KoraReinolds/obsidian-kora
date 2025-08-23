@@ -227,16 +227,6 @@ export default class KoraPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-		// Обновляем настройки в модулях
-		if (this.pluginCommands) {
-			this.pluginCommands.updateSettings(this.settings);
-		}
-		if (this.uiManager) {
-			this.uiManager.updateSettings(this.settings);
-		}
-		if (this.uiPluginManager) {
-			this.uiPluginManager.updateSettings(this.settings.uiPlugins);
-		}
 		// Синхронизируем настройки с GramJS сервером
 		await this.syncGramJSConfig();
 	}

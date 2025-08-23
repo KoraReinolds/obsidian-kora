@@ -26,12 +26,6 @@ export class ChannelConfigService {
     this.frontmatterUtils = new FrontmatterUtils(app);
   }
 
-  /**
-   * Update settings reference
-   */
-  updateSettings(settings: KoraMcpPluginSettings): void {
-    this.settings = settings;
-  }
 
   /**
    * Get all channel configurations for a file (folder-based only)

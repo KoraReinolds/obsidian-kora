@@ -29,12 +29,6 @@ export class UIManager {
     this.noteUISystem = new NoteUISystem(uiPluginManager);
   }
 
-  /**
-   * Update settings reference
-   */
-  updateSettings(settings: KoraMcpPluginSettings) {
-    this.settings = settings;
-  }
 
   /**
    * Inject note-specific UI into the workspace leaf

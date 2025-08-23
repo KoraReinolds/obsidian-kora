@@ -47,20 +47,16 @@ export class UIPluginSettingsTab extends PluginSettingTab {
 
   private displayPlugin(plugin: UIPlugin, index: number): void {
     const setting = new Setting(this.containerEl);
-    const patternsText = plugin.folderPatterns.length > 0 
-      ? plugin.folderPatterns.join(', ') 
-      : 'Не настроено';
       
     setting
-      .setName(plugin.name || 'UI Плагин')
-      .setDesc(`Папки: ${patternsText}`)
+      .setName('UI Плагин')
+      .setDesc('Настройки плагина')
       .addText(text => {
         text.setValue(plugin.name)
           .setPlaceholder('Название плагина')
           .onChange(value => {
             plugin.name = value;
             this.saveSettings();
-            this.display(); // Refresh to update name in header
           });
       })
       .addText(text => {
@@ -69,7 +65,6 @@ export class UIPluginSettingsTab extends PluginSettingTab {
           .onChange(value => {
             plugin.folderPatterns = value.split(',').map(s => s.trim()).filter(s => s);
             this.saveSettings();
-            this.display(); // Refresh to update description
           });
         new FolderSuggest(text.inputEl, this.app);
       })
@@ -104,11 +99,11 @@ export class UIPluginSettingsTab extends PluginSettingTab {
    
     // Get command name for description
     const commandDesc = button.command 
-      ? `Команда: ${button.command.name}` 
+      ? `${button.command.name}` 
       : 'Команда не выбрана';
     
     setting
-      .setName(button.label || 'Кнопка')
+      .setName('Кнопка')
       .setDesc(commandDesc)
       .addText(text => {
         text.setPlaceholder('Текст кнопки')
