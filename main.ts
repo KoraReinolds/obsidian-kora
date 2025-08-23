@@ -1,4 +1,4 @@
-import { Notice, Plugin, TFile, WorkspaceLeaf } from 'obsidian';
+import { Plugin, TFile, WorkspaceLeaf } from 'obsidian';
 import { CHUNK_VIEW_TYPE, ChunkView } from './modules/chunking/ui/chunk-view';
 import { RELATED_CHUNKS_VIEW_TYPE, RelatedChunksView } from './modules/chunking/ui/related-chunks-view';
 import { GramJSBridge } from './modules/telegram';
@@ -13,7 +13,7 @@ import type { EmojiMapping } from './modules/telegram';
 import type { VectorSettingsInterface } from './modules/vector';
 import type { UIPluginSettings } from './modules/ui-plugins';
 import { defaultVectorSettings } from './modules/vector';
-import { PluginCommands } from 'modules/obsidian/commands';
+import { PluginCommands, VaultOperations } from './modules/obsidian';
 
 export interface TelegramChannelConfig {
 	name: string;
@@ -86,6 +86,7 @@ export default class KoraPlugin extends Plugin {
 	private pluginCommands: PluginCommands;
 	private uiManager: UIManager;
 	private uiPluginManager: UIPluginManager;
+	private vaultOps: VaultOperations;
 
 	async onload() {
 		await this.loadSettings();
@@ -106,6 +107,9 @@ export default class KoraPlugin extends Plugin {
 		
 		// Инициализируем Vector bridge
 		this.vectorBridge = new VectorBridge();
+		
+		// Инициализируем VaultOperations
+		this.vaultOps = new VaultOperations(this.app);
 		
 		// Инициализируем команды
 		this.pluginCommands = new PluginCommands(this.app, this.settings, this.gramjsBridge);
@@ -160,19 +164,6 @@ export default class KoraPlugin extends Plugin {
 		// Показываем note UI для всех markdown файлов
 		this.uiManager.injectUI(leaf);
 	}
-
-	async moveFileToFolder(file: TFile, targetFolder: string) {
-		const fileName = file.name;
-		const newPath = `${targetFolder}/${fileName}`;
-
-		try {
-			await this.app.vault.rename(file, newPath);
-			new Notice(`Файл перемещён в ${targetFolder}`);
-		} catch (err) {
-			new Notice(`Ошибка перемещения: ${err}`);
-		}
-	}
-
 
 	onunload() {
 		this.mcpServerManager?.stopServer();

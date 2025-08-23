@@ -4,7 +4,7 @@
 
 import { App, TFile, Notice, Command } from 'obsidian';
 import { GramJSBridge, MessageFormatter, ChannelConfigService, type ChannelConfig, createNavigationButtons } from '../telegram';
-import { FrontmatterUtils } from '.';
+import { FrontmatterUtils, VaultOperations, getMarkdownFiles } from '.';
 import { DuplicateTimeFixer } from '../utils';
 import { RELATED_CHUNKS_VIEW_TYPE } from '../chunking/ui/related-chunks-view';
 import { ChannelSuggester, FolderConfigSuggester } from './suggester';
@@ -18,6 +18,7 @@ export class PluginCommands {
   private duplicateTimeFixer: DuplicateTimeFixer;
   private frontmatterUtils: FrontmatterUtils;
   private channelConfigService: ChannelConfigService;
+  private vaultOps: VaultOperations;
 
   constructor(app: App, settings: KoraPluginSettings, gramjsBridge: GramJSBridge) {
     this.app = app;
@@ -26,13 +27,14 @@ export class PluginCommands {
     this.duplicateTimeFixer = new DuplicateTimeFixer(app);
     this.frontmatterUtils = new FrontmatterUtils(app);
     this.channelConfigService = new ChannelConfigService(app, settings);
+    this.vaultOps = new VaultOperations(app);
     this.messageFormatter = new MessageFormatter(
       settings.telegram.customEmojis,
       settings.telegram.useCustomEmojis,
       app,
       this.channelConfigService
     );
-}
+  }
 
 
   /**
@@ -87,13 +89,13 @@ export class PluginCommands {
    * Send note via GramJS userbot
    */
   private async sendNoteViaGramJS(): Promise<void> {
-    const file = this.app.workspace.getActiveFile();
+    const file = this.vaultOps.getActiveFile();
     if (!file) {
       new Notice('No active file');
       return;
     }
 
-    const content = await this.app.vault.read(file);
+    const content = await this.vaultOps.getFileContent(file);
     const peer = this.settings.gramjs?.chatId;
     
     if (!peer) {
@@ -144,29 +146,15 @@ export class PluginCommands {
    * Move file to Notes folder
    */
   private async moveToNotes(): Promise<void> {
-    const file = this.app.workspace.getActiveFile();
+    const file = this.vaultOps.getActiveFile();
     if (!file) {
       new Notice('Нет активного файла');
       return;
     }
 
-    await this.moveFileToFolder(file, 'Organize/Notes');
+    await this.vaultOps.moveFileToFolder(file, 'Organize/Notes');
   }
 
-  /**
-   * Move file to specified folder
-   */
-  private async moveFileToFolder(file: TFile, targetFolder: string): Promise<void> {
-    const fileName = file.name;
-    const newPath = `${targetFolder}/${fileName}`;
-
-    try {
-      await this.app.vault.rename(file, newPath);
-      new Notice(`Файл перемещён в ${targetFolder}`);
-    } catch (err) {
-      new Notice(`Ошибка перемещения: ${err}`);
-    }
-  }
 
   /**
    * Find notes with duplicate creation times
@@ -257,7 +245,7 @@ export class PluginCommands {
    * Send current note to channel via suggester modal
    */
   private async sendNoteToChannel(): Promise<void> {
-    const file = this.app.workspace.getActiveFile();
+    const file = this.vaultOps.getActiveFile();
     if (!file) {
       new Notice('Нет активного файла');
       return;
@@ -291,7 +279,7 @@ export class PluginCommands {
    * Send file to the selected channel (reusing logic from UI Manager)
    */
   private async sendToSelectedChannel(file: TFile, channelConfig: ChannelConfig): Promise<void> {
-    const content = await this.app.vault.read(file);
+    const content = await this.vaultOps.getFileContent(file);
     const peer = channelConfig.channelId;
     
     if (!peer) {
@@ -370,18 +358,9 @@ export class PluginCommands {
     const folderPath = folderConfig.folder;
     
     // Get all markdown files from the folder (first level only)
-    const allFiles = this.app.vault.getMarkdownFiles();
-    const folderFiles = allFiles.filter(file => {
-      // Check if file is in the exact folder (not in subfolders)
-      const filePath = file.path;
-      const relativePath = filePath.substring(folderPath.length);
-      
-      // File is in first level if it's directly in the folder
-      // (no additional path separators except the initial one)
-      return filePath.startsWith(folderPath) && 
-             (relativePath === file.name || 
-              relativePath === '/' + file.name ||
-              relativePath === '\\' + file.name);
+    const folderFiles = await getMarkdownFiles(this.app, {
+      folderPath: folderConfig.folder,
+      include: ['*.md']
     });
     
     if (folderFiles.length === 0) {
