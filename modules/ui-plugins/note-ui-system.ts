@@ -5,9 +5,9 @@
 
 import { TFile, WorkspaceLeaf, App } from 'obsidian';
 import { VectorBridge } from '../vector';
-import { UIPluginRenderer } from '../ui-plugins';
+import { UIPluginRenderer } from './ui-plugin-renderer';
 import type { KoraMcpPluginSettings } from '../../main';
-import type { UIPluginManager } from '../ui-plugins';
+import type { UIPluginManager } from './ui-plugin-manager';
 
 export interface NoteUIContext {
   file: TFile;
@@ -45,12 +45,6 @@ export class NoteUISystem {
     if (this.uiPluginManager) {
       this.registerRenderer(new UIPluginRenderer(this.uiPluginManager));
     }
-
-    // Vector Stats Renderer для заметок с vector: true
-    this.registerRenderer(new VectorStatsRenderer());
-
-    // Note: chunk preview moved to native sidebar view (ChunkView)
-    // Note: TelegramChannelRenderer removed - replaced by flexible UI plugins
   }
 
   /**
@@ -135,65 +129,3 @@ export class NoteUISystem {
     this.activeRenderers.clear();
   }
 }
-
-// Telegram Channel renderer removed - replaced by flexible UI plugins system
-
-/**
- * Рендерер для заметок с поддержкой векторного поиска
- */
-class VectorStatsRenderer implements NoteUIRenderer {
-  id = 'vector-stats';
-  name = 'Vector Stats UI';
-
-  shouldRender(context: NoteUIContext): boolean {
-    const { frontmatter } = context;
-    return frontmatter?.vector === true || frontmatter?.show_vector_stats === true;
-  }
-
-  async render(containerEl: HTMLElement, context: NoteUIContext): Promise<void> {
-    const { vectorBridge } = context;
-    
-    const statsContainer = containerEl.createEl('div', { cls: 'vector-stats-container' });
-    statsContainer.style.cssText = `
-      background: var(--background-secondary);
-      border-radius: 8px;
-      padding: 15px;
-      margin: 10px 0;
-    `;
-
-    const headerEl = statsContainer.createEl('h4', { 
-      text: '🔍 Векторная база данных',
-      cls: 'vector-stats-header' 
-    });
-    headerEl.style.margin = '0 0 10px 0';
-
-    const loadingEl = statsContainer.createEl('div', { text: 'Загрузка статистики...' });
-
-    try {
-      const stats = await vectorBridge.getStats();
-      loadingEl.remove();
-
-      const statsEl = statsContainer.createEl('div', { cls: 'vector-stats-content' });
-      statsEl.innerHTML = `
-        <div><strong>Коллекция:</strong> ${stats.collection}</div>
-        <div><strong>Всего документов:</strong> ${stats.totalPoints}</div>
-        <div><strong>Размерность векторов:</strong> ${stats.vectorSize}</div>
-        <div><strong>Статус:</strong> ${stats.status}</div>
-      `;
-
-      if (stats.contentTypeBreakdown) {
-        const breakdownEl = statsContainer.createEl('div', { cls: 'content-breakdown' });
-        breakdownEl.innerHTML = '<strong>По типам контента:</strong>';
-        
-        Object.entries(stats.contentTypeBreakdown).forEach(([type, count]) => {
-          breakdownEl.innerHTML += `<div style="margin-left: 15px;">• ${type}: ${count}</div>`;
-        });
-      }
-
-    } catch (error) {
-      loadingEl.textContent = `Ошибка загрузки: ${error.message}`;
-    }
-  }
-}
-
-// Chunk preview renderer removed from in-note UI

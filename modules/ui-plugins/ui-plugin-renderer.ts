@@ -2,8 +2,8 @@
  * UI Plugin Renderer - renders buttons from UI plugins as part of note UI system
  */
 
-import { TFile, WorkspaceLeaf, App } from 'obsidian';
-import type { NoteUIRenderer, NoteUIContext } from '../ui/note-ui-system';
+import { TFile } from 'obsidian';
+import type { NoteUIRenderer, NoteUIContext } from './note-ui-system';
 import { UIPluginManager } from './ui-plugin-manager';
 import type { UIButton } from './types';
 
@@ -34,7 +34,6 @@ export class UIPluginRenderer implements NoteUIRenderer {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
-      margin: 10px 0;
       padding: 10px;
       background: var(--background-secondary);
       border-radius: 6px;

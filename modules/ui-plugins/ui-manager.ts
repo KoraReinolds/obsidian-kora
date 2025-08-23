@@ -2,10 +2,10 @@
  * UI Manager for injecting buttons and interface elements
  */
 
-import { TFile, Notice, WorkspaceLeaf, App } from 'obsidian';
+import { TFile, WorkspaceLeaf, App } from 'obsidian';
 import { NoteUISystem } from './note-ui-system';
 import { VectorBridge } from '../vector';
-import type { UIPluginManager } from '../ui-plugins';
+import type { UIPluginManager } from './ui-plugin-manager';
 import type { KoraMcpPluginSettings } from '../../main';
 
 export class UIManager {
@@ -43,7 +43,7 @@ export class UIManager {
     const container = (leaf.view as any).containerEl;
 
     // Удалим уже существующие наши элементы, если есть
-    const existing = container.querySelectorAll('.note-ui-renderer');
+    const existing = container.querySelectorAll('.kora-note-ui-container, .note-ui-renderer');
     existing.forEach((element: HTMLElement) => element.remove());
 
     // Вставляем в начало preview-панели
@@ -79,8 +79,6 @@ export class UIManager {
 
       noteUIContainer.style.cssText = `
         border-bottom: 1px solid var(--background-modifier-border);
-        margin-bottom: 20px;
-        padding-bottom: 15px;
       `;
 
       await this.noteUISystem.renderNoteUI(noteUIContainer, context);

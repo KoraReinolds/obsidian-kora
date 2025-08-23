@@ -4,10 +4,10 @@
 
 import { App, TFile, Notice, Command } from 'obsidian';
 import { GramJSBridge, MessageFormatter, ChannelConfigService, type ChannelConfig, createNavigationButtons } from '../telegram';
-import { FrontmatterUtils } from '../obsidian';
+import { FrontmatterUtils } from '.';
 import { DuplicateTimeFixer } from '../utils';
 import { RELATED_CHUNKS_VIEW_TYPE } from '../chunking/ui/related-chunks-view';
-import { ChannelSuggester, FolderConfigSuggester } from '../obsidian/suggester';
+import { ChannelSuggester, FolderConfigSuggester } from './suggester';
 import type { KoraMcpPluginSettings, TelegramFolderConfig } from '../../main';
 
 export class PluginCommands {
