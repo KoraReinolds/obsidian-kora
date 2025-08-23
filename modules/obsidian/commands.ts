@@ -4,7 +4,7 @@
 
 import { App, TFile, Notice, Command } from 'obsidian';
 import { GramJSBridge, MessageFormatter, ChannelConfigService, type ChannelConfig, createNavigationButtons } from '../telegram';
-import { FrontmatterUtils, VaultOperations, getMarkdownFiles } from '.';
+import { FrontmatterUtils, VaultOperations, getMarkdownFiles, getExistingFilesByPaths } from '.';
 import { DuplicateTimeFixer } from '../utils';
 import { RELATED_CHUNKS_VIEW_TYPE } from '../chunking/ui/related-chunks-view';
 import { ChannelSuggester, FolderConfigSuggester } from './suggester';
@@ -305,7 +305,7 @@ export class PluginCommands {
       const success = await this.gramjsBridge.editMessage({
         peer: channelConfig.channelId,
         messageId: channelConfig.messageId,
-        message: processedText,
+        message: processedText + Math.random().toString(),
         entities: combinedEntities,
         buttons,
         disableWebPagePreview: this.settings.telegram.disableWebPagePreview || true
@@ -356,15 +356,22 @@ export class PluginCommands {
    */
   private async sendAllNotesFromFolder(folderConfig: TelegramFolderConfig): Promise<void> {
     const folderPath = folderConfig.folder;
-    
+   
     // Get all markdown files from the folder (first level only)
-    const folderFiles = await getMarkdownFiles(this.app, {
+    const folderFilesData = await getMarkdownFiles(this.app, {
       folderPath: folderConfig.folder,
-      include: ['*.md']
     });
     
-    if (folderFiles.length === 0) {
+    if (folderFilesData.length === 0) {
       new Notice(`В папке ${folderPath} нет markdown файлов первого уровня`);
+      return;
+    }
+
+    // Get real TFile objects from the paths
+    const folderFiles = getExistingFilesByPaths(this.app, folderFilesData.map(f => f.path));
+    
+    if (folderFiles.length === 0) {
+      new Notice(`В папке ${folderPath} нет доступных markdown файлов первого уровня`);
       return;
     }
 

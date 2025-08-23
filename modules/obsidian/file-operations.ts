@@ -5,6 +5,30 @@
 import { App, TFile } from 'obsidian';
 
 /**
+ * Type for markdown file data returned by getMarkdownFiles
+ */
+export interface MarkdownFileData {
+	path: string;
+	basename: string;
+	stat: {
+		ctime: number;
+		mtime: number;
+		size: number;
+	};
+}
+
+/**
+ * Options for getMarkdownFiles function
+ */
+export interface GetMarkdownFilesOptions {
+	folderPath?: string;
+	includeContent?: boolean;
+	includeTitle?: boolean;
+	include?: string[];
+	exclude?: string[];
+}
+
+/**
  * Checks if a file path matches a glob-like pattern.
  * @param path The file path to check.
  * @param pattern The glob pattern (* and ** supported).
@@ -43,14 +67,8 @@ function matchesInclude(path: string, pattern: string): boolean {
  */
 export async function getMarkdownFiles(
 	app: App, 
-	options?: {
-		folderPath?: string;
-		includeContent?: boolean;
-		includeTitle?: boolean;
-		include?: string[];
-		exclude?: string[];
-	}
-) {
+	options?: GetMarkdownFilesOptions
+): Promise<MarkdownFileData[]> {
 	const files = app.vault.getMarkdownFiles();
 	
 	// Filter by folder path if specified (legacy support)
@@ -72,32 +90,32 @@ export async function getMarkdownFiles(
 		);
 	}
 	
-	// Map files to result format
-	const results = [];
-	for (const f of filteredFiles) {
-		const fileData: any = {
-			path: f.path,
-			basename: f.basename,
-			stat: f.stat,
-		};
-		
-		if (options?.includeTitle || options?.includeContent) {
-			const content = await app.vault.read(f);
-			
-			if (options.includeTitle) {
-				const lines = content.split('\n');
-				fileData.title = lines[0]?.replace(/^#\s*/, '') || f.basename;
-			}
-			
-			if (options.includeContent) {
-				fileData.content = content;
-			}
-		}
-		
-		results.push(fileData);
-	}
+
 	
-	return results;
+	return filteredFiles;
+}
+
+/**
+ * Retrieves real TFile objects by an array of file paths.
+ * @param app The Obsidian application instance.
+ * @param paths Array of file paths to retrieve.
+ * @returns Array of TFile objects, with null for non-existent files.
+ */
+export function getFilesByPaths(app: App, paths: string[]): (TFile | null)[] {
+	return paths.map(path => {
+		const file = app.vault.getAbstractFileByPath(path);
+		return file instanceof TFile ? file : null;
+	});
+}
+
+/**
+ * Retrieves real TFile objects by an array of file paths, filtering out non-existent files.
+ * @param app The Obsidian application instance.
+ * @param paths Array of file paths to retrieve.
+ * @returns Array of existing TFile objects only.
+ */
+export function getExistingFilesByPaths(app: App, paths: string[]): TFile[] {
+	return getFilesByPaths(app, paths).filter((file): file is TFile => file !== null);
 }
 
 /**
@@ -116,7 +134,7 @@ export function getAreas(app: App): string[] {
 		const areaPath = tag.substring('#area/'.length);
 		return areaPath.split('/')[0];
 	});
-	return [...new Set(areas)]; // Return unique areas
+	return Array.from(new Set(areas)); // Return unique areas
 }
 
 /**
@@ -124,7 +142,7 @@ export function getAreas(app: App): string[] {
  * @param app The Obsidian application instance.
  * @returns A promise that resolves with the documentation files data.
  */
-export async function getAutomateDocs(app: App): Promise<any[]> {
+export async function getAutomateDocs(app: App): Promise<MarkdownFileData[]> {
 	return getMarkdownFiles(app, {
 		folderPath: 'Automate/mcp/',
 		includeContent: true,

@@ -6,9 +6,11 @@ import { getAutomateDocs } from '../../obsidian';
 interface AutomateDoc {
 	path: string;
 	basename: string;
-	title: string;
-	content: string;
-	stat: any;
+	stat: {
+		ctime: number;
+		mtime: number;
+		size: number;
+	};
 }
 
 export class AutomateDocsEndpoint extends BaseEndpoint<Record<string, never>, AutomateDoc[]> {

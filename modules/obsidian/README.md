@@ -80,9 +80,9 @@ const frontmatterUtils = new FrontmatterUtils(app);
 
 ### 3. Утилитарные функции
 
-#### `getMarkdownFiles(app: App, options?: {...}): Promise<any[]>`
+#### `getMarkdownFiles(app: App, options?: GetMarkdownFilesOptions): Promise<MarkdownFileData[]>`
 
-Получает markdown файлы с возможностью фильтрации.
+Получает markdown файлы с возможностью фильтрации. **Важно**: эта функция возвращает структуру данных с путями и метаданными, а не реальные `TFile` объекты.
 
 ```typescript
 import { getMarkdownFiles } from './modules/obsidian';
@@ -93,8 +93,6 @@ const allFiles = await getMarkdownFiles(app);
 // Получить файлы с фильтрацией
 const filteredFiles = await getMarkdownFiles(app, {
   folderPath: 'Projects/',
-  includeContent: true,
-  includeTitle: true,
   include: ['*.md', '**/important/*'],
   exclude: ['**/drafts/*', '**/archive/*']
 });
@@ -102,10 +100,45 @@ const filteredFiles = await getMarkdownFiles(app, {
 
 **Параметры options:**
 - `folderPath?: string` - путь к папке для фильтрации
-- `includeContent?: boolean` - включить содержимое файлов
-- `includeTitle?: boolean` - включить заголовки (первая строка)
 - `include?: string[]` - паттерны включения (поддерживает glob: *, **)
 - `exclude?: string[]` - паттерны исключения (поддерживает glob: *, **)
+
+**Возвращаемый тип `MarkdownFileData`:**
+```typescript
+interface MarkdownFileData {
+  path: string;           // Полный путь к файлу
+  basename: string;       // Имя файла без расширения
+  stat: {                 // Статистика файла
+    ctime: number;        // Время создания
+    mtime: number;        // Время изменения
+    size: number;         // Размер в байтах
+  };
+}
+```
+
+#### `getFilesByPaths(app: App, paths: string[]): (TFile | null)[]`
+
+Получает реальные `TFile` объекты по массиву путей. Возвращает массив, где `null` означает, что файл не найден.
+
+```typescript
+import { getFilesByPaths } from './modules/obsidian';
+
+const filePaths = ['Note1.md', 'Note2.md', 'NonExistent.md'];
+const files = getFilesByPaths(app, filePaths);
+// Возвращает: [TFile, TFile, null]
+```
+
+#### `getExistingFilesByPaths(app: App, paths: string[]): TFile[]`
+
+Получает только существующие `TFile` объекты по массиву путей, фильтруя несуществующие файлы.
+
+```typescript
+import { getExistingFilesByPaths } from './modules/obsidian';
+
+const filePaths = ['Note1.md', 'Note2.md', 'NonExistent.md'];
+const existingFiles = getExistingFilesByPaths(app, filePaths);
+// Возвращает: [TFile, TFile] - только существующие файлы
+```
 
 #### `getAreas(app: App): string[]`
 
@@ -118,15 +151,15 @@ const areas = getAreas(app);
 // Возвращает: ['work', 'personal', 'projects']
 ```
 
-#### `getAutomateDocs(app: App): Promise<any[]>`
+#### `getAutomateDocs(app: App): Promise<MarkdownFileData[]>`
 
-Получает все файлы документации из папки `/Automate/mcp/` с полным содержимым.
+Получает все файлы документации из папки `/Automate/mcp/`.
 
 ```typescript
 import { getAutomateDocs } from './modules/obsidian';
 
 const docs = await getAutomateDocs(app);
-// Возвращает массив файлов с path, basename, title, content
+// Возвращает массив MarkdownFileData с path, basename, stat
 ```
 
 #### `findFileByName(app: App, fileName: string): TFile | null`
@@ -153,24 +186,44 @@ const url = generateTelegramPostUrl('-1001234567890', 123);
 
 ## Примеры использования
 
-### Сценарий 1: Обновление frontmatter для группы файлов
+### Сценарий 1: Работа с путями и реальными файлами
 
 ```typescript
-import { FrontmatterUtils } from './modules/obsidian';
+import { getMarkdownFiles, getExistingFilesByPaths } from './modules/obsidian';
+
+// Получить пути файлов из папки
+const fileData = await getMarkdownFiles(app, { folderPath: 'Projects/' });
+
+// Получить реальные TFile объекты для работы
+const realFiles = getExistingFilesByPaths(app, fileData.map(f => f.path));
+
+// Теперь можно работать с реальными файлами
+for (const file of realFiles) {
+  const content = await app.vault.read(file);
+  // ... обработка содержимого
+}
+```
+
+### Сценарий 2: Обновление frontmatter для группы файлов
+
+```typescript
+import { FrontmatterUtils, getMarkdownFiles, getExistingFilesByPaths } from './modules/obsidian';
 
 const frontmatterUtils = new FrontmatterUtils(app);
 
-// Обновить тег для всех файлов в папке
-const files = await getMarkdownFiles(app, { folderPath: 'Projects/' });
-const filePaths = files.map(f => f.path);
+// Получить пути файлов
+const filesData = await getMarkdownFiles(app, { folderPath: 'Projects/' });
 
-await frontmatterUtils.updateFrontmatterForFiles(filePaths, {
-  status: 'in-progress',
-  updated: new Date().toISOString()
-});
+// Получить реальные файлы
+const realFiles = getExistingFilesByPaths(app, filesData.map(f => f.path));
+
+// Обновить тег для всех файлов
+for (const file of realFiles) {
+  await frontmatterUtils.setFrontmatterField(file, 'status', 'in-progress');
+}
 ```
 
-### Сценарий 2: Поиск и анализ файлов
+### Сценарий 3: Поиск и анализ файлов
 
 ```typescript
 import { getMarkdownFiles, getAreas } from './modules/obsidian';
@@ -178,8 +231,7 @@ import { getMarkdownFiles, getAreas } from './modules/obsidian';
 // Получить все файлы с определенными тегами
 const workFiles = await getMarkdownFiles(app, {
   include: ['**/work/*'],
-  includeContent: true,
-  includeTitle: true
+  exclude: ['**/archive/*']
 });
 
 // Получить все области
@@ -187,18 +239,22 @@ const areas = getAreas(app);
 console.log('Доступные области:', areas);
 ```
 
-### Сценарий 3: Массовые операции с файлами
+### Сценарий 4: Массовые операции с файлами
 
 ```typescript
-import { VaultOperations, FrontmatterUtils } from './modules/obsidian';
+import { VaultOperations, FrontmatterUtils, getMarkdownFiles, getExistingFilesByPaths } from './modules/obsidian';
 
 const vaultOps = new VaultOperations(app);
 const frontmatterUtils = new FrontmatterUtils(app);
 
-// Переместить файлы и обновить их frontmatter
-const files = await getMarkdownFiles(app, { folderPath: 'Drafts/' });
+// Получить данные файлов
+const filesData = await getMarkdownFiles(app, { folderPath: 'Drafts/' });
 
-for (const file of files) {
+// Получить реальные файлы
+const realFiles = getExistingFilesByPaths(app, filesData.map(f => f.path));
+
+// Переместить файлы и обновить их frontmatter
+for (const file of realFiles) {
   // Переместить в архив
   await vaultOps.moveFileToFolder(file, 'Archive/2024');
   
@@ -209,6 +265,24 @@ for (const file of files) {
 
 ## Особенности и ограничения
 
+### Различие между MarkdownFileData и TFile
+
+**Важно понимать разницу:**
+
+- **`MarkdownFileData`** - легковесная структура с путями и метаданными, возвращается `getMarkdownFiles()`
+- **`TFile`** - полный объект Obsidian файла, необходим для операций чтения/записи
+
+```typescript
+// ❌ Неправильно - MarkdownFileData не имеет метода read()
+const fileData = await getMarkdownFiles(app, { folderPath: 'Notes/' });
+const content = await app.vault.read(fileData[0]); // Ошибка!
+
+// ✅ Правильно - сначала получаем TFile
+const fileData = await getMarkdownFiles(app, { folderPath: 'Notes/' });
+const realFiles = getExistingFilesByPaths(app, fileData.map(f => f.path));
+const content = await app.vault.read(realFiles[0]); // Работает!
+```
+
 ### Асинхронность
 - Все операции с файлами и frontmatter являются асинхронными
 - Используйте `await` при вызове методов
@@ -218,7 +292,7 @@ for (const file of files) {
 - Отдельные операции с файлами выбрасывают исключения при ошибках
 
 ### Производительность
-- `getMarkdownFiles` с `includeContent: true` может быть медленным для больших vault
+- `getMarkdownFiles` работает быстро, так как не читает содержимое файлов
 - Используйте фильтры для ограничения количества обрабатываемых файлов
 
 ### Поддержка glob паттернов
@@ -235,8 +309,27 @@ for (const file of files) {
 
 ## Рекомендации по использованию
 
-1. **Для массовых операций** используйте функции с множественным числом (`*ForFiles`)
-2. **Для фильтрации файлов** используйте `getMarkdownFiles` с параметрами `include`/`exclude`
-3. **Для работы с метаданными** создавайте экземпляр `FrontmatterUtils` один раз и переиспользуйте
-4. **Для поиска файлов** используйте `findFileByName` для точного поиска по имени
-5. **Для генерации URL** используйте `generateTelegramPostUrl` для создания ссылок на посты
+1. **Для получения путей файлов** используйте `getMarkdownFiles()` - быстро и эффективно
+2. **Для работы с содержимым файлов** используйте `getExistingFilesByPaths()` для получения реальных `TFile`
+3. **Для массовых операций** комбинируйте оба подхода: сначала пути, потом реальные файлы
+4. **Для фильтрации файлов** используйте `getMarkdownFiles` с параметрами `include`/`exclude`
+5. **Для работы с метаданными** создавайте экземпляр `FrontmatterUtils` один раз и переиспользуйте
+6. **Для поиска файлов** используйте `findFileByName` для точного поиска по имени
+7. **Для генерации URL** используйте `generateTelegramPostUrl` для создания ссылок на посты
+
+## Миграция с предыдущих версий
+
+Если вы использовали `getMarkdownFiles` для получения содержимого файлов:
+
+**Старый код:**
+```typescript
+const files = await getMarkdownFiles(app, { includeContent: true });
+// files[0].content - содержимое файла
+```
+
+**Новый код:**
+```typescript
+const filesData = await getMarkdownFiles(app);
+const realFiles = getExistingFilesByPaths(app, filesData.map(f => f.path));
+const content = await app.vault.read(realFiles[0]);
+```

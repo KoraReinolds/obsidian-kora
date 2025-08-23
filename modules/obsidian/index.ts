@@ -10,5 +10,9 @@ export {
   getAreas, 
   getAutomateDocs, 
   findFileByName, 
-  generateTelegramPostUrl 
+  generateTelegramPostUrl,
+  getFilesByPaths,
+  getExistingFilesByPaths,
+  type MarkdownFileData,
+  type GetMarkdownFilesOptions
 } from './file-operations';
