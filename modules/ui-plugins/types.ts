@@ -7,7 +7,7 @@ import { TFile, App } from 'obsidian';
 export interface UIButton {
   id: string;
   label: string;
-  command?: { id: string; name: string };
+  commandId?: string;
   order?: number;
 }
 

@@ -61,6 +61,7 @@ export class UIPluginManager {
 
   /**
    * Execute a command for a button
+   * buttonClick
    */
   async executeButtonCommand(buttonId: string, file: TFile): Promise<void> {
     // Find the button across all plugins
@@ -70,16 +71,16 @@ export class UIPluginManager {
       return;
     }
 
-    if (!button.command?.id) {
+    if (!button.commandId) {
       console.warn(`No command configured for button ${buttonId}`);
       return;
     }
 
     // Execute Obsidian command directly
     try {
-      (this.app as any).commands.executeCommandById(button.command.id);
+      (this.app as any).commands.executeCommandById(button.commandId);
     } catch (error) {
-      console.error(`Error executing command ${button.command.id}:`, error);
+      console.error(`Error executing command ${button.commandId}:`, error);
     }
   }
 
@@ -114,7 +115,7 @@ export class UIPluginManager {
     return {
       id: `button-${Date.now()}`,
       label: 'Кнопка',
-      command: undefined,
+      commandId: undefined,
       order: 0
     };
   }

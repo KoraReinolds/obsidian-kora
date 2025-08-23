@@ -97,9 +97,9 @@ export class UIPluginSettingsTab extends PluginSettingTab {
     const setting = new Setting(this.containerEl);
     setting.setClass('ui-button-setting');
    
-    // Get command name for description
-    const commandDesc = button.command 
-      ? `${button.command.name}` 
+    // Get command name dynamically by ID
+    const commandDesc = button.commandId 
+      ? this.getCommandName(button.commandId)
       : 'Команда не выбрана';
     
     setting
@@ -126,7 +126,7 @@ export class UIPluginSettingsTab extends PluginSettingTab {
         .setButtonText('Выбрать команду')
         .onClick(() => {
           new CommandSuggester(this.app, (command) => {
-            button.command = command;
+            button.commandId = command.id; // Store only the command ID
             this.saveSettings();
             this.display();
           }).open();
@@ -144,6 +144,13 @@ export class UIPluginSettingsTab extends PluginSettingTab {
     setting.settingEl.style.marginLeft = '20px';
     setting.settingEl.style.borderLeft = '2px solid var(--background-modifier-border)';
     setting.settingEl.style.paddingLeft = '10px';
+  }
+
+  private getCommandName(commandId: string): string {
+    // todo: вынести получение комманд в модуль /obsidian + доп методы для работы с командами
+    // @ts-ignore - Obsidian API has commands property
+    const command = this.app.commands.commands[commandId];
+    return command ? command.name : 'Неизвестная команда';
   }
 
 
