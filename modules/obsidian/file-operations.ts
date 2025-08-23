@@ -2,7 +2,7 @@
  * File operations and content utilities
  */
 
-import { App, TFile, TFolder } from 'obsidian';
+import { App, TFile } from 'obsidian';
 
 /**
  * Checks if a file path matches a glob-like pattern.

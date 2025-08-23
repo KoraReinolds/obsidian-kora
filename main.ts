@@ -2,7 +2,6 @@ import { Notice, Plugin, TFile, WorkspaceLeaf } from 'obsidian';
 import { CHUNK_VIEW_TYPE, ChunkView } from './modules/chunking/ui/chunk-view';
 import { RELATED_CHUNKS_VIEW_TYPE, RelatedChunksView } from './modules/chunking/ui/related-chunks-view';
 import { GramJSBridge } from './modules/telegram';
-import { PluginCommands } from './modules/ui';
 import { UIManager } from './modules/ui-plugins';
 import { VectorBridge } from './modules/vector';
 import { McpServerManager } from './modules/mcp';
@@ -14,6 +13,7 @@ import type { EmojiMapping } from './modules/telegram';
 import type { VectorSettingsInterface } from './modules/vector';
 import type { UIPluginSettings } from './modules/ui-plugins';
 import { defaultVectorSettings } from './modules/vector';
+import { PluginCommands } from 'modules/obsidian/commands';
 
 export interface TelegramChannelConfig {
 	name: string;
