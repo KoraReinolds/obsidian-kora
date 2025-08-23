@@ -5,11 +5,13 @@ import { GramJSBridge } from './modules/telegram';
 import { PluginCommands, UIManager } from './modules/ui';
 import { VectorBridge } from './modules/vector';
 import { McpServerManager } from './modules/mcp';
+import { UIPluginManager, UIPluginSettingsTab, DEFAULT_UI_PLUGIN_SETTINGS } from './modules/ui-plugins';
 import { McpServerSettingTab } from './modules/mcp/settings-tab';
 import { TelegramSettingTab } from './modules/telegram/settings-tab';
 import { VectorSettingTab } from './modules/vector/settings-tab';
 import type { EmojiMapping } from './modules/telegram';
 import type { VectorSettingsInterface } from './modules/vector';
+import type { UIPluginSettings } from './modules/ui-plugins';
 import { defaultVectorSettings } from './modules/vector';
 
 export interface TelegramChannelConfig {
@@ -42,6 +44,7 @@ export interface KoraMcpPluginSettings {
 		chatId?: string;
 	};
 	vectorSettings: VectorSettingsInterface;
+	uiPlugins: UIPluginSettings;
 }
 
 const DEFAULT_SETTINGS: KoraMcpPluginSettings = {
@@ -71,15 +74,17 @@ const DEFAULT_SETTINGS: KoraMcpPluginSettings = {
 		chatId: '',
 	},
 	vectorSettings: defaultVectorSettings,
+	uiPlugins: DEFAULT_UI_PLUGIN_SETTINGS,
 };
 
-export default class KoraMcpPlugin extends Plugin {
+export default class KoraPlugin extends Plugin {
 	settings: KoraMcpPluginSettings;
 	private mcpServerManager: McpServerManager;
 	private gramjsBridge: GramJSBridge;
 	private vectorBridge: VectorBridge;
 	private pluginCommands: PluginCommands;
 	private uiManager: UIManager;
+	private uiPluginManager: UIPluginManager;
 
 	async onload() {
 		await this.loadSettings();
@@ -87,6 +92,10 @@ export default class KoraMcpPlugin extends Plugin {
 		this.addSettingTab(new McpServerSettingTab(this.app, this));
 		this.addSettingTab(new TelegramSettingTab(this.app, this));
 		this.addSettingTab(new VectorSettingTab(this.app, this));
+		
+		// Initialize UI Plugin Manager
+		this.uiPluginManager = new UIPluginManager(this.app, this.settings.uiPlugins);
+		this.addSettingTab(new UIPluginSettingsTab(this.app, this));
 		
 		// Инициализируем MCP сервер
 		this.mcpServerManager = new McpServerManager(this.app);
@@ -104,10 +113,9 @@ export default class KoraMcpPlugin extends Plugin {
 		this.uiManager = new UIManager(
 			this.app,
 			this.settings,
-			this.gramjsBridge,
 			this.vectorBridge,
-			this.moveFileToFolder.bind(this),
-			this.app.vault.read.bind(this.app.vault)
+			this.app.vault.read.bind(this.app.vault),
+			this.uiPluginManager
 		);
 
 		this.mcpServerManager.startServer(this.settings.port);
@@ -148,8 +156,8 @@ export default class KoraMcpPlugin extends Plugin {
 		const file = (leaf.view as any).file as TFile;
 		if (!file) return;
 
-		// Показываем кнопки и note UI для всех markdown файлов
-		this.uiManager.injectButtons(leaf);
+		// Показываем note UI для всех markdown файлов
+		this.uiManager.injectUI(leaf);
 	}
 
 	async moveFileToFolder(file: TFile, targetFolder: string) {
@@ -208,6 +216,11 @@ export default class KoraMcpPlugin extends Plugin {
       data.telegram.folderConfigs = [];
     }
     
+    // Инициализируем uiPlugins если отсутствуют
+    if (!data.uiPlugins) {
+      data.uiPlugins = DEFAULT_UI_PLUGIN_SETTINGS;
+    }
+    
     this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
 	}
 
@@ -219,6 +232,9 @@ export default class KoraMcpPlugin extends Plugin {
 		}
 		if (this.uiManager) {
 			this.uiManager.updateSettings(this.settings);
+		}
+		if (this.uiPluginManager) {
+			this.uiPluginManager.updateSettings(this.settings.uiPlugins);
 		}
 		// Синхронизируем настройки с GramJS сервером
 		await this.syncGramJSConfig();
@@ -259,6 +275,7 @@ export default class KoraMcpPlugin extends Plugin {
 	getGramJSBridge() {
 		return this.gramjsBridge;
 	}
+
 
 
 

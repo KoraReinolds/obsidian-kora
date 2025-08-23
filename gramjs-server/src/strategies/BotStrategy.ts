@@ -161,7 +161,7 @@ class BotStrategy extends TelegramClientStrategy {
   /**
    * Edit an existing message with bot-specific handling
    */
-  async editMessage(peer: string, messageId: number, options: MessageOptions): Promise<any> {
+  async editTgMessage(peer: string, messageId: number, options: MessageOptions): Promise<any> {
     try {
       console.log(`[BotStrategy] Editing message ${messageId} in peer: ${peer}`);
       

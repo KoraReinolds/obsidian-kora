@@ -1,15 +1,15 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
-import type KoraMcpPlugin from '../../main';
+import type KoraPlugin from '../../main';
 
 export class VectorSettingTab extends PluginSettingTab {
-	private plugin: KoraMcpPlugin;
+	private plugin: KoraPlugin;
+	private id: string;
+	private name: string;
 
-	constructor(app: App, plugin: KoraMcpPlugin) {
+	constructor(app: App, plugin: KoraPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
-		// @ts-ignore
 		this.id = 'kora-vector-settings';
-		// @ts-ignore
 		this.name = '- Kora: Vector';
 	}
 

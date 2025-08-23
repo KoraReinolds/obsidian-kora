@@ -496,6 +496,38 @@ export class SuggesterUtils {
 	}
 }
 
+/**
+ * Command suggester modal for selecting Obsidian commands
+ */
+export class CommandSuggester extends BaseFuzzySuggestModal<{ id: string; name: string }> {
+  constructor(app: App, onSelect: (command: { id: string; name: string }) => void) {
+    super(app, onSelect);
+    this.setPlaceholder('Выберите команду...');
+  }
+
+  getItems() {
+    return Object.values((this.app as any).commands.commands).map((cmd: any) => ({
+      id: cmd.id,
+      name: cmd.name
+    }));
+  }
+
+  getItemText(item: { id: string; name: string }): string {
+    return item.name;
+  }
+
+  renderSuggestion(value: { item: { id: string; name: string } }, el: HTMLElement): void {
+    const command = value.item;
+    const container = el.createDiv({ cls: 'command-suggestion' });
+    
+    this.renderSuggestionWithStyling(
+      container,
+      command.name,
+      `ID: ${command.id}`
+    );
+  }
+}
+
 // Re-export commonly used types
 export type { ChannelConfig, TelegramFolderConfig };
 export { TextInputSuggest, BaseFuzzySuggestModal };

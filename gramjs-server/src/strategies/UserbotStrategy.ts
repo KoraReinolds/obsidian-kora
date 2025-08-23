@@ -145,11 +145,11 @@ class UserbotStrategy extends TelegramClientStrategy {
   /**
    * Edit message with userbot-specific handling
    */
-  async editMessage(peer: string, messageId: number, options: MessageOptions): Promise<any> {
+  async editTgMessage(peer: string, messageId: number, options: MessageOptions): Promise<any> {
     try {
       console.log(`[UserbotStrategy] Editing message ${messageId} in peer: ${peer}`);
       
-      const result = await super.editMessage(peer, messageId, options);
+      const result = await super.editTgMessage(peer, messageId, options);
       
       console.log('[UserbotStrategy] Message edited successfully in userbot mode');
       return {

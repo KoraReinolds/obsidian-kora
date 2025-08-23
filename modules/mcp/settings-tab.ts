@@ -1,15 +1,15 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
-import type KoraMcpPlugin from "../../main";
+import type KoraPlugin from "../../main";
 
 export class McpServerSettingTab extends PluginSettingTab {
-	private plugin: KoraMcpPlugin;
+	private plugin: KoraPlugin;
+	private id: string;
+	private name: string;
 
-	constructor(app: App, plugin: KoraMcpPlugin) {
+	constructor(app: App, plugin: KoraPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
-		// @ts-ignore
 		this.id = "kora-mcp-server-settings";
-		// @ts-ignore
 		this.name = "- Kora: MCP Server";
 	}
 

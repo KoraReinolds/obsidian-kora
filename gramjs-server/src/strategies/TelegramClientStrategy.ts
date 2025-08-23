@@ -180,7 +180,7 @@ class TelegramClientStrategy {
    * @param {MessageOptions} options - Message options
    * @returns {Promise<any>}
    */
-  async editMessage(peer: string, messageId: number, options: MessageOptions): Promise<any> {
+  async editTgMessage(peer: string, messageId: number, options: MessageOptions): Promise<any> {
     this.validateConnection();
     const targetPeer = this.resolveTargetPeer(peer);
     

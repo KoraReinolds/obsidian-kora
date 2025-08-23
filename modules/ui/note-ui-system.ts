@@ -5,7 +5,9 @@
 
 import { TFile, WorkspaceLeaf, App } from 'obsidian';
 import { VectorBridge } from '../vector';
+import { UIPluginRenderer } from '../ui-plugins';
 import type { KoraMcpPluginSettings } from '../../main';
+import type { UIPluginManager } from '../ui-plugins';
 
 export interface NoteUIContext {
   file: TFile;
@@ -28,8 +30,10 @@ export interface NoteUIRenderer {
 export class NoteUISystem {
   private renderers: Map<string, NoteUIRenderer> = new Map();
   private activeRenderers: Map<string, Set<string>> = new Map(); // filePath -> renderIds
+  private uiPluginManager?: UIPluginManager;
   
-  constructor() {
+  constructor(uiPluginManager?: UIPluginManager) {
+    this.uiPluginManager = uiPluginManager;
     this.registerBuiltInRenderers();
   }
 
@@ -37,13 +41,16 @@ export class NoteUISystem {
    * Регистрация встроенных рендереров
    */
   private registerBuiltInRenderers() {
-    // Telegram Channel Notes Renderer
-    this.registerRenderer(new TelegramChannelRenderer());
-    
+    // UI Plugins Renderer - flexible button system
+    if (this.uiPluginManager) {
+      this.registerRenderer(new UIPluginRenderer(this.uiPluginManager));
+    }
+
     // Vector Stats Renderer для заметок с vector: true
     this.registerRenderer(new VectorStatsRenderer());
 
     // Note: chunk preview moved to native sidebar view (ChunkView)
+    // Note: TelegramChannelRenderer removed - replaced by flexible UI plugins
   }
 
   /**
@@ -129,188 +136,7 @@ export class NoteUISystem {
   }
 }
 
-/**
- * Рендерер для заметок Telegram каналов
- */
-class TelegramChannelRenderer implements NoteUIRenderer {
-  id = 'telegram-channel';
-  name = 'Telegram Channel UI';
-
-  shouldRender(context: NoteUIContext): boolean {
-    const { file, frontmatter } = context;
-    
-    // Проверяем, что заметка в папке каналов и имеет нужные поля
-    return (
-      file.path.includes('Channels/') || 
-      file.path.includes('channels/') ||
-      frontmatter?.type === 'telegram_channel' ||
-      frontmatter?.channel_id
-    ) && (
-      frontmatter?.channel_id || 
-      frontmatter?.channel_username ||
-      frontmatter?.peer
-    );
-  }
-
-  async render(containerEl: HTMLElement, context: NoteUIContext): Promise<void> {
-    const { frontmatter, vectorBridge } = context;
-    
-    // Получение данных канала из frontmatter
-    const channelId = frontmatter.channel_id || frontmatter.peer;
-    const channelTitle = frontmatter.channel_title || frontmatter.title;
-    const channelUsername = frontmatter.channel_username || frontmatter.username;
-    
-    // Заголовок секции
-    const headerEl = containerEl.createEl('div', { cls: 'telegram-channel-header' });
-    headerEl.style.cssText = `
-      background: linear-gradient(135deg, #0088cc, #229ed9);
-      color: white;
-      padding: 15px;
-      border-radius: 8px;
-      margin: 10px 0;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    `;
-    
-    headerEl.createEl('span', { 
-      text: '📱',
-      cls: 'telegram-icon'
-    });
-    
-    const titleEl = headerEl.createEl('div');
-    titleEl.createEl('div', { 
-      text: channelTitle || 'Telegram Channel',
-      cls: 'channel-title'
-    }).style.fontWeight = 'bold';
-    
-    if (channelUsername) {
-      titleEl.createEl('div', { 
-        text: `@${channelUsername}`,
-        cls: 'channel-username'
-      }).style.fontSize = '12px';
-    }
-
-    // Контейнер для кнопок
-    const buttonsEl = containerEl.createEl('div', { cls: 'telegram-channel-buttons' });
-    buttonsEl.style.cssText = `
-      display: flex;
-      gap: 10px;
-      margin: 10px 0;
-      flex-wrap: wrap;
-    `;
-
-    // Кнопка получения сообщений
-    this.createButton(buttonsEl, '📥 Получить сообщения', async () => {
-      await this.fetchMessages(context, channelId);
-    });
-
-    // Кнопка векторизации
-    this.createButton(buttonsEl, '🔍 Векторизовать', async () => {
-      await this.vectorizeMessages(context, channelId);
-    });
-
-    // Кнопка поиска в векторах
-    this.createButton(buttonsEl, '🎯 Поиск', async () => {
-      await this.searchVectors(context);
-    });
-
-    // Кнопка статистики
-    this.createButton(buttonsEl, '📊 Статистика', async () => {
-      await this.showStats(context, channelId);
-    });
-
-    // Информационная панель
-    const infoEl = containerEl.createEl('div', { cls: 'telegram-channel-info' });
-    infoEl.style.cssText = `
-      background: var(--background-secondary);
-      border-radius: 5px;
-      padding: 10px;
-      margin: 10px 0;
-      font-size: 12px;
-      color: var(--text-muted);
-    `;
-    
-    infoEl.innerHTML = `
-      <strong>ID канала:</strong> ${channelId}<br>
-      <strong>Последнее обновление:</strong> ${frontmatter.last_update || 'неизвестно'}
-    `;
-  }
-
-  private createButton(container: HTMLElement, text: string, onClick: () => Promise<void>) {
-    const button = container.createEl('button', { text, cls: 'mod-cta' });
-    button.style.cssText = `
-      padding: 8px 12px;
-      border-radius: 5px;
-      border: none;
-      cursor: pointer;
-      font-size: 12px;
-    `;
-    
-    button.onclick = async () => {
-      button.disabled = true;
-      button.textContent = 'Загрузка...';
-      try {
-        await onClick();
-      } finally {
-        button.disabled = false;
-        button.textContent = text;
-      }
-    };
-  }
-
-  private async fetchMessages(context: NoteUIContext, channelId: string) {
-    // Реализация получения сообщений
-    console.log('Fetching messages for channel:', channelId);
-    // Здесь будет логика получения сообщений через GramJS API
-  }
-
-  private async vectorizeMessages(context: NoteUIContext, channelId: string) {
-    const { vectorBridge, frontmatter } = context;
-    
-    try {
-      const request = {
-        peer: channelId,
-        startDate: frontmatter.vector_start_date,
-        endDate: frontmatter.vector_end_date,
-        limit: frontmatter.vector_limit || 1000
-      };
-
-      const result = await vectorBridge.vectorizeMessages(request);
-      console.log('Vectorization result:', result);
-    } catch (error) {
-      console.error('Vectorization error:', error);
-    }
-  }
-
-  private async searchVectors(context: NoteUIContext) {
-    // Открытие простого поиска или модального окна
-    const query = prompt('Введите поисковый запрос:');
-    if (!query) return;
-
-    const { vectorBridge } = context;
-    try {
-      const results = await vectorBridge.searchContent({
-        query,
-        limit: 10,
-        contentTypes: ['telegram_post']
-      });
-      console.log('Search results:', results);
-    } catch (error) {
-      console.error('Search error:', error);
-    }
-  }
-
-  private async showStats(context: NoteUIContext, channelId: string) {
-    const { vectorBridge } = context;
-    try {
-      const stats = await vectorBridge.getStats();
-      alert(`Статистика векторной БД:\nВсего документов: ${stats.totalPoints}\nТип контента: ${JSON.stringify(stats.contentTypeBreakdown)}`);
-    } catch (error) {
-      console.error('Stats error:', error);
-    }
-  }
-}
+// Telegram Channel renderer removed - replaced by flexible UI plugins system
 
 /**
  * Рендерер для заметок с поддержкой векторного поиска

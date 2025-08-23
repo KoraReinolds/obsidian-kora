@@ -13,6 +13,10 @@ import { processMessage, validateMessageParams } from '../utils/markdown-convert
  */
 export function registerEditMessageRoute(app: Express): void {
   app.post('/edit_message', async (req: Request, res: Response) => {
+
+    const strategy = await initClient();
+    const mode = strategy.getMode();
+
     try {
       const requestData: EditMessageRequest = req.body;
       const { 
@@ -27,8 +31,6 @@ export function registerEditMessageRoute(app: Express): void {
       // Validate required parameters
       validateMessageParams('edit', { peer, messageId, message });
     
-      const strategy = await initClient();
-      const mode = strategy.getMode();
 
       // Process message (handles both regular and markdown)
       const processed = processMessage({
@@ -58,7 +60,7 @@ export function registerEditMessageRoute(app: Express): void {
         messageOptions.replyMarkup = processed.replyMarkup;
       }
 
-      const result = await strategy.editMessage(peer, messageId, messageOptions);
+      const result = await strategy.editTgMessage(peer, messageId, messageOptions);
       
       const response: SendMessageResponse = { 
         success: true, 
@@ -76,8 +78,12 @@ export function registerEditMessageRoute(app: Express): void {
     } catch (error: unknown) {
       // eslint-disable-next-line no-console
       console.error('[edit_message] Error:', error);
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      res.status(500).json({ error: message });
+      res.status(200).json({
+        success: true,
+        message: 'Message the same',
+        mode,
+        result: null
+      });
     }
   });
 }

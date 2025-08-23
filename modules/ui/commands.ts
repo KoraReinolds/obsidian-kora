@@ -32,7 +32,7 @@ export class PluginCommands {
       app,
       this.channelConfigService
     );
-  }
+}
 
   /**
    * Update settings reference
@@ -274,6 +274,13 @@ export class PluginCommands {
       return;
     }
 
+    await this.sendNoteToChannelByFile(file);
+  }
+
+  /**
+   * Send specific file to channel via suggester modal (for UI plugins)
+   */
+  async sendNoteToChannelByFile(file: TFile): Promise<void> {
     // Create channel suggester and open it
     const channelSuggester = new ChannelSuggester(
       this.app,

@@ -1,16 +1,16 @@
-import KoraMcpPlugin, { TelegramChannelConfig, TelegramFolderConfig } from "main";
+import KoraPlugin, { TelegramChannelConfig, TelegramFolderConfig } from "main";
 import { App, PluginSettingTab, Setting, Notice } from "obsidian";
 import { FolderSuggest } from "../obsidian/suggester";
 
 export class TelegramSettingTab extends PluginSettingTab {
-	private plugin: KoraMcpPlugin;
+	private plugin: KoraPlugin;
+  private id: string;
+  private name: string;
 
-	constructor(app: App, plugin: KoraMcpPlugin) {
+	constructor(app: App, plugin: KoraPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
-    // @ts-ignore
 		this.id = "kora-telegram-settings";
-    // @ts-ignore
 		this.name = "- Kora: Telegram";
 	}
 

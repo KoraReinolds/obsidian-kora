@@ -14,6 +14,9 @@ export * from './vector';
 // UI components
 export * from './ui';
 
+// UI Plugins system
+export * from './ui-plugins';
+
 // General utilities
 export * from './utils';
 
