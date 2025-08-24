@@ -124,12 +124,14 @@ export class UIPluginSettingsTab extends PluginSettingTab {
       })
       .addButton(cb => cb
         .setButtonText('Выбрать команду')
-        .onClick(() => {
-          new CommandSuggester(this.app, (command) => {
-            button.commandId = command.id; // Store only the command ID
+        .onClick(async () => {
+          const commandSuggester = new CommandSuggester(this.app);
+          const selectedCommand = await commandSuggester.open();
+          if (selectedCommand) {
+            button.commandId = selectedCommand.id; // Store only the command ID
             this.saveSettings();
             this.display();
-          }).open();
+          }
         }))
       .addButton(cb => cb
         .setButtonText('Удалить')

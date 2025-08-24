@@ -7,7 +7,7 @@ import { GramJSBridge, MessageFormatter, ChannelConfigService, type ChannelConfi
 import { FrontmatterUtils, VaultOperations, getMarkdownFiles, getExistingFilesByPaths } from '.';
 import { DuplicateTimeFixer } from '../utils';
 import { RELATED_CHUNKS_VIEW_TYPE } from '../chunking/ui/related-chunks-view';
-import { ChannelSuggester, FolderConfigSuggester } from './suggester';
+import { ChannelSuggester, FolderConfigSuggester, FolderChannelSuggester } from './suggester';
 import type { KoraMcpPluginSettings as KoraPluginSettings, TelegramFolderConfig } from '../../main';
 
 export class PluginCommands {
@@ -251,34 +251,33 @@ export class PluginCommands {
       return;
     }
 
-    await this.sendNoteToChannelByFile(file);
-  }
-
-  /**
-   * Send specific file to channel via suggester modal (for UI plugins)
-   */
-  async sendNoteToChannelByFile(file: TFile): Promise<void> {
-    // Create channel suggester and open it
     const channelSuggester = new ChannelSuggester(
       this.app,
       file,
-      this.settings,
-      async (channelConfig) => {
-        try {
-          await this.sendToSelectedChannel(file, channelConfig);
-        } catch (error) {
-          new Notice(`Ошибка отправки: ${error}`);
-        }
-      }
+      this.settings
     );
 
-    await channelSuggester.openSuggester();
+    const channelConfig = await channelSuggester.open();
+
+    if (channelConfig) {
+      try {
+        await this.sendToSelectedChannel(file, channelConfig);
+      } catch (error) {
+        new Notice(`Ошибка отправки: ${error}`);
+      }
+    }
   }
 
   /**
    * Send file to the selected channel (reusing logic from UI Manager)
    */
-  private async sendToSelectedChannel(file: TFile, channelConfig: ChannelConfig): Promise<void> {
+  private async sendToSelectedChannel(file: TFile, config: ChannelConfig): Promise<void> {
+    const channelConfig = Object.assign({}, config);
+    const postIds = await this.frontmatterUtils.getFrontmatterField(file, 'post_ids');
+    if (postIds && postIds[channelConfig.channelId]) {
+      channelConfig.messageId = postIds[channelConfig.channelId];
+    }
+
     const content = await this.vaultOps.getFileContent(file);
     const peer = channelConfig.channelId;
     
@@ -338,23 +337,34 @@ export class PluginCommands {
     // Create folder config suggester and open it
     const folderConfigSuggester = new FolderConfigSuggester(
       this.app,
-      this.settings,
-      async (folderConfig) => {
-        try {
-          await this.sendAllNotesFromFolder(folderConfig);
-        } catch (error) {
-          new Notice(`Ошибка отправки файлов папки: ${error}`);
-        }
-      }
+      this.settings
     );
 
-    await folderConfigSuggester.openSuggester();
+    const folderConfig = await folderConfigSuggester.open();
+    
+    if (folderConfig) {
+      try {
+        // Create channel suggester for this folder and open it
+        const channelSuggester = new FolderChannelSuggester(
+          this.app,
+          folderConfig
+        );
+
+        const channelConfig = await channelSuggester.open();
+     
+        if (channelConfig) {
+          await this.sendAllNotesFromFolder(folderConfig, channelConfig);
+        }
+      } catch (error) {
+        new Notice(`Ошибка отправки файлов папки: ${error}`);
+      }
+    }
   }
 
   /**
    * Send all notes from a folder to their configured channels (first level only)
    */
-  private async sendAllNotesFromFolder(folderConfig: TelegramFolderConfig): Promise<void> {
+  private async sendAllNotesFromFolder(folderConfig: TelegramFolderConfig, cannelConfig: ChannelConfig): Promise<void> {
     const folderPath = folderConfig.folder;
    
     // Get all markdown files from the folder (first level only)
@@ -375,7 +385,7 @@ export class PluginCommands {
       return;
     }
 
-    new Notice(`Начинаю отправку ${folderFiles.length} файлов первого уровня из папки ${folderPath}...`);
+    new Notice(`Начинаю отправку ${folderFiles.length} файлов первого уровня из папки ${folderPath} в канал ${cannelConfig.name}...`);
     
     let successCount = 0;
     let errorCount = 0;
@@ -384,22 +394,12 @@ export class PluginCommands {
     // Process files sequentially to avoid overwhelming the API
     for (const file of folderFiles) {
       try {
-        // Get channel configs for this file
-        const channelConfigs = await this.channelConfigService.getChannelConfigsForFile(file);
-        
-        if (channelConfigs.length === 0) {
-          console.log(`Пропускаю файл ${file.name}: нет настроенных каналов`);
-          continue;
-        }
-
-        // Send to each configured channel
-        for (const channelConfig of channelConfigs) {
-          await this.sendToSelectedChannel(file, channelConfig);
-          // Small delay between sends to be respectful to the API
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
+        // Send to the selected channel
+        await this.sendToSelectedChannel(file, cannelConfig);
         
         successCount++;
+        // Small delay between sends to be respectful to the API
+        await new Promise(resolve => setTimeout(resolve, 500));
       } catch (error) {
         errorCount++;
         const errorMsg = `${file.name}: ${error}`;
@@ -412,6 +412,4 @@ export class PluginCommands {
     const resultMessage = `Готово! Успешно: ${successCount}, Ошибок: ${errorCount}`;
     new Notice(resultMessage);
   }
-
-
 }

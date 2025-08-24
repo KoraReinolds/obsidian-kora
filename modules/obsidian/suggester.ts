@@ -150,11 +150,11 @@ abstract class TextInputSuggest<T> {
  * Base class for modal-based suggestion functionality with common styling and behavior
  */
 abstract class BaseFuzzySuggestModal<T> extends FuzzySuggestModal<T> {
-	protected onSelectCallback: (item: T) => void;
+	protected resolve: ((item: T | null) => void) | null = null;
+	protected reject: ((error: Error) => void) | null = null;
 
-	constructor(app: App, onSelect: (item: T) => void) {
+	constructor(app: App) {
 		super(app);
-		this.onSelectCallback = onSelect;
 	}
 
 	/**
@@ -225,7 +225,23 @@ abstract class BaseFuzzySuggestModal<T> extends FuzzySuggestModal<T> {
 	}
 
 	onChooseItem(item: T): void {
-		this.onSelectCallback(item);
+		if (this.resolve) {
+			this.resolve(item);
+			this.resolve = null;
+			this.reject = null;
+		}
+	}
+
+	/**
+	 * Open the suggester and wait for user selection
+	 * @returns Promise that resolves with selected item or null if cancelled
+	 */
+	public open(): Promise<T | null> {
+		return new Promise((resolve, reject) => {
+			this.resolve = resolve;
+			this.reject = reject;
+			super.open();
+		});
 	}
 }
 
@@ -268,12 +284,8 @@ export class FolderConfigSuggester extends BaseFuzzySuggestModal<TelegramFolderC
 	private settings: KoraMcpPluginSettings;
 	private availableConfigs: TelegramFolderConfig[];
 
-	constructor(
-		app: App, 
-		settings: KoraMcpPluginSettings,
-		onSelect: (folderConfig: TelegramFolderConfig) => void
-	) {
-		super(app, onSelect);
+	constructor(app: App, settings: KoraMcpPluginSettings) {
+		super(app);
 		this.settings = settings;
 		this.availableConfigs = [];
 
@@ -284,7 +296,7 @@ export class FolderConfigSuggester extends BaseFuzzySuggestModal<TelegramFolderC
 	/**
 	 * Open the suggester and check if folder configs are available
 	 */
-	public openSuggester(): void {
+	public open(): Promise<TelegramFolderConfig | null> {
 		// Get available folder configs
 		this.availableConfigs = this.settings.telegram.folderConfigs.filter(config => 
 			config.folder && config.channels && config.channels.length > 0
@@ -292,11 +304,11 @@ export class FolderConfigSuggester extends BaseFuzzySuggestModal<TelegramFolderC
 		
 		if (this.availableConfigs.length === 0) {
 			new Notice('Нет настроенных конфигов папок с каналами');
-			return;
+			return Promise.resolve(null);
 		}
 
-		// Open the modal
-		this.open();
+		// Call parent's open method
+		return super.open();
 	}
 
 	/**
@@ -355,13 +367,8 @@ export class ChannelSuggester extends BaseFuzzySuggestModal<ChannelConfig> {
 	private channelConfigService: ChannelConfigService;
 	private availableChannels: ChannelConfig[];
 
-	constructor(
-		app: App, 
-		file: TFile, 
-		settings: KoraMcpPluginSettings,
-		onSelect: (channel: ChannelConfig) => void
-	) {
-		super(app, onSelect);
+	constructor(app: App, file: TFile, settings: KoraMcpPluginSettings) {
+		super(app);
 		this.file = file;
 		this.channelConfigService = new ChannelConfigService(app, settings);
 		this.availableChannels = [];
@@ -373,29 +380,29 @@ export class ChannelSuggester extends BaseFuzzySuggestModal<ChannelConfig> {
 	/**
 	 * Open the suggester and check if channels are available
 	 */
-	public async openSuggester(): Promise<void> {
+	public async open(): Promise<ChannelConfig | null> {
 		if (!this.file) {
 			new Notice('Нет активного файла');
-			return;
+			return null;
 		}
 
 		// Check if file is in a folder with channel configuration
 		const folderConfig = this.channelConfigService.getFolderConfigForFile(this.file);
 		if (!folderConfig) {
 			new Notice('Файл не находится в папке с настроенным конфигом каналов');
-			return;
+			return null;
 		}
 
 		// Get available channels for this file
-		this.availableChannels = await this.channelConfigService.getChannelConfigsForFile(this.file);
-		
+		this.availableChannels = folderConfig.channels;
+
 		if (this.availableChannels.length === 0) {
 			new Notice('Нет доступных каналов для этой папки');
-			return;
+			return null;
 		}
 
-		// Open the modal
-		this.open();
+		// Call parent's open method
+		return super.open();
 	}
 
 	/**
@@ -403,6 +410,70 @@ export class ChannelSuggester extends BaseFuzzySuggestModal<ChannelConfig> {
 	 */
 	getItems(): ChannelConfig[] {
 		return this.availableChannels;
+	}
+
+	/**
+	 * Get the text to display for each item in the suggester
+	 */
+	getItemText(channel: ChannelConfig): string {
+		return channel.name;
+	}
+
+	/**
+	 * Render additional information for each suggestion
+	 */
+	renderSuggestion(value: { item: ChannelConfig }, el: HTMLElement): void {
+		const channel = value.item as ChannelConfig;
+		
+		// Create main container
+		const container = el.createDiv({ cls: 'channel-suggestion' });
+		
+		// Channel ID (shortened for display)
+		const channelIdShort = channel.channelId.length > 20 
+			? `${channel.channelId.slice(0, 10)}...${channel.channelId.slice(-7)}`
+			: channel.channelId;
+		
+		// Use the enhanced rendering method
+		this.renderSuggestionWithStyling(
+			container,
+			channel.name,
+			`ID: ${channelIdShort}`,
+		);
+	}
+}
+
+/**
+ * Channel suggester modal for selecting a channel from folder's channel list
+ */
+export class FolderChannelSuggester extends BaseFuzzySuggestModal<ChannelConfig> {
+	private folderConfig: TelegramFolderConfig;
+
+	constructor(app: App, folderConfig: TelegramFolderConfig) {
+		super(app);
+		this.folderConfig = folderConfig;
+
+		// Set modal title
+		this.setPlaceholder('Выберите канал для отправки файлов папки...');
+	}
+
+	/**
+	 * Open the suggester and check if channels are available
+	 */
+	public async open(): Promise<ChannelConfig | null> {
+		if (!this.folderConfig.channels || this.folderConfig.channels.length === 0) {
+			new Notice('В конфигурации папки нет настроенных каналов');
+			return null;
+		}
+
+		// Call parent's open method
+		return super.open();
+	}
+
+	/**
+	 * Get all available channel items for the fuzzy search
+	 */
+	getItems(): ChannelConfig[] {
+		return this.folderConfig.channels;
 	}
 
 	/**
@@ -461,10 +532,9 @@ export class SuggesterFactory {
 	 */
 	static createFolderConfigSuggester(
 		app: App,
-		settings: KoraMcpPluginSettings,
-		onSelect: (folderConfig: TelegramFolderConfig) => void
+		settings: KoraMcpPluginSettings
 	): FolderConfigSuggester {
-		return new FolderConfigSuggester(app, settings, onSelect);
+		return new FolderConfigSuggester(app, settings);
 	}
 
 	/**
@@ -473,10 +543,9 @@ export class SuggesterFactory {
 	static createChannelSuggester(
 		app: App,
 		file: TFile,
-		settings: KoraMcpPluginSettings,
-		onSelect: (channel: ChannelConfig) => void
+		settings: KoraMcpPluginSettings
 	): ChannelSuggester {
-		return new ChannelSuggester(app, file, settings, onSelect);
+		return new ChannelSuggester(app, file, settings);
 	}
 }
 
@@ -505,8 +574,8 @@ export class SuggesterUtils {
  * Command suggester modal for selecting Obsidian commands
  */
 export class CommandSuggester extends BaseFuzzySuggestModal<{ id: string; name: string }> {
-  constructor(app: App, onSelect: (command: { id: string; name: string }) => void) {
-    super(app, onSelect);
+  constructor(app: App) {
+    super(app);
     this.setPlaceholder('Выберите команду...');
   }
 
