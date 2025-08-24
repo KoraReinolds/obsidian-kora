@@ -7,7 +7,7 @@ import { GramJSBridge, MessageFormatter, ChannelConfigService, type ChannelConfi
 import { FrontmatterUtils, VaultOperations, getMarkdownFiles, getExistingFilesByPaths } from '.';
 import { DuplicateTimeFixer } from '../utils';
 import { RELATED_CHUNKS_VIEW_TYPE } from '../chunking/ui/related-chunks-view';
-import { ChannelSuggester, FolderConfigSuggester, FolderChannelSuggester } from './suggester';
+import { SuggesterFactory } from './suggester-modal';
 import type { KoraMcpPluginSettings as KoraPluginSettings, TelegramFolderConfig } from '../../main';
 
 export class PluginCommands {
@@ -251,7 +251,7 @@ export class PluginCommands {
       return;
     }
 
-    const channelSuggester = new ChannelSuggester(
+    const channelSuggester = SuggesterFactory.createChannelSuggester(
       this.app,
       file,
       this.settings
@@ -335,7 +335,7 @@ export class PluginCommands {
    */
   private async sendFolderNotesToChannels(): Promise<void> {
     // Create folder config suggester and open it
-    const folderConfigSuggester = new FolderConfigSuggester(
+    const folderConfigSuggester = SuggesterFactory.createFolderConfigSuggester(
       this.app,
       this.settings
     );
@@ -345,7 +345,7 @@ export class PluginCommands {
     if (folderConfig) {
       try {
         // Create channel suggester for this folder and open it
-        const channelSuggester = new FolderChannelSuggester(
+        const channelSuggester = SuggesterFactory.createFolderChannelSuggester(
           this.app,
           folderConfig
         );

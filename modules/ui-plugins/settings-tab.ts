@@ -5,7 +5,7 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import type KoraPlugin from '../../main';
 import type { UIPlugin, UIButton } from './types';
-import { FolderSuggest, CommandSuggester } from '../obsidian/suggester';
+import { FolderSuggest, SuggesterFactory } from '../obsidian/suggester-modal';
 
 export class UIPluginSettingsTab extends PluginSettingTab {
   private plugin: KoraPlugin;
@@ -125,7 +125,7 @@ export class UIPluginSettingsTab extends PluginSettingTab {
       .addButton(cb => cb
         .setButtonText('Выбрать команду')
         .onClick(async () => {
-          const commandSuggester = new CommandSuggester(this.app);
+          const commandSuggester = SuggesterFactory.createCommandSuggester(this.app);
           const selectedCommand = await commandSuggester.open();
           if (selectedCommand) {
             button.commandId = selectedCommand.id; // Store only the command ID

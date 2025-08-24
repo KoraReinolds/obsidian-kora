@@ -1,6 +1,6 @@
 import KoraPlugin, { TelegramChannelConfig, TelegramFolderConfig } from "main";
 import { App, PluginSettingTab, Setting, Notice } from "obsidian";
-import { FolderSuggest } from "../obsidian/suggester";
+import { FolderSuggest } from "../obsidian/suggester-modal";
 
 export class TelegramSettingTab extends PluginSettingTab {
 	private plugin: KoraPlugin;
