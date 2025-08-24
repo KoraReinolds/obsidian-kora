@@ -161,6 +161,11 @@ export default class KoraPlugin extends Plugin {
 		const file = (leaf.view as any).file as TFile;
 		if (!file) return;
 
+		// Скрываем заголовок и метаданные
+		setTimeout(() => {
+			leaf.view.containerEl.querySelectorAll('.metadata-container, .inline-title').forEach(el => el.remove());
+		}, 0);
+
 		// Показываем note UI для всех markdown файлов
 		this.uiManager.injectUI(leaf);
 	}
