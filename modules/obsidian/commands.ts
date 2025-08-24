@@ -97,7 +97,7 @@ export class PluginCommands {
 
     const content = await this.vaultOps.getFileContent(file);
     const peer = this.settings.gramjs?.chatId;
-    
+
     if (!peer) {
       new Notice('Chat ID не настроен');
       return;
@@ -108,7 +108,7 @@ export class PluginCommands {
 
     // Format message with custom emojis support
     const { processedText } = this.messageFormatter.processCustomEmojis(content);
-    
+
     if (telegramMessageId) {
       // Edit existing message
       const success = await this.gramjsBridge.editMessage({
@@ -161,11 +161,11 @@ export class PluginCommands {
    */
   private async findDuplicateCreationTimes(): Promise<void> {
     new Notice('Поиск дубликатов времени создания...');
-    
+
     try {
       const duplicates = await this.duplicateTimeFixer.findDuplicateCreationTimes();
       const duplicateCount = Object.keys(duplicates).length;
-      
+
       if (duplicateCount === 0) {
         new Notice('Дубликаты времени создания не найдены!');
         return;
@@ -173,17 +173,17 @@ export class PluginCommands {
 
       const result = await this.duplicateTimeFixer.fixDuplicateCreationTimes(true); // dry run
       const report = this.duplicateTimeFixer.generateReport(result);
-      
+
       // Создаем временный файл с отчетом
       const reportFile = await this.app.vault.create(
-        `Duplicate_Creation_Times_Report_${Date.now()}.md`, 
+        `Duplicate_Creation_Times_Report_${Date.now()}.md`,
         report
       );
-      
+
       // Открываем отчет
       const leaf = this.app.workspace.getUnpinnedLeaf();
       await leaf?.openFile(reportFile);
-      
+
       new Notice(`Найдено ${duplicateCount} групп дубликатов. Отчет открыт.`);
     } catch (error) {
       new Notice(`Ошибка поиска дубликатов: ${error}`);
@@ -195,27 +195,27 @@ export class PluginCommands {
    */
   private async fixDuplicateCreationTimes(): Promise<void> {
     new Notice('Исправление дубликатов времени создания...');
-    
+
     try {
       const result = await this.duplicateTimeFixer.fixDuplicateCreationTimes(false);
-      
+
       if (result.totalDuplicates === 0) {
         new Notice('Дубликаты времени создания не найдены!');
         return;
       }
 
       const report = this.duplicateTimeFixer.generateReport(result);
-      
+
       // Создаем файл с отчетом об исправлении
       const reportFile = await this.app.vault.create(
-        `Fixed_Creation_Times_Report_${Date.now()}.md`, 
+        `Fixed_Creation_Times_Report_${Date.now()}.md`,
         report
       );
-      
+
       // Открываем отчет
       const leaf = this.app.workspace.getUnpinnedLeaf();
       await leaf?.openFile(reportFile);
-      
+
       new Notice(`Исправлено ${result.fixed} из ${result.totalDuplicates} файлов. Отчет открыт.`);
     } catch (error) {
       new Notice(`Ошибка исправления дубликатов: ${error}`);
@@ -231,7 +231,7 @@ export class PluginCommands {
       new Notice('Unable to create right panel view');
       return;
     }
-    
+
     try {
       await leaf.setViewState({ type: RELATED_CHUNKS_VIEW_TYPE, active: true });
       this.app.workspace.revealLeaf(leaf);
@@ -280,7 +280,7 @@ export class PluginCommands {
 
     const content = await this.vaultOps.getFileContent(file);
     const peer = channelConfig.channelId;
-    
+
     if (!peer) {
       new Notice(`Channel ID не настроен для ${channelConfig.name}`);
       return;
@@ -289,7 +289,7 @@ export class PluginCommands {
     // Convert markdown to Telegram format and process custom emojis
     const conversionResult = await this.messageFormatter.formatMarkdownNote(file.basename, content);
     const { processedText, entities: customEmojiEntities } = this.messageFormatter.processCustomEmojis(conversionResult.text);
-    
+
     // Combine markdown entities with custom emoji entities
     const combinedEntities = [
       ...(conversionResult.entities || []),
@@ -298,7 +298,7 @@ export class PluginCommands {
 
     // Create navigation buttons using shared utility
     const buttons = createNavigationButtons(file);
- 
+
     if (channelConfig.messageId) {
       // Edit existing message
       const success = await this.gramjsBridge.editMessage({
@@ -341,7 +341,7 @@ export class PluginCommands {
     );
 
     const folderConfig = await folderConfigSuggester.open();
-    
+
     if (folderConfig) {
       try {
         // Create channel suggester for this folder and open it
@@ -351,7 +351,7 @@ export class PluginCommands {
         );
 
         const channelConfig = await channelSuggester.open();
-     
+
         if (channelConfig) {
           await this.sendAllNotesFromFolder(folderConfig, channelConfig);
         }
@@ -366,12 +366,12 @@ export class PluginCommands {
    */
   private async sendAllNotesFromFolder(folderConfig: TelegramFolderConfig, cannelConfig: ChannelConfig): Promise<void> {
     const folderPath = folderConfig.folder;
-   
+
     // Get all markdown files from the folder (first level only)
     const folderFilesData = await getMarkdownFiles(this.app, {
       folderPath: folderConfig.folder,
     });
-    
+
     if (folderFilesData.length === 0) {
       new Notice(`В папке ${folderPath} нет markdown файлов первого уровня`);
       return;
@@ -379,14 +379,14 @@ export class PluginCommands {
 
     // Get real TFile objects from the paths
     const folderFiles = getExistingFilesByPaths(this.app, folderFilesData.map(f => f.path));
-    
+
     if (folderFiles.length === 0) {
       new Notice(`В папке ${folderPath} нет доступных markdown файлов первого уровня`);
       return;
     }
 
     new Notice(`Начинаю отправку ${folderFiles.length} файлов первого уровня из папки ${folderPath} в канал ${cannelConfig.name}...`);
-    
+
     let successCount = 0;
     let errorCount = 0;
     const errors: string[] = [];
@@ -396,7 +396,7 @@ export class PluginCommands {
       try {
         // Send to the selected channel
         await this.sendToSelectedChannel(file, cannelConfig);
-        
+
         successCount++;
         // Small delay between sends to be respectful to the API
         await new Promise(resolve => setTimeout(resolve, 500));
