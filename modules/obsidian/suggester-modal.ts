@@ -20,7 +20,7 @@ import { ChannelConfigService, ChannelConfig } from '../telegram/channel-config-
 import type { KoraMcpPluginSettings, TelegramFolderConfig } from '../../main';
 
 // ============================================================================
-// BASE CLASSES
+// CONFIGURATION INTERFACES
 // ============================================================================
 
 /**
@@ -52,105 +52,6 @@ export interface SuggesterConfig<T> {
 	};
 }
 
-/**
- * Base class for modal-based suggestion functionality with common styling and behavior
- */
-abstract class BaseFuzzySuggestModal<T> extends FuzzySuggestModal<T> {
-	protected resolve: ((item: T | null) => void) | null = null;
-	protected reject: ((error: Error) => void) | null = null;
-
-	constructor(app: App) {
-		super(app);
-	}
-
-	/**
-	 * Enhanced suggestion rendering with consistent styling
-	 */
-	protected renderSuggestionWithStyling(
-		container: HTMLElement,
-		title: string,
-		subtitle?: string,
-		statusInfo?: { text: string; className: string }
-	): void {
-		// Main title
-		const nameEl = container.createDiv({ cls: 'suggestion-title' });
-		nameEl.setText(title);
-		
-		// Subtitle with additional info
-		if (subtitle || statusInfo) {
-			const infoEl = container.createDiv({ cls: 'suggestion-info' });
-			
-			if (subtitle) {
-				infoEl.createSpan({ cls: 'suggestion-subtitle', text: subtitle });
-			}
-			
-			if (statusInfo) {
-				infoEl.createSpan({ 
-					cls: `suggestion-status ${statusInfo.className}`, 
-					text: statusInfo.text 
-				});
-			}
-		}
-
-		// Apply consistent styling
-		this.applySuggestionStyling(container, Boolean(subtitle || statusInfo));
-	}
-
-	private applySuggestionStyling(container: HTMLElement, hasSubtitle: boolean): void {
-		container.style.padding = '8px 0';
-		
-		const titleEl = container.querySelector('.suggestion-title') as HTMLElement;
-		if (titleEl) {
-			titleEl.style.fontWeight = 'bold';
-			if (hasSubtitle) {
-				titleEl.style.marginBottom = '4px';
-			}
-		}
-		
-		const infoEl = container.querySelector('.suggestion-info') as HTMLElement;
-		if (infoEl) {
-			infoEl.style.fontSize = '0.85em';
-			infoEl.style.color = 'var(--text-muted)';
-		}
-		
-		// Status-specific styling
-		const publishedEl = container.querySelector('.published') as HTMLElement;
-		if (publishedEl) {
-			publishedEl.style.color = 'var(--text-success)';
-		}
-		
-		const newEl = container.querySelector('.new') as HTMLElement;
-		if (newEl) {
-			newEl.style.color = 'var(--text-accent)';
-		}
-
-		const configuredEl = container.querySelector('.configured') as HTMLElement;
-		if (configuredEl) {
-			configuredEl.style.color = 'var(--text-success)';
-		}
-	}
-
-	onChooseItem(item: T): void {
-		if (this.resolve) {
-			this.resolve(item);
-			this.resolve = null;
-			this.reject = null;
-		}
-	}
-
-	/**
-	 * Open the suggester and wait for user selection
-	 * @returns Promise that resolves with selected item or null if cancelled
-	 */
-	public open(): Promise<T | null> {
-		return new Promise((resolve, reject) => {
-			this.resolve = resolve;
-			this.reject = reject;
-			super.open();
-		});
-	}
-}
-
 // ============================================================================
 // UNIVERSAL CONFIGURABLE SUGGESTER
 // ============================================================================
@@ -158,15 +59,18 @@ abstract class BaseFuzzySuggestModal<T> extends FuzzySuggestModal<T> {
 /**
  * Universal suggester that can be configured for any data type
  * Replaces most specialized suggester implementations
+ * Extends FuzzySuggestModal directly with all necessary functionality
  */
-export class ConfigurableSuggester<T> extends BaseFuzzySuggestModal<T> {
+export class ConfigurableSuggester<T> extends FuzzySuggestModal<T> {
 	private config: SuggesterConfig<T>;
 	private availableItems: T[] = [];
+	protected resolve: ((item: T | null) => void) | null = null;
+	protected reject: ((error: Error) => void) | null = null;
 
 	constructor(app: App, config: SuggesterConfig<T>) {
 		super(app);
 		this.config = config;
-		this.setPlaceholder(config.placeholder);
+		// Note: placeholder will be set when the modal opens
 	}
 
 	/**
@@ -207,8 +111,12 @@ export class ConfigurableSuggester<T> extends BaseFuzzySuggestModal<T> {
 			return null;
 		}
 
-		// Call parent's open method
-		return super.open();
+		// Open modal and wait for user selection
+		return new Promise((resolve, reject) => {
+			this.resolve = resolve;
+			this.reject = reject;
+			super.open();
+		});
 	}
 
 	/**
@@ -223,6 +131,17 @@ export class ConfigurableSuggester<T> extends BaseFuzzySuggestModal<T> {
 	 */
 	getItemText(item: T): string {
 		return this.config.display.getTitle(item);
+	}
+
+	/**
+	 * Handle item selection and resolve the promise
+	 */
+	onChooseItem(item: T): void {
+		if (this.resolve) {
+			this.resolve(item);
+			this.resolve = null;
+			this.reject = null;
+		}
 	}
 
 	/**
@@ -243,6 +162,73 @@ export class ConfigurableSuggester<T> extends BaseFuzzySuggestModal<T> {
 
 		// Use the enhanced rendering method
 		this.renderSuggestionWithStyling(container, title, subtitle, status || undefined);
+	}
+
+	/**
+	 * Enhanced suggestion rendering with consistent styling
+	 */
+	private renderSuggestionWithStyling(
+		container: HTMLElement,
+		title: string,
+		subtitle?: string,
+		statusInfo?: { text: string; className: string }
+	): void {
+		// Main title
+		const nameEl = container.createDiv({ cls: 'suggestion-title' });
+		nameEl.setText(title);
+		
+		// Subtitle with additional info
+		if (subtitle || statusInfo) {
+			const infoEl = container.createDiv({ cls: 'suggestion-info' });
+			
+			if (subtitle) {
+				infoEl.createSpan({ cls: 'suggestion-subtitle', text: subtitle });
+			}
+			
+			if (statusInfo) {
+				infoEl.createSpan({ 
+					cls: `suggestion-status ${statusInfo.className}`, 
+					text: statusInfo.text 
+				});
+			}
+		}
+
+		// Apply consistent styling
+		this.applySuggestionStyling(container, Boolean(subtitle || statusInfo));
+	}
+
+	private applySuggestionStyling(container: HTMLElement, hasSubtitle: boolean): void {
+		container.style.padding = '8px 0';
+		
+		const titleEl = container.querySelector('.suggestion-title');
+		if (titleEl instanceof HTMLElement) {
+			titleEl.style.fontWeight = 'bold';
+			if (hasSubtitle) {
+				titleEl.style.marginBottom = '4px';
+			}
+		}
+		
+		const infoEl = container.querySelector('.suggestion-info');
+		if (infoEl instanceof HTMLElement) {
+			infoEl.style.fontSize = '0.85em';
+			infoEl.style.color = 'var(--text-muted)';
+		}
+		
+		// Status-specific styling
+		const publishedEl = container.querySelector('.published');
+		if (publishedEl instanceof HTMLElement) {
+			publishedEl.style.color = 'var(--text-success)';
+		}
+		
+		const newEl = container.querySelector('.new');
+		if (newEl instanceof HTMLElement) {
+			newEl.style.color = 'var(--text-accent)';
+		}
+
+		const configuredEl = container.querySelector('.configured');
+		if (configuredEl instanceof HTMLElement) {
+			configuredEl.style.color = 'var(--text-success)';
+		}
 	}
 }
 
@@ -540,4 +526,6 @@ export class SuggesterConfigFactory {
 
 // Re-export commonly used types
 export type { ChannelConfig, TelegramFolderConfig };
-export { BaseFuzzySuggestModal };
+
+// Re-export FolderSuggest from suggester.ts for backward compatibility
+export { FolderSuggest } from './suggester';

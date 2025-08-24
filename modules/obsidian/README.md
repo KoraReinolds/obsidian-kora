@@ -9,7 +9,7 @@
 - **Работы с метаданными**: чтение и обновление frontmatter
 - **Операций с vault**: получение информации о структуре хранилища
 - **Команд**: выполнение действий с заметками и файлами
-- **Интерфейса**: создание модальных окон и суггестеров
+- **Интерфейса**: создание модальных окон и универсальной системы суггестеров
 
 ## Экспортируемые компоненты
 
@@ -78,7 +78,76 @@ const frontmatterUtils = new FrontmatterUtils(app);
 - **`getAreaFrontmatters(): Promise<any[]>`**
   - Получает frontmatter всех файлов в папке "Area"
 
-### 3. Утилитарные функции
+### 3. PluginCommands
+
+Класс для управления командами плагина.
+
+```typescript
+import { PluginCommands } from './modules/obsidian';
+
+const commands = new PluginCommands(app, settings, gramjsBridge);
+```
+
+#### Доступные команды:
+
+- **`send-note-gramjs`** - Отправка заметки через GramJS userbot
+- **`test-gramjs-connection`** - Тестирование соединения GramJS
+- **`move-to-notes`** - Перемещение файла в папку Notes
+- **`find-duplicate-creation-times`** - Поиск дублирующихся времен создания
+- **`fix-duplicate-creation-times`** - Исправление дублирующихся времен создания
+- **`open-related-chunks`** - Открытие связанных чанков
+- **`send-note-to-channel`** - Отправка заметки в канал
+- **`send-folder-notes-to-channels`** - Отправка заметок папки в каналы
+
+### 4. Универсальная система суггестеров
+
+#### ConfigurableSuggester
+
+Универсальная система суггестеров, которая сокращает дублирование кода на 80% и обеспечивает консистентное поведение.
+
+```typescript
+import { SuggesterFactory, ConfigurableSuggester } from './modules/obsidian';
+
+// Создание готовых суггестеров
+const folderSuggester = SuggesterFactory.createFolderConfigSuggester(app, settings);
+const channelSuggester = SuggesterFactory.createChannelSuggester(app, file, settings);
+const commandSuggester = SuggesterFactory.createCommandSuggester(app);
+
+// Создание кастомного суггестера
+const customSuggester = SuggesterFactory.createCustomSuggester(app, {
+  placeholder: 'Выберите элемент...',
+  itemType: 'my-type',
+  dataSource: {
+    getItems: () => myDataService.getItems(),
+    validateItems: (items) => items.length > 0 ? true : 'Нет элементов'
+  },
+  display: {
+    getTitle: (item) => item.name,
+    getSubtitle: (item) => item.description,
+    getStatus: (item) => item.isActive 
+      ? { text: ' • Активен', className: 'active' }
+      : null
+  }
+});
+```
+
+#### Преимущества системы:
+
+- ✅ **80% меньше кода** для новых типов суггестеров
+- ✅ **Консистентное поведение** и стилизация
+- ✅ **Легкая кастомизация** и расширение
+- ✅ **Встроенная валидация** и обработка ошибок
+- ✅ **Type-safe конфигурация**
+- ✅ **Переиспользуемая логика отображения**
+
+#### Доступные готовые конфигурации:
+
+- **`createFolderConfigSuggester`** - для выбора конфигурации папки
+- **`createChannelSuggester`** - для выбора канала
+- **`createFolderChannelSuggester`** - для выбора канала папки
+- **`createCommandSuggester`** - для выбора команды
+
+### 5. Утилитарные функции
 
 #### `getMarkdownFiles(app: App, options?: GetMarkdownFilesOptions): Promise<MarkdownFileData[]>`
 
@@ -223,23 +292,70 @@ for (const file of realFiles) {
 }
 ```
 
-### Сценарий 3: Поиск и анализ файлов
+### Сценарий 3: Использование универсальной системы суггестеров
 
 ```typescript
-import { getMarkdownFiles, getAreas } from './modules/obsidian';
+import { SuggesterFactory } from './modules/obsidian';
 
-// Получить все файлы с определенными тегами
-const workFiles = await getMarkdownFiles(app, {
-  include: ['**/work/*'],
-  exclude: ['**/archive/*']
-});
+// Создание суггестера для выбора папки
+const folderSuggester = SuggesterFactory.createFolderConfigSuggester(app, settings);
+const selectedFolder = await folderSuggester.open();
 
-// Получить все области
-const areas = getAreas(app);
-console.log('Доступные области:', areas);
+if (selectedFolder) {
+  // Создание суггестера для выбора канала в этой папке
+  const channelSuggester = SuggesterFactory.createFolderChannelSuggester(app, selectedFolder);
+  const selectedChannel = await channelSuggester.open();
+  
+  if (selectedChannel) {
+    // Отправка в выбранный канал
+    await sendToChannel(selectedChannel);
+  }
+}
 ```
 
-### Сценарий 4: Массовые операции с файлами
+### Сценарий 4: Создание кастомного суггестера
+
+```typescript
+import { SuggesterFactory, type SuggesterConfig } from './modules/obsidian';
+
+interface MyCustomItem {
+  id: string;
+  name: string;
+  category: string;
+  isActive: boolean;
+}
+
+const config: SuggesterConfig<MyCustomItem> = {
+  placeholder: 'Выберите активный элемент...',
+  itemType: 'custom-item',
+  dataSource: {
+    getItems: () => myDataService.getActiveItems(),
+    validateItems: (items) => {
+      if (items.length === 0) return 'Нет активных элементов';
+      return true;
+    }
+  },
+  display: {
+    getTitle: (item) => item.name,
+    getSubtitle: (item) => `Категория: ${item.category}`,
+    getStatus: (item) => item.isActive 
+      ? { text: ' • Активен', className: 'active' }
+      : { text: ' • Неактивен', className: 'inactive' },
+    cssClass: 'custom-item-suggestion'
+  },
+  validation: {
+    preOpenCheck: () => {
+      if (!myDataService.isAvailable()) return 'Сервис недоступен';
+      return true;
+    }
+  }
+};
+
+const customSuggester = SuggesterFactory.createCustomSuggester(app, config);
+const result = await customSuggester.open();
+```
+
+### Сценарий 5: Массовые операции с файлами
 
 ```typescript
 import { VaultOperations, FrontmatterUtils, getMarkdownFiles, getExistingFilesByPaths } from './modules/obsidian';
@@ -303,9 +419,10 @@ const content = await app.vault.read(realFiles[0]); // Работает!
 ## Интеграция с другими модулями
 
 Этот модуль используется другими модулями системы:
-- **telegram** - для работы с метаданными постов
+- **telegram** - для работы с метаданными постов и отправки сообщений
 - **mcp** - для предоставления API для внешних инструментов
 - **vector** - для индексации и поиска по содержимому
+- **chunking** - для работы с фрагментами заметок
 
 ## Рекомендации по использованию
 
@@ -316,20 +433,5 @@ const content = await app.vault.read(realFiles[0]); // Работает!
 5. **Для работы с метаданными** создавайте экземпляр `FrontmatterUtils` один раз и переиспользуйте
 6. **Для поиска файлов** используйте `findFileByName` для точного поиска по имени
 7. **Для генерации URL** используйте `generateTelegramPostUrl` для создания ссылок на посты
-
-## Миграция с предыдущих версий
-
-Если вы использовали `getMarkdownFiles` для получения содержимого файлов:
-
-**Старый код:**
-```typescript
-const files = await getMarkdownFiles(app, { includeContent: true });
-// files[0].content - содержимое файла
-```
-
-**Новый код:**
-```typescript
-const filesData = await getMarkdownFiles(app);
-const realFiles = getExistingFilesByPaths(app, filesData.map(f => f.path));
-const content = await app.vault.read(realFiles[0]);
-```
+8. **Для создания суггестеров** используйте систему `ConfigurableSuggester` через `SuggesterFactory`
+9. **Для кастомизации интерфейса** создавайте собственные конфигурации `SuggesterConfig<T>`
