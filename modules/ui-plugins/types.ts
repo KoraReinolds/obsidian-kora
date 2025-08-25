@@ -9,6 +9,7 @@ export interface UIButton {
   label: string;
   commandId?: string;
   order?: number;
+  commandArguments?: Record<string, string>;
 }
 
 export interface UIPlugin {

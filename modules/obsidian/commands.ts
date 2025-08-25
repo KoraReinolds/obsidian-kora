@@ -45,42 +45,42 @@ export class PluginCommands {
       {
         id: 'send-note-gramjs',
         name: 'Send note via GramJS userbot',
-        callback: () => this.sendNoteViaGramJS(),
+        callback: (args?: Record<string, string>) => this.sendNoteViaGramJS(args),
       },
       {
         id: 'test-gramjs-connection',
         name: 'Test GramJS connection',
-        callback: () => this.testGramJSConnection(),
+        callback: (args?: Record<string, string>) => this.testGramJSConnection(args),
       },
       {
         id: 'move-to-notes',
         name: 'Move to Notes',
-        callback: () => this.moveToNotes(),
+        callback: (args?: Record<string, string>) => this.moveToNotes(args),
       },
       {
         id: 'find-duplicate-creation-times',
         name: 'Find duplicate creation times',
-        callback: () => this.findDuplicateCreationTimes(),
+        callback: (args?: Record<string, string>) => this.findDuplicateCreationTimes(args),
       },
       {
         id: 'fix-duplicate-creation-times',
         name: 'Fix duplicate creation times',
-        callback: () => this.fixDuplicateCreationTimes(),
+        callback: (args?: Record<string, string>) => this.fixDuplicateCreationTimes(args),
       },
       {
         id: 'open-related-chunks',
         name: 'Open Related Chunks',
-        callback: () => this.openRelatedChunks(),
+        callback: (args?: Record<string, string>) => this.openRelatedChunks(args),
       },
       {
         id: 'send-note-to-channel',
         name: 'Send note to channel',
-        callback: () => this.sendNoteToChannel(),
+        callback: (args?: Record<string, string>) => this.sendNoteToChannel(args),
       },
       {
         id: 'send-folder-notes-to-channels',
         name: 'Send first level folder notes to channels',
-        callback: () => this.sendFolderNotesToChannels(),
+        callback: (args?: Record<string, string>) => this.sendFolderNotesToChannels(args),
       },
     ];
   }
@@ -88,7 +88,7 @@ export class PluginCommands {
   /**
    * Send note via GramJS userbot
    */
-  private async sendNoteViaGramJS(): Promise<void> {
+  private async sendNoteViaGramJS(args?: Record<string, string>): Promise<void> {
     const file = this.vaultOps.getActiveFile();
     if (!file) {
       new Notice('No active file');
@@ -138,28 +138,31 @@ export class PluginCommands {
   /**
    * Test GramJS connection
    */
-  private async testGramJSConnection(): Promise<void> {
+  private async testGramJSConnection(args?: Record<string, string>): Promise<void> {
     await this.gramjsBridge.testConnection();
   }
 
   /**
    * Move file to Notes folder
    */
-  private async moveToNotes(): Promise<void> {
+  private async moveToNotes(args?: Record<string, string>): Promise<void> {
     const file = this.vaultOps.getActiveFile();
     if (!file) {
       new Notice('Нет активного файла');
       return;
     }
 
-    await this.vaultOps.moveFileToFolder(file, 'Organize/Notes');
+    // Use passed argument or default value
+    const targetFolder = args?.targetFolder || 'Organize/Notes';
+    
+    await this.vaultOps.moveFileToFolder(file, targetFolder);
   }
 
 
   /**
    * Find notes with duplicate creation times
    */
-  private async findDuplicateCreationTimes(): Promise<void> {
+  private async findDuplicateCreationTimes(args?: Record<string, string>): Promise<void> {
     new Notice('Поиск дубликатов времени создания...');
 
     try {
@@ -193,7 +196,7 @@ export class PluginCommands {
   /**
    * Fix notes with duplicate creation times
    */
-  private async fixDuplicateCreationTimes(): Promise<void> {
+  private async fixDuplicateCreationTimes(args?: Record<string, string>): Promise<void> {
     new Notice('Исправление дубликатов времени создания...');
 
     try {
@@ -225,7 +228,7 @@ export class PluginCommands {
   /**
    * Open Related Chunks view
    */
-  private async openRelatedChunks(): Promise<void> {
+  private async openRelatedChunks(args?: Record<string, string>): Promise<void> {
     const leaf = this.app.workspace.getRightLeaf(false);
     if (!leaf) {
       new Notice('Unable to create right panel view');
@@ -244,7 +247,7 @@ export class PluginCommands {
   /**
    * Send current note to channel via suggester modal
    */
-  private async sendNoteToChannel(): Promise<void> {
+  private async sendNoteToChannel(args?: Record<string, string>): Promise<void> {
     const file = this.vaultOps.getActiveFile();
     if (!file) {
       new Notice('Нет активного файла');
@@ -333,7 +336,7 @@ export class PluginCommands {
   /**
    * Send all notes from a selected folder to channels (first level only)
    */
-  private async sendFolderNotesToChannels(): Promise<void> {
+  private async sendFolderNotesToChannels(args?: Record<string, string>): Promise<void> {
     // Create folder config suggester and open it
     const folderConfigSuggester = SuggesterFactory.createFolderConfigSuggester(
       this.app,

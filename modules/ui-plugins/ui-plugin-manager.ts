@@ -3,7 +3,7 @@
  */
 
 import { TFile, App } from 'obsidian';
-import type { UIPlugin, UIButton, UIPluginContext, UIPluginSettings } from './types';
+import type { UIPlugin, UIButton, UIPluginSettings } from './types';
 
 export class UIPluginManager {
   private app: App;
@@ -76,9 +76,17 @@ export class UIPluginManager {
       return;
     }
 
-    // Execute Obsidian command directly
+    // Execute Obsidian command with arguments through callback
     try {
-      (this.app as any).commands.executeCommandById(button.commandId);
+      const command = (this.app as any).commands.commands[button.commandId];
+      if (command?.callback) {
+        // Pass arguments (if any) or empty object
+        const args = button.commandArguments || {};
+        await command.callback(args);
+      } else {
+        // Fallback for commands without callback
+        (this.app as any).commands.executeCommandById(button.commandId);
+      }
     } catch (error) {
       console.error(`Error executing command ${button.commandId}:`, error);
     }
@@ -116,7 +124,8 @@ export class UIPluginManager {
       id: `button-${Date.now()}`,
       label: 'Кнопка',
       commandId: undefined,
-      order: 0
+      order: 0,
+      commandArguments: undefined
     };
   }
 

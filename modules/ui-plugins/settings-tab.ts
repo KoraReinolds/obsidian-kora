@@ -6,6 +6,7 @@ import { App, PluginSettingTab, Setting } from 'obsidian';
 import type KoraPlugin from '../../main';
 import type { UIPlugin, UIButton } from './types';
 import { FolderSuggest, SuggesterFactory } from '../obsidian/suggester-modal';
+import { ConfigModal, type FieldConfig } from './config-modal';
 
 export class UIPluginSettingsTab extends PluginSettingTab {
   private plugin: KoraPlugin;
@@ -98,49 +99,36 @@ export class UIPluginSettingsTab extends PluginSettingTab {
     setting.setClass('ui-button-setting');
    
     // Get command name dynamically by ID
-    const commandDesc = button.commandId 
+    const commandName = button.commandId 
       ? this.getCommandName(button.commandId)
       : 'Команда не выбрана';
     
+    // Build description with command and arguments
+    let description = commandName;
+    if (button.commandArguments && Object.keys(button.commandArguments).length > 0) {
+      const argsList = Object.entries(button.commandArguments)
+        .map(([key, value]) => `${key}: ${value}`)
+        .join(', ');
+      description += ` | Аргументы: ${argsList}`;
+    }
+    
     setting
-      .setName('Кнопка')
-      .setDesc(commandDesc)
-      .addText(text => {
-        text.setPlaceholder('Текст кнопки')
-          .setValue(button.label)
-          .onChange(value => {
-            button.label = value;
-            this.saveSettings();
-            this.display(); // Refresh to update name
-          });
+      .setName(button.label || 'Без названия')
+      .setDesc(description)
+      .addExtraButton(btn => {
+        btn.setIcon('pencil');
+        btn.setTooltip('Редактировать кнопку');
+        btn.onClick(() => this.editButton(plugin, button, buttonIndex));
       })
-      .addText(text => {
-        text.setPlaceholder('Порядок')
-          .setValue(String(button.order || 0))
-          .onChange(value => {
-            button.order = parseInt(value) || 0;
-            this.saveSettings();
-          });
-      })
-      .addButton(cb => cb
-        .setButtonText('Выбрать команду')
-        .onClick(async () => {
-          const commandSuggester = SuggesterFactory.createCommandSuggester(this.app);
-          const selectedCommand = await commandSuggester.open();
-          if (selectedCommand) {
-            button.commandId = selectedCommand.id; // Store only the command ID
-            this.saveSettings();
-            this.display();
-          }
-        }))
-      .addButton(cb => cb
-        .setButtonText('Удалить')
-        .setWarning()
-        .onClick(() => {
+      .addExtraButton(btn => {
+        btn.setIcon('trash');
+        btn.setTooltip('Удалить кнопку');
+        btn.onClick(() => {
           plugin.buttons.splice(buttonIndex, 1);
           this.saveSettings();
           this.display();
-        }));
+        });
+      });
 
     // Style for compact display
     setting.settingEl.style.marginLeft = '20px';
@@ -168,6 +156,59 @@ export class UIPluginSettingsTab extends PluginSettingTab {
     plugin.buttons.push(newButton);
     this.saveSettings();
     this.display();
+  }
+
+  private editButton(plugin: UIPlugin, button: UIButton, buttonIndex: number): void {
+    const fields: FieldConfig[] = [
+      {
+        key: 'label',
+        label: 'Название кнопки',
+        type: 'text',
+        placeholder: 'Введите название кнопки',
+        required: true
+      },
+      {
+        key: 'commandId',
+        label: 'Команда',
+        type: 'command',
+        description: 'Команда Obsidian для выполнения'
+      },
+      {
+        key: 'order',
+        label: 'Порядок',
+        type: 'number',
+        placeholder: '0',
+        description: 'Порядок отображения кнопки'
+      },
+      {
+        key: 'commandArguments',
+        label: 'Аргументы команды',
+        type: 'keyvalue',
+        description: 'Аргументы для передачи в команду в формате ключ: значение'
+      }
+    ];
+
+    const modal = new ConfigModal({
+      title: 'Редактировать кнопку',
+      fields,
+      initialValues: {
+        label: button.label || '',
+        commandId: button.commandId || '',
+        order: button.order || 0,
+        commandArguments: button.commandArguments || {}
+      },
+      onSave: (values) => {
+        button.label = values.label;
+        button.commandId = values.commandId;
+        button.order = values.order;
+        button.commandArguments = values.commandArguments;
+        this.saveSettings();
+        this.display();
+      },
+      app: this.app
+    });
+
+    modal.open();
   }
 
   private saveSettings(): void {
