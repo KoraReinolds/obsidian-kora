@@ -3,7 +3,7 @@
  */
 
 import { App, TFile, Notice, Command } from 'obsidian';
-import { GramJSBridge, MessageFormatter, ChannelConfigService, type ChannelConfig, createNavigationButtons } from '../telegram';
+import { GramJSBridge, MessageFormatter, ChannelConfigService, type ChannelConfig } from '../telegram';
 import { FrontmatterUtils, VaultOperations, getMarkdownFiles, getExistingFilesByPaths } from '.';
 import { DuplicateTimeFixer } from '../utils';
 import { RELATED_CHUNKS_VIEW_TYPE } from '../chunking/ui/related-chunks-view';
@@ -299,8 +299,8 @@ export class PluginCommands {
       ...customEmojiEntities
     ].sort((a, b) => a.offset - b.offset);
 
-    // Create navigation buttons using shared utility
-    const buttons = createNavigationButtons(file);
+    // Use buttons from conversion result if available, otherwise no buttons
+    const buttons = conversionResult.buttons;
 
     if (channelConfig.messageId) {
       // Edit existing message
@@ -317,7 +317,7 @@ export class PluginCommands {
       }
     } else {
       // Send new message  
-      const buttons = createNavigationButtons(file);
+      // buttons already defined above, no need to redefine
       const result = await this.gramjsBridge.sendMessage({
         peer: channelConfig.channelId,
         message: processedText,

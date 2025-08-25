@@ -11,9 +11,16 @@ export interface ConversionOptions {
   preserveLinks?: boolean;
 }
 
+export interface InlineButton {
+  text: string;
+  url?: string;
+  data?: string;
+}
+
 export interface ConversionResult {
   text: string;
   entities?: TelegramMessageEntity[];
+  buttons?: InlineButton[][];
   truncated?: boolean;
   originalLength?: number;
 }
@@ -97,7 +104,7 @@ export class MarkdownToTelegramConverter {
   /**
    * Remove frontmatter from markdown content
    */
-  private removeFrontmatter(content: string): string {
+  public removeFrontmatter(content: string): string {
     // Remove YAML frontmatter (between --- markers)
     const frontmatterRegex = /^---\s*\n[\s\S]*?\n---\s*\n?/;
     const result = content.replace(frontmatterRegex, '');

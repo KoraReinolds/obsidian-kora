@@ -2,13 +2,14 @@
  * Utilities for formatting messages for different platforms
  */
 
-import { 
-  MarkdownToTelegramConverter, 
-  type ConversionOptions, 
-  type ConversionResult 
+import {
+  MarkdownToTelegramConverter,
+  type ConversionOptions,
+  type ConversionResult,
+  type InlineButton
 } from './markdown-to-telegram-converter';
 import { App } from 'obsidian';
-import { FrontmatterUtils, findFileByName, generateTelegramPostUrl } from '../obsidian';
+import { FrontmatterUtils, findFileByName, generateTelegramPostUrl, VaultOperations } from '../obsidian';
 import { ChannelConfigService } from './channel-config-service';
 
 export interface EmojiMapping {
@@ -32,6 +33,7 @@ export class MessageFormatter {
   private markdownConverter: MarkdownToTelegramConverter;
   private app?: App;
   private frontmatterUtils?: FrontmatterUtils;
+  private vaultOperations?: VaultOperations;
   private channelConfigService?: ChannelConfigService;
 
   constructor(customEmojis: EmojiMapping[] = [], useCustomEmojis = false, app?: App, channelConfigService?: ChannelConfigService) {
@@ -42,6 +44,7 @@ export class MessageFormatter {
     this.channelConfigService = channelConfigService;
     if (app) {
       this.frontmatterUtils = new FrontmatterUtils(app);
+      this.vaultOperations = new VaultOperations(app);
     }
   }
 
@@ -52,7 +55,7 @@ export class MessageFormatter {
     // Экранируем специальные символы для MarkdownV2
     const escapedFileName = this.escapeMarkdownV2(fileName);
     const escapedContent = this.escapeMarkdownV2(content);
-    
+
     return `📝 *${escapedFileName}*\n\n${escapedContent}`;
   }
 
@@ -62,12 +65,12 @@ export class MessageFormatter {
   escapeMarkdownV2(text: string): string {
     // Символы, которые нужно экранировать в MarkdownV2
     const specialChars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'];
-    
+
     let escaped = text;
     specialChars.forEach(char => {
       escaped = escaped.replace(new RegExp(`\\${char}`, 'g'), `\\${char}`);
     });
-    
+
     return escaped;
   }
 
@@ -136,7 +139,7 @@ export class MessageFormatter {
 
     // Проверяем, не существует ли уже такой маппинг
     const existingIndex = this.customEmojis.findIndex(m => m.standard === standard);
-    
+
     if (existingIndex !== -1) {
       // Обновляем существующий
       this.customEmojis[existingIndex] = { standard, customId, description };
@@ -159,15 +162,21 @@ export class MessageFormatter {
    * Форматировать markdown заметку для Telegram
    */
   async formatMarkdownNote(fileName: string, markdownContent: string, options?: ConversionOptions): Promise<ConversionResult> {
-    // Конвертируем Obsidian ссылки в telegram URL перед обработкой
-    const processedContent = await this.convertObsidianLinksToTelegramUrls(markdownContent);
+    // Убираем frontmatter перед обработкой ссылок
+    const contentWithoutFrontmatter = this.markdownConverter.removeFrontmatter(markdownContent);
     
+    // Конвертируем Obsidian ссылки в telegram URL перед обработкой
+    const processedContent = await this.convertObsidianLinksToTelegramUrls(contentWithoutFrontmatter);
+
     // Конвертируем markdown в telegram формат
     const conversionResult = this.markdownConverter.convert(processedContent, options);
-    
+
+    // Парсим кнопки из frontmatter
+    const buttons = await this.getButtonsFromFrontmatter(fileName);
+
     // Объединяем заголовок с контентом
     const finalText = conversionResult.text;
-    
+
     // Корректируем offset'ы entities с учетом добавленного заголовка
     const adjustedEntities = conversionResult.entities?.map(entity => ({
       ...entity,
@@ -177,7 +186,8 @@ export class MessageFormatter {
     return {
       ...conversionResult,
       text: finalText,
-      entities: adjustedEntities
+      entities: adjustedEntities,
+      buttons: buttons
     };
   }
 
@@ -196,71 +206,143 @@ export class MessageFormatter {
   }
 
   /**
-   * Конвертировать Obsidian ссылки [[file|text]] в Telegram URL [text](https://t.me/...)
+   * Универсальный парсер Obsidian ссылок [[file|text]]
    */
-  private async convertObsidianLinksToTelegramUrls(content: string): Promise<string> {
-    // Регулярное выражение для поиска Obsidian ссылок: [[filename]] или [[filename|display text]]
+  private async parseObsidianLinks(content: string): Promise<Array<{ fileName: string; displayText: string; telegramUrl: string }>> {
     const obsidianLinkRegex = /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
-    
-    const processedContent = await Promise.all(
-      Array.from(content.matchAll(obsidianLinkRegex), async (match) => {
+    const matches = Array.from(content.matchAll(obsidianLinkRegex));
+
+    const results = await Promise.all(
+      matches.map(async (match) => {
         const fileName = match[1];
-        const displayText = match[2];
-        
+        const displayText = match[2] || fileName;
+
         try {
-          // Используем displayText если есть, иначе fileName
-          const linkText = displayText || fileName;
-          
-          // Получаем файл по имени
-          if (!this.app) {
-            throw new Error('App instance required for link conversion');
+          if (!this.app || !this.channelConfigService) {
+            throw new Error('App and ChannelConfigService required');
           }
-          
+
           const file = findFileByName(this.app, fileName);
           if (!file) {
             throw new Error(`File "${fileName}" not found`);
           }
-          
-          if (!this.app || !this.channelConfigService) {
-            throw new Error('App instance and ChannelConfigService required for link conversion');
-          }
 
           const channelConfigs = await this.channelConfigService.getChannelConfigsForFile(file);
-          if (channelConfigs.length === 0) {
-            throw new Error(`No channel configuration found for file "${fileName}"`);
-          }
-          
-          // Используем первую доступную конфигурацию с messageId
           const publishedConfig = channelConfigs.find(config => config.messageId);
-          if (!publishedConfig || !publishedConfig.messageId) {
-            throw new Error(`File "${fileName}" is not published (no messageId found)`);
+
+          if (!publishedConfig?.messageId) {
+            throw new Error(`File "${fileName}" is not published`);
           }
-          
-          // Генерируем URL
+
           const telegramUrl = generateTelegramPostUrl(publishedConfig.channelId, publishedConfig.messageId);
-          
-          // Возвращаем markdown ссылку
-          return `[${linkText}](${telegramUrl})`;
+
+          return { fileName, displayText, telegramUrl };
         } catch (error) {
-          // Если произошла ошибка, выбрасываем её для обработки на верхнем уровне
-          throw new Error(`Failed to convert link ${match[0]}: ${error.message}`);
+          throw new Error(`Failed to process link ${match[0]}: ${error.message}`);
         }
       })
     );
-    
-    // Заменяем все совпадения
+
+    return results;
+  }
+
+  /**
+   * Конвертировать Obsidian ссылки [[file|text]] в Telegram URL [text](https://t.me/...)
+   */
+  private async convertObsidianLinksToTelegramUrls(content: string): Promise<string> {
+    const parsedLinks = await this.parseObsidianLinks(content);
     let result = content;
-    const offset = 0;
-    
-    for (const processedLink of processedContent) {
-      const match = result.match(obsidianLinkRegex);
-      if (match) {
-        result = result.replace(obsidianLinkRegex, processedLink);
-        break; // Заменяем только первое совпадение
+
+    // Заменяем ссылки в обратном порядке чтобы не сбить индексы
+    const obsidianLinkRegex = /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
+    const matches = Array.from(content.matchAll(obsidianLinkRegex)).reverse();
+
+    matches.forEach((match, index) => {
+      const linkInfo = parsedLinks[parsedLinks.length - 1 - index];
+      const markdownLink = `[${linkInfo.displayText}](${linkInfo.telegramUrl})`;
+      result = result.substring(0, match.index!) + markdownLink + result.substring(match.index! + match[0].length);
+    });
+
+    return result;
+  }
+
+  /**
+   * Парсить файл кнопок в массив кнопок для Telegram
+   */
+  private async parseButtonsFile(buttonsContent: string): Promise<InlineButton[][]> {
+    const lines = buttonsContent.trim().split('\n').filter(line => line.trim());
+    const buttonRows: InlineButton[][] = [];
+
+    for (const line of lines) {
+      try {
+        // Переиспользуем универсальный парсер ссылок
+        const parsedLinks = await this.parseObsidianLinks(line);
+
+        const rowButtons: InlineButton[] = parsedLinks.map(link => ({
+          text: link.displayText,
+          url: link.telegramUrl
+        }));
+
+        if (rowButtons.length > 0) {
+          buttonRows.push(rowButtons);
+        }
+      } catch (error) {
+        console.warn(`Failed to parse buttons from line "${line}": ${error.message}`);
+        // Пропускаем неработающие строки, но продолжаем парсить остальные
       }
     }
-    
-    return result;
+
+    return buttonRows;
+  }
+
+  /**
+   * Получить файл кнопок из frontmatter основной заметки
+   */
+  private async getButtonsFromFrontmatter(fileName: string): Promise<InlineButton[][] | undefined> {
+    if (!this.app || !this.frontmatterUtils || !this.vaultOperations) {
+      return undefined;
+    }
+
+    try {
+      // Получаем файл по имени
+      const file = findFileByName(this.app, fileName);
+      if (!file) {
+        console.warn(`File "${fileName}" not found`);
+        return undefined;
+      }
+
+      // Используем FrontmatterUtils для получения поля buttons
+      const buttonsField = await this.frontmatterUtils.getFrontmatterField(file, 'buttons');
+      
+      if (!buttonsField) {
+        return undefined;
+      }
+      
+      // Парсим значение [[filename]] из поля
+      const buttonsMatch = buttonsField.match(/\[\[([^\]]+)\]\]/);
+      if (!buttonsMatch) {
+        return undefined;
+      }
+      
+      const buttonsFileName = buttonsMatch[1];
+
+      // Получаем файл кнопок
+      const buttonsFile = findFileByName(this.app, buttonsFileName);
+      if (!buttonsFile) {
+        console.warn(`Buttons file "${buttonsFileName}" not found`);
+        return undefined;
+      }
+
+      // Читаем содержимое файла кнопок используя VaultOperations
+      const buttonsContent = await this.vaultOperations.getFileContent(buttonsFile);
+
+      // Парсим кнопки
+      return await this.parseButtonsFile(buttonsContent);
+
+    } catch (error) {
+      console.warn(`Failed to get buttons from frontmatter: ${error.message}`);
+      return undefined;
+    }
   }
 
 
