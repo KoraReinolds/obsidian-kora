@@ -9,7 +9,6 @@ export const getMcpUrl = (port: number = MCP_CONFIG.DEFAULT_PORT) =>
 export const MCP_ENDPOINTS = {
 	FILES: '/files',
 	FRONTMATTER: '/frontmatter',
-	AREA_FRONTMATTERS: '/area_frontmatters',
 	GET_FRONTMATTER: '/get_frontmatter',
 	AREAS: '/areas',
 	FILE_CONTENT: '/file_content',

@@ -18,7 +18,6 @@ modules/mcp/
 │   ├── files.ts             # /files эндпоинт (клиент + сервер)
 │   ├── frontmatter.ts       # /frontmatter эндпоинт (клиент + сервер)
 │   ├── areas.ts             # /areas эндпоинт (клиент + сервер)
-│   ├── area-frontmatters.ts # /area_frontmatters эндпоинт (клиент + сервер)
 │   ├── get-frontmatter.ts   # /get_frontmatter эндпоинт (клиент + сервер)
 │   ├── file-content.ts      # /file_content эндпоинт (клиент + сервер)
 │   └── automate-docs.ts     # /automate_docs эндпоинт (клиент + сервер)

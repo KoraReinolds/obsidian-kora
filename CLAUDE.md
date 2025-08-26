@@ -95,7 +95,6 @@ The plugin serves these endpoints on localhost:8123:
 - `POST /frontmatter` - Update frontmatter for files
 - `GET /areas` - Get all areas from tags
 - `POST /get_frontmatter` - Get frontmatter for specific files
-- `GET /area_frontmatters` - Get Area folder frontmatter
 - `POST /file_content` - Get raw file content
 - `GET /automate_docs` - Get documentation from Automate/mcp/
 

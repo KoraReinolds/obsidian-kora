@@ -42,7 +42,6 @@ export interface McpEndpointHandler {
 
 export interface McpEndpoints {
 	'/frontmatter': McpEndpointHandler;
-	'/area_frontmatters': McpEndpointHandler;
 	'/get_frontmatter': McpEndpointHandler;
 	'/areas': McpEndpointHandler;
 	'/files': McpEndpointHandler;
