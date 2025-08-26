@@ -17,7 +17,6 @@ export interface ImageInfo {
  * Класс для работы с изображениями
  */
 export class ImageUtils {
-	
 	/**
 	 * Проверить, является ли URL валидным изображением
 	 */
@@ -25,10 +24,10 @@ export class ImageUtils {
 		try {
 			const response = await fetch(url, { method: 'HEAD' });
 			const contentType = response.headers.get('content-type');
-			
-			return response.ok && 
-			contentType !== null && 
-			contentType.startsWith('image/');
+
+			return (
+				response.ok && contentType !== null && contentType.startsWith('image/')
+			);
 		} catch (error) {
 			return false;
 		}
@@ -40,7 +39,7 @@ export class ImageUtils {
 	static async getImageInfo(url: string): Promise<ImageInfo | null> {
 		try {
 			const response = await fetch(url, { method: 'HEAD' });
-			
+
 			if (!response.ok) {
 				return null;
 			}
@@ -55,7 +54,7 @@ export class ImageUtils {
 			return {
 				url,
 				size: contentLength ? parseInt(contentLength, 10) : undefined,
-				format: contentType.split('/')[1]
+				format: contentType.split('/')[1],
 			};
 		} catch (error) {
 			return null;
@@ -95,7 +94,7 @@ export class ImageUtils {
 		info?: ImageInfo;
 	}> {
 		const errors: string[] = [];
-		
+
 		// Проверяем доступность URL
 		const info = await this.getImageInfo(url);
 		if (!info) {
@@ -105,7 +104,9 @@ export class ImageUtils {
 
 		// Проверяем формат
 		if (!this.isSupportedFormat(info.format)) {
-			errors.push(`Формат ${info.format} не поддерживается. Используйте: ${this.getSupportedFormats().join(', ')}`);
+			errors.push(
+				`Формат ${info.format} не поддерживается. Используйте: ${this.getSupportedFormats().join(', ')}`
+			);
 		}
 
 		// Проверяем размер
@@ -116,7 +117,7 @@ export class ImageUtils {
 		return {
 			valid: errors.length === 0,
 			errors,
-			info
+			info,
 		};
 	}
-} 
+}

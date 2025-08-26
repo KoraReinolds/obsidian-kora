@@ -6,8 +6,8 @@ This document describes the architecture of the Kora MCP (Meta-Command-Prompt) S
 
 The Kora MCP Server follows a simple client-server model:
 
-*   **Server**: The Obsidian plugin (`KoraMcpPlugin`) runs a lightweight HTTP server directly within Obsidian.
-*   **Client**: Any application capable of making HTTP requests (like Cursor, a script, or a web browser) can act as a client to access the vault's data through the defined API endpoints.
+- **Server**: The Obsidian plugin (`KoraMcpPlugin`) runs a lightweight HTTP server directly within Obsidian.
+- **Client**: Any application capable of making HTTP requests (like Cursor, a script, or a web browser) can act as a client to access the vault's data through the defined API endpoints.
 
 This setup allows external tools to programmatically access and interact with your notes without needing to understand the complexities of the Obsidian API or the vault's file structure on disk.
 
@@ -41,29 +41,29 @@ graph TD
 
 The core logic is contained within `obsidian-kora/main.ts`.
 
-*   **`onload()`**: When the plugin is enabled, this method is called. It performs the following actions:
-    *   Loads the plugin settings (e.g., the server port).
-    *   Calls `startServer()` to initialize and run the HTTP server.
-    *   Registers a command to restart the server manually.
+- **`onload()`**: When the plugin is enabled, this method is called. It performs the following actions:
+  - Loads the plugin settings (e.g., the server port).
+  - Calls `startServer()` to initialize and run the HTTP server.
+  - Registers a command to restart the server manually.
 
-*   **`onunload()`**: When the plugin is disabled, this method calls `stopServer()` to gracefully shut down the HTTP server, releasing the port and cleaning up resources.
+- **`onunload()`**: When the plugin is disabled, this method calls `stopServer()` to gracefully shut down the HTTP server, releasing the port and cleaning up resources.
 
 ### 2. HTTP Server (`startServer()`)
 
 The `startServer()` method uses Node.js's built-in `http` module to create the server.
 
-*   **Creation**: `http.createServer()` sets up a new server instance.
-*   **Listening**: `server.listen(port, ...)` binds the server to the IP address `127.0.0.1` and the configured port (default is `8123`). Listening on `127.0.0.1` (localhost) ensures that the server is only accessible from your local machine, which is crucial for security.
-*   **Error Handling**: The server listens for the `error` event. If the port is already in use (`EADDRINUSE`), it notifies the user.
+- **Creation**: `http.createServer()` sets up a new server instance.
+- **Listening**: `server.listen(port, ...)` binds the server to the IP address `127.0.0.1` and the configured port (default is `8123`). Listening on `127.0.0.1` (localhost) ensures that the server is only accessible from your local machine, which is crucial for security.
+- **Error Handling**: The server listens for the `error` event. If the port is already in use (`EADDRINUSE`), it notifies the user.
 
 ### 3. API Endpoint (`GET /files-get`)
 
 The server currently has a single endpoint:
 
-*   **Endpoint**: `GET /files-get`
-*   **Functionality**: When a `GET` request is received at this URL, it uses the Obsidian API (`this.app.vault.getMarkdownFiles()`) to get a list of all markdown files in the vault.
-*   **Response**: It then formats this list into a JSON array, where each object contains the file's `path`, `basename`, and `stat` (file statistics like size and modification time). This JSON array is sent back to the client with a `200 OK` status code.
-*   **CORS**: The server includes `Access-Control-Allow-Origin: *` in the response headers. This is a CORS (Cross-Origin Resource Sharing) header that allows web pages from any origin to request resources from this server. This is important for tools like Cursor that might make requests from a browser-like environment.
+- **Endpoint**: `GET /files-get`
+- **Functionality**: When a `GET` request is received at this URL, it uses the Obsidian API (`this.app.vault.getMarkdownFiles()`) to get a list of all markdown files in the vault.
+- **Response**: It then formats this list into a JSON array, where each object contains the file's `path`, `basename`, and `stat` (file statistics like size and modification time). This JSON array is sent back to the client with a `200 OK` status code.
+- **CORS**: The server includes `Access-Control-Allow-Origin: *` in the response headers. This is a CORS (Cross-Origin Resource Sharing) header that allows web pages from any origin to request resources from this server. This is important for tools like Cursor that might make requests from a browser-like environment.
 
 ## Connecting Cursor to the MCP Server
 
@@ -83,4 +83,4 @@ Once configured, you could instruct the Cursor agent: "@getObsidianFiles list al
 
 ---
 
-This documentation should provide a clear starting point for understanding and extending the Kora MCP Server. 
+This documentation should provide a clear starting point for understanding and extending the Kora MCP Server.

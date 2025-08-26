@@ -18,21 +18,29 @@ export class VectorSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		containerEl.createEl('h2', { text: 'Vector Search Settings' });
-		containerEl.createEl('p', { text: 'Configure vector search and AI embeddings for content indexing and semantic search.', cls: 'setting-item-description' });
+		containerEl.createEl('p', {
+			text: 'Configure vector search and AI embeddings for content indexing and semantic search.',
+			cls: 'setting-item-description',
+		});
 
 		new Setting(containerEl)
 			.setName('Enable vectorization')
 			.setDesc('Enable AI-powered vector search for posts and notes')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.vectorSettings.enableVectorization)
-				.onChange(async (value) => {
-					this.plugin.settings.vectorSettings.enableVectorization = value;
-					await this.plugin.saveSettings();
-					this.display();
-				}));
+			.addToggle(toggle =>
+				toggle
+					.setValue(this.plugin.settings.vectorSettings.enableVectorization)
+					.onChange(async value => {
+						this.plugin.settings.vectorSettings.enableVectorization = value;
+						await this.plugin.saveSettings();
+						this.display();
+					})
+			);
 
 		if (!this.plugin.settings.vectorSettings.enableVectorization) {
-			containerEl.createEl('div', { text: 'Vector search is disabled. Enable it above to configure settings.', cls: 'setting-item-description' });
+			containerEl.createEl('div', {
+				text: 'Vector search is disabled. Enable it above to configure settings.',
+				cls: 'setting-item-description',
+			});
 			return;
 		}
 
@@ -40,61 +48,105 @@ export class VectorSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Qdrant URL')
 			.setDesc('URL of your Qdrant vector database instance')
-			.addText(text => text
-				.setPlaceholder('http://localhost:6333')
-				.setValue(this.plugin.settings.vectorSettings.qdrantUrl)
-				.onChange(async (value) => { this.plugin.settings.vectorSettings.qdrantUrl = value; await this.plugin.saveSettings(); }));
+			.addText(text =>
+				text
+					.setPlaceholder('http://localhost:6333')
+					.setValue(this.plugin.settings.vectorSettings.qdrantUrl)
+					.onChange(async value => {
+						this.plugin.settings.vectorSettings.qdrantUrl = value;
+						await this.plugin.saveSettings();
+					})
+			);
 
 		new Setting(containerEl)
 			.setName('Collection name')
 			.setDesc('Name of the Qdrant collection to store vectors')
-			.addText(text => text
-				.setPlaceholder('kora_content')
-				.setValue(this.plugin.settings.vectorSettings.qdrantCollection)
-				.onChange(async (value) => { this.plugin.settings.vectorSettings.qdrantCollection = value; await this.plugin.saveSettings(); }));
+			.addText(text =>
+				text
+					.setPlaceholder('kora_content')
+					.setValue(this.plugin.settings.vectorSettings.qdrantCollection)
+					.onChange(async value => {
+						this.plugin.settings.vectorSettings.qdrantCollection = value;
+						await this.plugin.saveSettings();
+					})
+			);
 
 		containerEl.createEl('h3', { text: 'OpenAI Embeddings' });
 		new Setting(containerEl)
 			.setName('OpenAI API Key')
 			.setDesc('Your OpenAI API key for generating embeddings')
-			.addText(text => text
-				.setPlaceholder('sk-...')
-				.setValue(this.plugin.settings.vectorSettings.openaiApiKey)
-				.onChange(async (value) => { this.plugin.settings.vectorSettings.openaiApiKey = value; await this.plugin.saveSettings(); }));
+			.addText(text =>
+				text
+					.setPlaceholder('sk-...')
+					.setValue(this.plugin.settings.vectorSettings.openaiApiKey)
+					.onChange(async value => {
+						this.plugin.settings.vectorSettings.openaiApiKey = value;
+						await this.plugin.saveSettings();
+					})
+			);
 
-		const apiKeyInput = containerEl.querySelector('input[placeholder="sk-..."]') as HTMLInputElement;
+		const apiKeyInput = containerEl.querySelector(
+			'input[placeholder="sk-..."]'
+		) as HTMLInputElement;
 		if (apiKeyInput) apiKeyInput.type = 'password';
 
 		new Setting(containerEl)
 			.setName('Embedding model')
 			.setDesc('OpenAI model to use for generating embeddings')
-			.addDropdown(dropdown => dropdown
-				.addOption('text-embedding-3-small', 'text-embedding-3-small (1536 dims, cheaper)')
-				.addOption('text-embedding-3-large', 'text-embedding-3-large (3072 dims, better quality)')
-				.addOption('text-embedding-ada-002', 'text-embedding-ada-002 (1536 dims, legacy)')
-				.setValue(this.plugin.settings.vectorSettings.embeddingModel)
-				.onChange(async (value) => {
-					this.plugin.settings.vectorSettings.embeddingModel = value;
-					this.plugin.settings.vectorSettings.vectorDimensions = value === 'text-embedding-3-large' ? 3072 : 1536;
-					await this.plugin.saveSettings();
-					this.display();
-				}));
+			.addDropdown(dropdown =>
+				dropdown
+					.addOption(
+						'text-embedding-3-small',
+						'text-embedding-3-small (1536 dims, cheaper)'
+					)
+					.addOption(
+						'text-embedding-3-large',
+						'text-embedding-3-large (3072 dims, better quality)'
+					)
+					.addOption(
+						'text-embedding-ada-002',
+						'text-embedding-ada-002 (1536 dims, legacy)'
+					)
+					.setValue(this.plugin.settings.vectorSettings.embeddingModel)
+					.onChange(async value => {
+						this.plugin.settings.vectorSettings.embeddingModel = value;
+						this.plugin.settings.vectorSettings.vectorDimensions =
+							value === 'text-embedding-3-large' ? 3072 : 1536;
+						await this.plugin.saveSettings();
+						this.display();
+					})
+			);
 
 		new Setting(containerEl)
 			.setName('Vector dimensions')
 			.setDesc('Number of dimensions for embeddings (auto-set based on model)')
-			.addText(text => text.setValue(this.plugin.settings.vectorSettings.vectorDimensions.toString()).setDisabled(true));
+			.addText(text =>
+				text
+					.setValue(
+						this.plugin.settings.vectorSettings.vectorDimensions.toString()
+					)
+					.setDisabled(true)
+			);
 
 		containerEl.createEl('h3', { text: 'Connection Test' });
 		const testContainer = containerEl.createDiv('vector-test-container');
 		new Setting(testContainer)
 			.setName('Test vector services')
 			.setDesc('Test connection to Qdrant and OpenAI services')
-			.addButton(button => button.setButtonText('Test Connection').setCta().onClick(async () => { await this.testVectorServices(button.buttonEl); }));
+			.addButton(button =>
+				button
+					.setButtonText('Test Connection')
+					.setCta()
+					.onClick(async () => {
+						await this.testVectorServices(button.buttonEl);
+					})
+			);
 
 		containerEl.createEl('h3', { text: 'Environment Variables' });
 		const envHelp = containerEl.createDiv('vector-env-help');
-		envHelp.createEl('p', { text: 'You can also set these environment variables in the GramJS server:' });
+		envHelp.createEl('p', {
+			text: 'You can also set these environment variables in the GramJS server:',
+		});
 		envHelp.createEl('ul').innerHTML = `
 		  <li><code>QDRANT_URL</code> - Qdrant database URL</li>
 		  <li><code>QDRANT_COLLECTION</code> - Collection name</li>
@@ -143,13 +195,14 @@ export class VectorSettingTab extends PluginSettingTab {
 				buttonEl.textContent = originalText;
 				buttonEl.removeAttribute('disabled');
 				buttonEl.removeAttribute('style');
-				const resultEl = buttonEl.parentElement?.querySelector('.vector-test-result');
-				const errorEl = buttonEl.parentElement?.querySelector('.vector-test-error');
+				const resultEl = buttonEl.parentElement?.querySelector(
+					'.vector-test-result'
+				);
+				const errorEl =
+					buttonEl.parentElement?.querySelector('.vector-test-error');
 				resultEl?.remove();
 				errorEl?.remove();
 			}, 3000);
 		}
 	}
 }
-
-

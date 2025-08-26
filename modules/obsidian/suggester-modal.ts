@@ -1,13 +1,13 @@
 /**
  * Universal Suggester System - Unified suggestion components for different use cases
- * 
+ *
  * This file uses a new ConfigurableSuggester system that reduces code duplication by 80%.
- * 
+ *
  * USAGE:
  *   SuggesterFactory.createFolderConfigSuggester(app, settings)
  *   SuggesterFactory.createChannelSuggester(app, file, settings)
  *   SuggesterFactory.createCommandSuggester(app)
- * 
+ *
  * Benefits:
  * - ✅ 80% less code for new suggester types
  * - ✅ Consistent behavior and styling
@@ -16,7 +16,10 @@
  */
 
 import { App, FuzzySuggestModal, TFile, Notice } from 'obsidian';
-import { ChannelConfigService, ChannelConfig } from '../telegram/channel-config-service';
+import {
+	ChannelConfigService,
+	ChannelConfig,
+} from '../telegram/channel-config-service';
 import type { KoraMcpPluginSettings, TelegramFolderConfig } from '../../main';
 
 // ============================================================================
@@ -30,13 +33,13 @@ export interface SuggesterConfig<T> {
 	// Basic settings
 	placeholder: string;
 	itemType: string;
-	
+
 	// Data source configuration
 	dataSource: {
 		getItems: () => T[] | Promise<T[]>;
 		validateItems?: (items: T[]) => boolean | string; // returns error message if invalid
 	};
-	
+
 	// Display configuration
 	display: {
 		getTitle: (item: T) => string;
@@ -44,7 +47,7 @@ export interface SuggesterConfig<T> {
 		getStatus?: (item: T) => { text: string; className: string } | null;
 		cssClass?: string;
 	};
-	
+
 	// Validation and error handling
 	validation?: {
 		preOpenCheck?: () => boolean | string;
@@ -97,7 +100,9 @@ export class ConfigurableSuggester<T> extends FuzzySuggestModal<T> {
 
 		// Validate items
 		if (this.config.dataSource.validateItems) {
-			const validationResult = this.config.dataSource.validateItems(this.availableItems);
+			const validationResult = this.config.dataSource.validateItems(
+				this.availableItems
+			);
 			if (typeof validationResult === 'string') {
 				new Notice(validationResult);
 				return null;
@@ -106,7 +111,8 @@ export class ConfigurableSuggester<T> extends FuzzySuggestModal<T> {
 
 		// Check if items are available
 		if (this.availableItems.length === 0) {
-			const message = this.config.validation?.onEmptyItems || 'Нет доступных элементов';
+			const message =
+				this.config.validation?.onEmptyItems || 'Нет доступных элементов';
 			new Notice(message);
 			return null;
 		}
@@ -149,19 +155,24 @@ export class ConfigurableSuggester<T> extends FuzzySuggestModal<T> {
 	 */
 	renderSuggestion(value: { item: T }, el: HTMLElement): void {
 		const item = value.item;
-		
+
 		// Create main container with optional CSS class
-		const container = el.createDiv({ 
-			cls: this.config.display.cssClass || `${this.config.itemType}-suggestion` 
+		const container = el.createDiv({
+			cls: this.config.display.cssClass || `${this.config.itemType}-suggestion`,
 		});
-		
+
 		// Get display information
 		const title = this.config.display.getTitle(item);
 		const subtitle = this.config.display.getSubtitle?.(item);
 		const status = this.config.display.getStatus?.(item);
 
 		// Use the enhanced rendering method
-		this.renderSuggestionWithStyling(container, title, subtitle, status || undefined);
+		this.renderSuggestionWithStyling(
+			container,
+			title,
+			subtitle,
+			status || undefined
+		);
 	}
 
 	/**
@@ -176,19 +187,19 @@ export class ConfigurableSuggester<T> extends FuzzySuggestModal<T> {
 		// Main title
 		const nameEl = container.createDiv({ cls: 'suggestion-title' });
 		nameEl.setText(title);
-		
+
 		// Subtitle with additional info
 		if (subtitle || statusInfo) {
 			const infoEl = container.createDiv({ cls: 'suggestion-info' });
-			
+
 			if (subtitle) {
 				infoEl.createSpan({ cls: 'suggestion-subtitle', text: subtitle });
 			}
-			
+
 			if (statusInfo) {
-				infoEl.createSpan({ 
-					cls: `suggestion-status ${statusInfo.className}`, 
-					text: statusInfo.text 
+				infoEl.createSpan({
+					cls: `suggestion-status ${statusInfo.className}`,
+					text: statusInfo.text,
 				});
 			}
 		}
@@ -197,9 +208,12 @@ export class ConfigurableSuggester<T> extends FuzzySuggestModal<T> {
 		this.applySuggestionStyling(container, Boolean(subtitle || statusInfo));
 	}
 
-	private applySuggestionStyling(container: HTMLElement, hasSubtitle: boolean): void {
+	private applySuggestionStyling(
+		container: HTMLElement,
+		hasSubtitle: boolean
+	): void {
 		container.style.padding = '8px 0';
-		
+
 		const titleEl = container.querySelector('.suggestion-title');
 		if (titleEl instanceof HTMLElement) {
 			titleEl.style.fontWeight = 'bold';
@@ -207,19 +221,19 @@ export class ConfigurableSuggester<T> extends FuzzySuggestModal<T> {
 				titleEl.style.marginBottom = '4px';
 			}
 		}
-		
+
 		const infoEl = container.querySelector('.suggestion-info');
 		if (infoEl instanceof HTMLElement) {
 			infoEl.style.fontSize = '0.85em';
 			infoEl.style.color = 'var(--text-muted)';
 		}
-		
+
 		// Status-specific styling
 		const publishedEl = container.querySelector('.published');
 		if (publishedEl instanceof HTMLElement) {
 			publishedEl.style.color = 'var(--text-success)';
 		}
-		
+
 		const newEl = container.querySelector('.new');
 		if (newEl instanceof HTMLElement) {
 			newEl.style.color = 'var(--text-accent)';
@@ -260,7 +274,11 @@ export class SuggesterFactory {
 		file: TFile,
 		settings: KoraMcpPluginSettings
 	): ConfigurableSuggester<ChannelConfig> {
-		const config = SuggesterConfigFactory.createChannelConfig(app, file, settings);
+		const config = SuggesterConfigFactory.createChannelConfig(
+			app,
+			file,
+			settings
+		);
 		return new ConfigurableSuggester(app, config);
 	}
 
@@ -271,14 +289,17 @@ export class SuggesterFactory {
 		app: App,
 		folderConfig: TelegramFolderConfig
 	): ConfigurableSuggester<ChannelConfig> {
-		const config = SuggesterConfigFactory.createFolderChannelConfig(folderConfig);
+		const config =
+			SuggesterConfigFactory.createFolderChannelConfig(folderConfig);
 		return new ConfigurableSuggester(app, config);
 	}
 
 	/**
 	 * Create a command suggester modal using ConfigurableSuggester
 	 */
-	static createCommandSuggester(app: App): ConfigurableSuggester<{ id: string; name: string }> {
+	static createCommandSuggester(
+		app: App
+	): ConfigurableSuggester<{ id: string; name: string }> {
 		const config = SuggesterConfigFactory.createCommandConfig(app);
 		return new ConfigurableSuggester(app, config);
 	}
@@ -309,13 +330,15 @@ export class SuggesterUtils {
 	/**
 	 * Create shortened ID display
 	 */
-	static formatIdForDisplay(id: string, startLength = 10, endLength = 7): string {
+	static formatIdForDisplay(
+		id: string,
+		startLength = 10,
+		endLength = 7
+	): string {
 		if (id.length <= startLength + endLength + 3) return id;
 		return `${id.slice(0, startLength)}...${id.slice(-endLength)}`;
 	}
 }
-
-
 
 // ============================================================================
 // CONFIGURATION FACTORY
@@ -337,38 +360,40 @@ export class SuggesterConfigFactory {
 			itemType: 'folder-config',
 			dataSource: {
 				getItems: () => {
-					return settings.telegram.folderConfigs.filter(config => 
-						config.folder && config.channels && config.channels.length > 0
+					return settings.telegram.folderConfigs.filter(
+						config =>
+							config.folder && config.channels && config.channels.length > 0
 					);
 				},
-				validateItems: (items) => {
-					if (items.length === 0) return 'Нет настроенных конфигов папок с каналами';
+				validateItems: items => {
+					if (items.length === 0)
+						return 'Нет настроенных конфигов папок с каналами';
 					return true;
-				}
+				},
 			},
 			display: {
-				getTitle: (config) => config.folder,
-				getSubtitle: (config) => {
+				getTitle: config => config.folder,
+				getSubtitle: config => {
 					const channelCount = config.channels.length;
-					const channelsText = channelCount === 1 ? '1 канал' : `${channelCount} каналов`;
-					
+					const channelsText =
+						channelCount === 1 ? '1 канал' : `${channelCount} каналов`;
+
 					const channelNames = config.channels
 						.map(ch => ch.name)
 						.slice(0, 3)
 						.join(', ');
-					
-					const displayChannels = config.channels.length > 3 
-						? `${channelNames}...` 
-						: channelNames;
-					
+
+					const displayChannels =
+						config.channels.length > 3 ? `${channelNames}...` : channelNames;
+
 					return `${channelsText}: ${displayChannels}`;
 				},
 				getStatus: () => ({ text: ' • Настроено', className: 'configured' }),
-				cssClass: 'folder-config-suggestion'
+				cssClass: 'folder-config-suggestion',
 			},
 			validation: {
-				onEmptyItems: 'Нет настроенных конфигов папок с каналами'
-			}
+				onEmptyItems: 'Нет настроенных конфигов папок с каналами',
+			},
 		};
 	}
 
@@ -381,41 +406,44 @@ export class SuggesterConfigFactory {
 		settings: KoraMcpPluginSettings
 	): SuggesterConfig<ChannelConfig> {
 		const channelConfigService = new ChannelConfigService(app, settings);
-		
+
 		return {
 			placeholder: 'Выберите канал для отправки заметки...',
 			itemType: 'channel',
 			dataSource: {
 				getItems: () => {
-					const folderConfig = channelConfigService.getFolderConfigForFile(file);
+					const folderConfig =
+						channelConfigService.getFolderConfigForFile(file);
 					return folderConfig?.channels || [];
 				},
-				validateItems: (items) => {
+				validateItems: items => {
 					if (items.length === 0) return 'Нет доступных каналов для этой папки';
 					return true;
-				}
+				},
 			},
 			display: {
-				getTitle: (channel) => channel.name,
-				getSubtitle: (channel) => {
-					const channelIdShort = channel.channelId.length > 20 
-						? `${channel.channelId.slice(0, 10)}...${channel.channelId.slice(-7)}`
-						: channel.channelId;
+				getTitle: channel => channel.name,
+				getSubtitle: channel => {
+					const channelIdShort =
+						channel.channelId.length > 20
+							? `${channel.channelId.slice(0, 10)}...${channel.channelId.slice(-7)}`
+							: channel.channelId;
 					return `ID: ${channelIdShort}`;
 				},
-				cssClass: 'channel-suggestion'
+				cssClass: 'channel-suggestion',
 			},
 			validation: {
 				preOpenCheck: () => {
 					if (!file) return 'Нет активного файла';
-					
-					const folderConfig = channelConfigService.getFolderConfigForFile(file);
+
+					const folderConfig =
+						channelConfigService.getFolderConfigForFile(file);
 					if (!folderConfig) {
 						return 'Файл не находится в папке с настроенным конфигом каналов';
 					}
 					return true;
-				}
-			}
+				},
+			},
 		};
 	}
 
@@ -430,47 +458,54 @@ export class SuggesterConfigFactory {
 			itemType: 'folder-channel',
 			dataSource: {
 				getItems: () => folderConfig.channels,
-				validateItems: (items) => {
-					if (items.length === 0) return 'В конфигурации папки нет настроенных каналов';
+				validateItems: items => {
+					if (items.length === 0)
+						return 'В конфигурации папки нет настроенных каналов';
 					return true;
-				}
+				},
 			},
 			display: {
-				getTitle: (channel) => channel.name,
-				getSubtitle: (channel) => {
-					const channelIdShort = channel.channelId.length > 20 
-						? `${channel.channelId.slice(0, 10)}...${channel.channelId.slice(-7)}`
-						: channel.channelId;
+				getTitle: channel => channel.name,
+				getSubtitle: channel => {
+					const channelIdShort =
+						channel.channelId.length > 20
+							? `${channel.channelId.slice(0, 10)}...${channel.channelId.slice(-7)}`
+							: channel.channelId;
 					return `ID: ${channelIdShort}`;
 				},
-				getStatus: (channel) => channel.messageId 
-					? { text: ' • Опубликовано', className: 'published' }
-					: { text: ' • Новое сообщение', className: 'new' },
-				cssClass: 'channel-suggestion'
-			}
+				getStatus: channel =>
+					channel.messageId
+						? { text: ' • Опубликовано', className: 'published' }
+						: { text: ' • Новое сообщение', className: 'new' },
+				cssClass: 'channel-suggestion',
+			},
 		};
 	}
 
 	/**
 	 * Create configuration for command suggester
 	 */
-	static createCommandConfig(app: App): SuggesterConfig<{ id: string; name: string }> {
+	static createCommandConfig(
+		app: App
+	): SuggesterConfig<{ id: string; name: string }> {
 		return {
 			placeholder: 'Выберите команду...',
 			itemType: 'command',
 			dataSource: {
 				getItems: () => {
-					return Object.values((app as any).commands.commands).map((cmd: any) => ({
-						id: cmd.id,
-						name: cmd.name
-					}));
-				}
+					return Object.values((app as any).commands.commands).map(
+						(cmd: any) => ({
+							id: cmd.id,
+							name: cmd.name,
+						})
+					);
+				},
 			},
 			display: {
-				getTitle: (command) => command.name,
-				getSubtitle: (command) => `ID: ${command.id}`,
-				cssClass: 'command-suggestion'
-			}
+				getTitle: command => command.name,
+				getSubtitle: command => `ID: ${command.id}`,
+				cssClass: 'command-suggestion',
+			},
 		};
 	}
 }
@@ -481,13 +516,13 @@ export class SuggesterConfigFactory {
 
 /**
  * EXAMPLES OF USING CONFIGURABLE SUGGESTER
- * 
+ *
  * This new system allows you to create suggesters with minimal code:
- * 
+ *
  * 1. SIMPLE USAGE (using pre-built configs):
  *    const suggester = SuggesterFactory.createFolderConfigSuggester(app, settings);
  *    const result = await suggester.open();
- * 
+ *
  * 2. CUSTOM CONFIGURATION:
  *    const config: SuggesterConfig<MyType> = {
  *      placeholder: 'Выберите элемент...',
@@ -499,15 +534,15 @@ export class SuggesterConfigFactory {
  *      display: {
  *        getTitle: (item) => item.name,
  *        getSubtitle: (item) => item.description,
- *        getStatus: (item) => item.isActive 
+ *        getStatus: (item) => item.isActive
  *          ? { text: ' • Активен', className: 'active' }
  *          : null
  *      }
  *    };
- *    
+ *
  *    const suggester = SuggesterFactory.createCustomSuggester(app, config);
  *    const result = await suggester.open();
- * 
+ *
  * 3. ADVANTAGES OF THE NEW SYSTEM:
  *    - ✅ 80% less code for new suggester types
  *    - ✅ Consistent behavior and styling across all suggesters
@@ -515,14 +550,12 @@ export class SuggesterConfigFactory {
  *    - ✅ Built-in validation and error handling
  *    - ✅ Type-safe configuration
  *    - ✅ Reusable display logic
- * 
+ *
  * 4. CREATING CUSTOM SUGGESTERS:
  *    - Use SuggesterFactory.createCustomSuggester(app, config)
  *    - Define your own SuggesterConfig<T> interface
  *    - Extend with custom validation and display logic
  */
-
-
 
 // Re-export commonly used types
 export type { ChannelConfig, TelegramFolderConfig };

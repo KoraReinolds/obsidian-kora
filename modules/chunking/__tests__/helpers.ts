@@ -7,8 +7,6 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 
 export function readFixture(name: string): string {
-  const filePath = join(__dirname, 'fixtures', name);
-  return readFileSync(filePath, 'utf8');
+	const filePath = join(__dirname, 'fixtures', name);
+	return readFileSync(filePath, 'utf8');
 }
-
-

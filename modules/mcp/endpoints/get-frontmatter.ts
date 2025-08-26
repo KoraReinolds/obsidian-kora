@@ -4,12 +4,17 @@ import { BaseEndpoint } from './base';
 import { FrontmatterUtils } from '../../obsidian';
 
 const GetFrontmatterSchema = z.object({
-	files: z.array(z.string()).describe('Array of file paths to read frontmatter from.'),
+	files: z
+		.array(z.string())
+		.describe('Array of file paths to read frontmatter from.'),
 });
 
 type GetFrontmatterInput = z.infer<typeof GetFrontmatterSchema>;
 
-export class GetFrontmatterEndpoint extends BaseEndpoint<GetFrontmatterInput, any[]> {
+export class GetFrontmatterEndpoint extends BaseEndpoint<
+	GetFrontmatterInput,
+	any[]
+> {
 	path = '/get_frontmatter';
 	method = 'POST' as const;
 	description = 'Returns the frontmatter for a given list of files';

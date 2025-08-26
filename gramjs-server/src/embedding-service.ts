@@ -9,246 +9,252 @@ import OpenAI from 'openai';
 import { createHash } from 'crypto';
 
 export interface EmbeddingConfig {
-  apiKey?: string;
-  model?: string;
-  dimensions?: number;
-  maxTokens?: number;
-  [key: string]: any;
+	apiKey?: string;
+	model?: string;
+	dimensions?: number;
+	maxTokens?: number;
+	[key: string]: any;
 }
 
 export interface EmbeddingResult {
-  embedding: number[];
-  model: string;
-  dimensions: number;
-  usage: {
-    prompt_tokens: number;
-    total_tokens: number;
-  };
-  chunked: boolean;
-  chunkCount?: number;
+	embedding: number[];
+	model: string;
+	dimensions: number;
+	usage: {
+		prompt_tokens: number;
+		total_tokens: number;
+	};
+	chunked: boolean;
+	chunkCount?: number;
 }
 
 class EmbeddingService {
-  private config: Required<EmbeddingConfig> & { [key: string]: any };
-  private openai: OpenAI;
+	private config: Required<EmbeddingConfig> & { [key: string]: any };
+	private openai: OpenAI;
 
-  constructor(config: EmbeddingConfig = {}) {
-    this.config = {
-      apiKey: config.apiKey || process.env.OPENAI_API_KEY || '',
-      model: config.model || 'text-embedding-3-small',
-      dimensions: config.dimensions || 1536, // Default for text-embedding-3-small
-      maxTokens: config.maxTokens || 8000, // Safe limit for chunking
-      ...config
-    };
+	constructor(config: EmbeddingConfig = {}) {
+		this.config = {
+			apiKey: config.apiKey || process.env.OPENAI_API_KEY || '',
+			model: config.model || 'text-embedding-3-small',
+			dimensions: config.dimensions || 1536, // Default for text-embedding-3-small
+			maxTokens: config.maxTokens || 8000, // Safe limit for chunking
+			...config,
+		};
 
-    if (!this.config.apiKey) {
-      throw new Error('OpenAI API key is required');
-    }
+		if (!this.config.apiKey) {
+			throw new Error('OpenAI API key is required');
+		}
 
-    this.openai = new OpenAI({
-      apiKey: this.config.apiKey
-    });
-  }
+		this.openai = new OpenAI({
+			apiKey: this.config.apiKey,
+		});
+	}
 
-  /**
-   * Generate embedding for text
-   */
-  async generateEmbedding(text: string): Promise<EmbeddingResult> {
-    try {
-      if (!text || typeof text !== 'string') {
-        throw new Error('Text must be a non-empty string');
-      }
+	/**
+	 * Generate embedding for text
+	 */
+	async generateEmbedding(text: string): Promise<EmbeddingResult> {
+		try {
+			if (!text || typeof text !== 'string') {
+				throw new Error('Text must be a non-empty string');
+			}
 
-      // Clean and prepare text
-      const cleanText = this.cleanText(text as string);
-      
-      // Check if text needs chunking
-      const chunks = this.chunkText(cleanText);
-      
-      if (chunks.length === 1) {
-        // Single chunk - direct embedding
-        return await this.getSingleEmbedding(chunks[0]);
-      } else {
-        // Multiple chunks - average embeddings
-        return await this.getAveragedEmbedding(chunks);
-      }
-    } catch (error) {
-      console.error('[EmbeddingService] Error generating embedding:', error);
-      throw error;
-    }
-  }
+			// Clean and prepare text
+			const cleanText = this.cleanText(text as string);
 
-  /**
-   * Generate embedding for single text chunk
-   */
-  async getSingleEmbedding(text: string): Promise<EmbeddingResult> {
-    const response = await this.openai.embeddings.create({
-      model: this.config.model,
-      input: text,
-      dimensions: this.config.dimensions
-    });
+			// Check if text needs chunking
+			const chunks = this.chunkText(cleanText);
 
-    return {
-      embedding: response.data[0].embedding,
-      model: this.config.model,
-      dimensions: this.config.dimensions,
-      usage: response.usage,
-      chunked: false
-    };
-  }
+			if (chunks.length === 1) {
+				// Single chunk - direct embedding
+				return await this.getSingleEmbedding(chunks[0]);
+			} else {
+				// Multiple chunks - average embeddings
+				return await this.getAveragedEmbedding(chunks);
+			}
+		} catch (error) {
+			console.error('[EmbeddingService] Error generating embedding:', error);
+			throw error;
+		}
+	}
 
-  /**
-   * Generate averaged embedding for multiple chunks
-   */
-  async getAveragedEmbedding(chunks: string[]): Promise<EmbeddingResult> {
-    console.log(`[EmbeddingService] Processing ${chunks.length} chunks`);
-    
-    const embeddings: number[][] = [];
-    let totalUsage: { prompt_tokens: number; total_tokens: number } = { prompt_tokens: 0, total_tokens: 0 };
+	/**
+	 * Generate embedding for single text chunk
+	 */
+	async getSingleEmbedding(text: string): Promise<EmbeddingResult> {
+		const response = await this.openai.embeddings.create({
+			model: this.config.model,
+			input: text,
+			dimensions: this.config.dimensions,
+		});
 
-    // Process chunks sequentially to avoid rate limits
-    for (const chunk of chunks) {
-      const response = await this.openai.embeddings.create({
-        model: this.config.model,
-        input: chunk,
-        dimensions: this.config.dimensions
-      });
+		return {
+			embedding: response.data[0].embedding,
+			model: this.config.model,
+			dimensions: this.config.dimensions,
+			usage: response.usage,
+			chunked: false,
+		};
+	}
 
-      embeddings.push(response.data[0].embedding);
-      totalUsage.prompt_tokens += response.usage.prompt_tokens;
-      totalUsage.total_tokens += response.usage.total_tokens;
+	/**
+	 * Generate averaged embedding for multiple chunks
+	 */
+	async getAveragedEmbedding(chunks: string[]): Promise<EmbeddingResult> {
+		console.log(`[EmbeddingService] Processing ${chunks.length} chunks`);
 
-      // Small delay to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
+		const embeddings: number[][] = [];
+		const totalUsage: { prompt_tokens: number; total_tokens: number } = {
+			prompt_tokens: 0,
+			total_tokens: 0,
+		};
 
-    // Average the embeddings
-    const avgEmbedding = this.averageEmbeddings(embeddings);
+		// Process chunks sequentially to avoid rate limits
+		for (const chunk of chunks) {
+			const response = await this.openai.embeddings.create({
+				model: this.config.model,
+				input: chunk,
+				dimensions: this.config.dimensions,
+			});
 
-    return {
-      embedding: avgEmbedding,
-      model: this.config.model,
-      dimensions: this.config.dimensions,
-      usage: totalUsage,
-      chunked: true,
-      chunkCount: chunks.length
-    };
-  }
+			embeddings.push(response.data[0].embedding);
+			totalUsage.prompt_tokens += response.usage.prompt_tokens;
+			totalUsage.total_tokens += response.usage.total_tokens;
 
-  /**
-   * Clean text for embedding
-   */
-  cleanText(text: string): string {
-    return text
-      .replace(/\r\n/g, '\n')  // Normalize line endings
-      .replace(/\n+/g, '\n')   // Remove multiple newlines
-      .trim();
-  }
+			// Small delay to avoid rate limiting
+			await new Promise(resolve => setTimeout(resolve, 100));
+		}
 
-  /**
-   * Split text into chunks if needed
-   */
-  chunkText(text: string): string[] {
-    // Rough token estimation (1 token ≈ 4 characters for English)
-    const estimatedTokens = Math.ceil(text.length / 4);
-    
-    if (estimatedTokens <= this.config.maxTokens) {
-      return [text];
-    }
+		// Average the embeddings
+		const avgEmbedding = this.averageEmbeddings(embeddings);
 
-    // Split into sentences first
-    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
-    const chunks = [];
-    let currentChunk = '';
-    let currentTokens = 0;
+		return {
+			embedding: avgEmbedding,
+			model: this.config.model,
+			dimensions: this.config.dimensions,
+			usage: totalUsage,
+			chunked: true,
+			chunkCount: chunks.length,
+		};
+	}
 
-    for (const sentence of sentences) {
-      const sentenceTokens = Math.ceil(sentence.length / 4);
-      
-      if (currentTokens + sentenceTokens > this.config.maxTokens && currentChunk) {
-        chunks.push(currentChunk.trim());
-        currentChunk = sentence;
-        currentTokens = sentenceTokens;
-      } else {
-        currentChunk += (currentChunk ? '. ' : '') + sentence;
-        currentTokens += sentenceTokens;
-      }
-    }
+	/**
+	 * Clean text for embedding
+	 */
+	cleanText(text: string): string {
+		return text
+			.replace(/\r\n/g, '\n') // Normalize line endings
+			.replace(/\n+/g, '\n') // Remove multiple newlines
+			.trim();
+	}
 
-    if (currentChunk.trim()) {
-      chunks.push(currentChunk.trim());
-    }
+	/**
+	 * Split text into chunks if needed
+	 */
+	chunkText(text: string): string[] {
+		// Rough token estimation (1 token ≈ 4 characters for English)
+		const estimatedTokens = Math.ceil(text.length / 4);
 
-    return chunks.length > 0 ? chunks : [text];
-  }
+		if (estimatedTokens <= this.config.maxTokens) {
+			return [text];
+		}
 
-  /**
-   * Average multiple embeddings
-   */
-  averageEmbeddings(embeddings: number[][]): number[] {
-    if (embeddings.length === 0) {
-      throw new Error('No embeddings to average');
-    }
+		// Split into sentences first
+		const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+		const chunks = [];
+		let currentChunk = '';
+		let currentTokens = 0;
 
-    if (embeddings.length === 1) {
-      return embeddings[0];
-    }
+		for (const sentence of sentences) {
+			const sentenceTokens = Math.ceil(sentence.length / 4);
 
-    const dimensions = embeddings[0].length;
-    const averaged = new Array(dimensions).fill(0);
+			if (
+				currentTokens + sentenceTokens > this.config.maxTokens &&
+				currentChunk
+			) {
+				chunks.push(currentChunk.trim());
+				currentChunk = sentence;
+				currentTokens = sentenceTokens;
+			} else {
+				currentChunk += (currentChunk ? '. ' : '') + sentence;
+				currentTokens += sentenceTokens;
+			}
+		}
 
-    for (const embedding of embeddings) {
-      for (let i = 0; i < dimensions; i++) {
-        averaged[i] += embedding[i];
-      }
-    }
+		if (currentChunk.trim()) {
+			chunks.push(currentChunk.trim());
+		}
 
-    // Normalize by count
-    for (let i = 0; i < dimensions; i++) {
-      averaged[i] /= embeddings.length;
-    }
+		return chunks.length > 0 ? chunks : [text];
+	}
 
-    return averaged;
-  }
+	/**
+	 * Average multiple embeddings
+	 */
+	averageEmbeddings(embeddings: number[][]): number[] {
+		if (embeddings.length === 0) {
+			throw new Error('No embeddings to average');
+		}
 
-  /**
-   * Generate content hash for caching/deduplication
-   */
-  generateContentHash(content: string): string {
-    return createHash('sha256').update(content).digest('hex');
-  }
+		if (embeddings.length === 1) {
+			return embeddings[0];
+		}
 
-  /**
-   * Check if two embeddings are similar (for debugging)
-   */
-  cosineSimilarity(a: number[], b: number[]): number {
-    if (a.length !== b.length) {
-      throw new Error('Embeddings must have same dimensions');
-    }
+		const dimensions = embeddings[0].length;
+		const averaged = new Array(dimensions).fill(0);
 
-    let dotProduct = 0;
-    let normA = 0;
-    let normB = 0;
+		for (const embedding of embeddings) {
+			for (let i = 0; i < dimensions; i++) {
+				averaged[i] += embedding[i];
+			}
+		}
 
-    for (let i = 0; i < a.length; i++) {
-      dotProduct += a[i] * b[i];
-      normA += a[i] * a[i];
-      normB += b[i] * b[i];
-    }
+		// Normalize by count
+		for (let i = 0; i < dimensions; i++) {
+			averaged[i] /= embeddings.length;
+		}
 
-    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
-  }
+		return averaged;
+	}
 
-  /**
-   * Get model info
-   */
-  getModelInfo(): { model: string; dimensions: number; maxTokens: number } {
-    return {
-      model: this.config.model,
-      dimensions: this.config.dimensions,
-      maxTokens: this.config.maxTokens
-    };
-  }
+	/**
+	 * Generate content hash for caching/deduplication
+	 */
+	generateContentHash(content: string): string {
+		return createHash('sha256').update(content).digest('hex');
+	}
+
+	/**
+	 * Check if two embeddings are similar (for debugging)
+	 */
+	cosineSimilarity(a: number[], b: number[]): number {
+		if (a.length !== b.length) {
+			throw new Error('Embeddings must have same dimensions');
+		}
+
+		let dotProduct = 0;
+		let normA = 0;
+		let normB = 0;
+
+		for (let i = 0; i < a.length; i++) {
+			dotProduct += a[i] * b[i];
+			normA += a[i] * a[i];
+			normB += b[i] * b[i];
+		}
+
+		return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+	}
+
+	/**
+	 * Get model info
+	 */
+	getModelInfo(): { model: string; dimensions: number; maxTokens: number } {
+		return {
+			model: this.config.model,
+			dimensions: this.config.dimensions,
+			maxTokens: this.config.maxTokens,
+		};
+	}
 }
 
 export default EmbeddingService;

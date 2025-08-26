@@ -1,4 +1,4 @@
-import { App, TFolder } from "obsidian";
+import { App, TFolder } from 'obsidian';
 
 /**
  * Base class for input-based suggestion functionality
@@ -49,7 +49,7 @@ export abstract class TextInputSuggest<T> {
 
 	private renderSuggestions(): void {
 		this.suggestEl.empty();
-		
+
 		if (this.suggestions.length === 0) {
 			this.close();
 			return;
@@ -66,10 +66,10 @@ export abstract class TextInputSuggest<T> {
 			suggestionEl.className = 'suggestion-item';
 			suggestionEl.style.padding = '8px 12px';
 			suggestionEl.style.cursor = 'pointer';
-			
+
 			this.renderSuggestion(suggestion, suggestionEl);
-			
-			suggestionEl.addEventListener('mousedown', (e) => {
+
+			suggestionEl.addEventListener('mousedown', e => {
 				e.preventDefault();
 				this.selectSuggestion(suggestion);
 				this.close();
@@ -90,7 +90,10 @@ export abstract class TextInputSuggest<T> {
 		switch (event.key) {
 			case 'ArrowDown':
 				event.preventDefault();
-				this.selectedItem = Math.min(this.selectedItem + 1, this.suggestions.length - 1);
+				this.selectedItem = Math.min(
+					this.selectedItem + 1,
+					this.suggestions.length - 1
+				);
 				this.updateSelectedItem();
 				break;
 			case 'ArrowUp':
@@ -136,7 +139,6 @@ export abstract class TextInputSuggest<T> {
 	}
 }
 
-
 /**
  * Folder suggestion for text input fields
  */
@@ -146,8 +148,11 @@ export class FolderSuggest extends TextInputSuggest<TFolder> {
 		const folders: TFolder[] = [];
 		const lowerInputStr = inputStr.toLowerCase();
 
-		allFiles.forEach((file) => {
-			if (file instanceof TFolder && file.path.toLowerCase().includes(lowerInputStr)) {
+		allFiles.forEach(file => {
+			if (
+				file instanceof TFolder &&
+				file.path.toLowerCase().includes(lowerInputStr)
+			) {
 				folders.push(file);
 			}
 		});

@@ -5,16 +5,19 @@ This document provides examples and usage instructions for the vector search fun
 ## Prerequisites
 
 1. **Qdrant**: Running on `localhost:6333`
+
    ```bash
    docker run -p 6333:6333 qdrant/qdrant:latest
    ```
 
 2. **OpenAI API Key**: Set in environment or plugin settings
+
    ```bash
    export OPENAI_API_KEY="sk-..."
    ```
 
 3. **Dependencies**: Install required packages
+
    ```bash
    npm install
    ```
@@ -27,6 +30,7 @@ This document provides examples and usage instructions for the vector search fun
 ## Configuration
 
 ### Plugin Settings
+
 1. Go to Settings → Kora MCP Plugin
 2. Scroll to "Vector Search Settings"
 3. Enable vectorization
@@ -34,9 +38,10 @@ This document provides examples and usage instructions for the vector search fun
 5. Test connection
 
 ### Environment Variables (Alternative)
+
 ```bash
 export QDRANT_URL="http://localhost:6333"
-export QDRANT_COLLECTION="kora_content" 
+export QDRANT_COLLECTION="kora_content"
 export OPENAI_API_KEY="sk-..."
 ```
 
@@ -45,6 +50,7 @@ export OPENAI_API_KEY="sk-..."
 The GramJS server exposes these vector endpoints on `http://localhost:8124`:
 
 ### Vectorize Content
+
 ```http
 POST /vectorize
 Content-Type: application/json
@@ -64,6 +70,7 @@ Content-Type: application/json
 ```
 
 ### Vectorize Telegram Messages
+
 ```http
 POST /vectorize_messages
 Content-Type: application/json
@@ -77,6 +84,7 @@ Content-Type: application/json
 ```
 
 ### Search Content
+
 ```http
 POST /search
 Content-Type: application/json
@@ -93,11 +101,13 @@ Content-Type: application/json
 ```
 
 ### Get Statistics
+
 ```http
 GET /vector_stats
 ```
 
 ### Health Check
+
 ```http
 GET /vector_health
 ```
@@ -111,8 +121,8 @@ const vectorBridge = new VectorBridge();
 
 // Vectorize last 100 messages from a channel
 const result = await vectorBridge.vectorizeMessages({
-  peer: "@my_channel",
-  limit: 100
+	peer: '@my_channel',
+	limit: 100,
 });
 
 console.log(`Processed ${result.processed} messages`);
@@ -127,13 +137,13 @@ const content = await this.app.vault.read(activeFile);
 
 // Vectorize note
 const result = await vectorBridge.vectorizeNote({
-  path: activeFile.path,
-  content: content,
-  title: activeFile.name,
-  metadata: {
-    tags: ["example", "note"],
-    folder: "Documents"
-  }
+	path: activeFile.path,
+	content: content,
+	title: activeFile.name,
+	metadata: {
+		tags: ['example', 'note'],
+		folder: 'Documents',
+	},
 });
 ```
 
@@ -141,15 +151,15 @@ const result = await vectorBridge.vectorizeNote({
 
 ```javascript
 const searchResults = await vectorBridge.searchContent({
-  query: "artificial intelligence machine learning",
-  limit: 5,
-  scoreThreshold: 0.5
+	query: 'artificial intelligence machine learning',
+	limit: 5,
+	scoreThreshold: 0.5,
 });
 
 console.log(`Found ${searchResults.total} results:`);
 searchResults.results.forEach(result => {
-  console.log(`- ${result.content.title} (score: ${result.score})`);
-  console.log(`  ${result.snippet}`);
+	console.log(`- ${result.content.title} (score: ${result.score})`);
+	console.log(`  ${result.snippet}`);
 });
 ```
 
@@ -158,16 +168,16 @@ searchResults.results.forEach(result => {
 ```javascript
 // Search only Telegram posts
 const telegramResults = await vectorBridge.searchContent({
-  query: "cryptocurrency bitcoin",
-  contentTypes: ["telegram_post"],
-  limit: 10
+	query: 'cryptocurrency bitcoin',
+	contentTypes: ['telegram_post'],
+	limit: 10,
 });
 
 // Search only Obsidian notes
 const noteResults = await vectorBridge.searchContent({
-  query: "meeting notes project",
-  contentTypes: ["obsidian_note"],
-  limit: 10
+	query: 'meeting notes project',
+	contentTypes: ['obsidian_note'],
+	limit: 10,
 });
 ```
 
@@ -175,72 +185,79 @@ const noteResults = await vectorBridge.searchContent({
 
 ```javascript
 const channelResults = await vectorBridge.searchContent({
-  query: "latest updates",
-  contentTypes: ["telegram_post"],
-  filters: {
-    "telegram.channelId": "@tech_news"
-  },
-  limit: 5
+	query: 'latest updates',
+	contentTypes: ['telegram_post'],
+	filters: {
+		'telegram.channelId': '@tech_news',
+	},
+	limit: 5,
 });
 ```
 
 ## Data Schema
 
 ### Content Types
+
 - `telegram_post` - Messages from Telegram channels
-- `telegram_comment` - Comments in Telegram chats  
+- `telegram_comment` - Comments in Telegram chats
 - `obsidian_note` - Notes from Obsidian vault
 
 ### Metadata Structure
 
 #### Telegram Posts
+
 ```json
 {
-  "telegram": {
-    "channelId": "string",
-    "channelTitle": "string", 
-    "messageId": "number",
-    "author": "string",
-    "date": "ISO string",
-    "views": "number",
-    "forwards": "number"
-  }
+	"telegram": {
+		"channelId": "string",
+		"channelTitle": "string",
+		"messageId": "number",
+		"author": "string",
+		"date": "ISO string",
+		"views": "number",
+		"forwards": "number"
+	}
 }
 ```
 
 #### Obsidian Notes
+
 ```json
 {
-  "obsidian": {
-    "filePath": "string",
-    "fileName": "string",
-    "folder": "string", 
-    "tags": ["string"],
-    "frontmatter": "object",
-    "modifiedAt": "ISO string",
-    "createdAt": "ISO string"
-  }
+	"obsidian": {
+		"filePath": "string",
+		"fileName": "string",
+		"folder": "string",
+		"tags": ["string"],
+		"frontmatter": "object",
+		"modifiedAt": "ISO string",
+		"createdAt": "ISO string"
+	}
 }
 ```
 
 ## Troubleshooting
 
 ### Vector Service Not Available
+
 - Check Qdrant is running on port 6333
 - Verify OpenAI API key is set
 - Restart GramJS server: `npm run gramjs-server`
 
 ### Search Returns No Results
+
 - Check if content is vectorized: `GET /vector_stats`
 - Lower score threshold in search request
 - Verify content types and filters
 
 ### High OpenAI Costs
+
 - Use `text-embedding-3-small` model (cheaper)
 - Implement content deduplication before vectorizing
 - Set reasonable limits on batch operations
 
 ### Performance Issues
+
 - Index frequently filtered fields in Qdrant
 - Use batch operations for multiple items
 - Consider chunking very long content
@@ -252,19 +269,19 @@ You can add custom commands to the plugin for common vector operations:
 ```typescript
 // In commands.ts
 this.addCommand({
-  id: 'vectorize-current-note',
-  name: 'Vectorize Current Note',
-  callback: async () => {
-    const file = this.app.workspace.getActiveFile();
-    if (file) {
-      const content = await this.app.vault.read(file);
-      await this.vectorBridge.vectorizeNote({
-        path: file.path,
-        content: content,
-        title: file.name
-      });
-    }
-  }
+	id: 'vectorize-current-note',
+	name: 'Vectorize Current Note',
+	callback: async () => {
+		const file = this.app.workspace.getActiveFile();
+		if (file) {
+			const content = await this.app.vault.read(file);
+			await this.vectorBridge.vectorizeNote({
+				path: file.path,
+				content: content,
+				title: file.name,
+			});
+		}
+	},
 });
 ```
 

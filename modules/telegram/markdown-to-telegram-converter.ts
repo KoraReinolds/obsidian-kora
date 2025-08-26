@@ -4,629 +4,675 @@
  */
 
 export interface ConversionOptions {
-  removeFrontmatter?: boolean;
-  removeH1Headers?: boolean;
-  maxLength?: number;
-  preserveCodeBlocks?: boolean;
-  preserveLinks?: boolean;
+	removeFrontmatter?: boolean;
+	removeH1Headers?: boolean;
+	maxLength?: number;
+	preserveCodeBlocks?: boolean;
+	preserveLinks?: boolean;
 }
 
 export interface InlineButton {
-  text: string;
-  url?: string;
-  data?: string;
+	text: string;
+	url?: string;
+	data?: string;
 }
 
 export interface ConversionResult {
-  text: string;
-  entities?: TelegramMessageEntity[];
-  buttons?: InlineButton[][];
-  truncated?: boolean;
-  originalLength?: number;
+	text: string;
+	entities?: TelegramMessageEntity[];
+	buttons?: InlineButton[][];
+	truncated?: boolean;
+	originalLength?: number;
 }
 
 export interface TelegramMessageEntity {
-  type: string;
-  offset: number;
-  length: number;
-  url?: string;
-  language?: string;
+	type: string;
+	offset: number;
+	length: number;
+	url?: string;
+	language?: string;
 }
 
 export class MarkdownToTelegramConverter {
-  private readonly defaultOptions: ConversionOptions = {
-    removeFrontmatter: true,
-    removeH1Headers: true,
-    maxLength: 4096, // Telegram message limit
-    preserveCodeBlocks: true,
-    preserveLinks: true,
-  };
+	private readonly defaultOptions: ConversionOptions = {
+		removeFrontmatter: true,
+		removeH1Headers: true,
+		maxLength: 4096, // Telegram message limit
+		preserveCodeBlocks: true,
+		preserveLinks: true,
+	};
 
-  /**
-   * Convert markdown content to Telegram format
-   */
-  convert(markdown: string, options: ConversionOptions = {}): ConversionResult {
-    // Handle null/undefined inputs gracefully
-    if (markdown == null) {
-      return {
-        text: '',
-        entities: [],
-        truncated: false,
-        originalLength: 0,
-      };
-    }
+	/**
+	 * Convert markdown content to Telegram format
+	 */
+	convert(markdown: string, options: ConversionOptions = {}): ConversionResult {
+		// Handle null/undefined inputs gracefully
+		if (markdown == null) {
+			return {
+				text: '',
+				entities: [],
+				truncated: false,
+				originalLength: 0,
+			};
+		}
 
-    const opts = { ...this.defaultOptions, ...options };
-    
-    let text = markdown;
-    let entities: TelegramMessageEntity[] = [];
+		const opts = { ...this.defaultOptions, ...options };
 
-    // Step 1: Remove frontmatter
-    if (opts.removeFrontmatter) {
-      text = this.removeFrontmatter(text);
-    }
+		let text = markdown;
+		let entities: TelegramMessageEntity[] = [];
 
-    // Step 2: Remove H1 headers
-    if (opts.removeH1Headers) {
-      text = this.removeH1Headers(text);
-    }
+		// Step 1: Remove frontmatter
+		if (opts.removeFrontmatter) {
+			text = this.removeFrontmatter(text);
+		}
 
-    // Step 3: Convert markdown formatting to Telegram MarkdownV2
-    const conversionResult = this.convertMarkdownToTelegram(text, opts);
-    text = conversionResult.text;
-    entities = conversionResult.entities;
+		// Step 2: Remove H1 headers
+		if (opts.removeH1Headers) {
+			text = this.removeH1Headers(text);
+		}
 
-    // Step 4: Handle length limits
-    const originalLength = text.length;
-    let truncated = false;
-    
-    if (opts.maxLength && text.length > opts.maxLength) {
-      text = this.truncateText(text, opts.maxLength);
-      truncated = true;
-      
-      // Recalculate entities for truncated text
-      entities = entities.filter(entity => 
-        entity.offset + entity.length <= text.length
-      );
-    }
+		// Step 3: Convert markdown formatting to Telegram MarkdownV2
+		const conversionResult = this.convertMarkdownToTelegram(text, opts);
+		text = conversionResult.text;
+		entities = conversionResult.entities;
 
-    const finalText = text.trim();
-    const result = {
-      text: finalText,
-      entities,
-      truncated,
-      originalLength,
-    };
+		// Step 4: Handle length limits
+		const originalLength = text.length;
+		let truncated = false;
 
-    return result;
-  }
+		if (opts.maxLength && text.length > opts.maxLength) {
+			text = this.truncateText(text, opts.maxLength);
+			truncated = true;
 
-  /**
-   * Remove frontmatter from markdown content
-   */
-  public removeFrontmatter(content: string): string {
-    // Remove YAML frontmatter (between --- markers)
-    const frontmatterRegex = /^---\s*\n[\s\S]*?\n---\s*\n?/;
-    const result = content.replace(frontmatterRegex, '');
-    return result;
-  }
+			// Recalculate entities for truncated text
+			entities = entities.filter(
+				entity => entity.offset + entity.length <= text.length
+			);
+		}
 
-  /**
-   * Remove H1 headers from markdown content
-   */
-  private removeH1Headers(content: string): string {
-    // Remove # headers at the beginning of lines
-    const h1Regex = /^# .+$/gm;
-    const result = content.replace(h1Regex, '');
-    return result.trim();
-  }
+		const finalText = text.trim();
+		const result = {
+			text: finalText,
+			entities,
+			truncated,
+			originalLength,
+		};
 
-  /**
-   * Convert markdown formatting to Telegram MarkdownV2
-   */
-  private convertMarkdownToTelegram(
-    content: string, 
-    options: ConversionOptions
-  ): { text: string; entities: TelegramMessageEntity[] } {
-    let text = content;
-    const entities: TelegramMessageEntity[] = [];
+		return result;
+	}
 
-    // Step 1: Process code blocks first and protect them from further processing
-    const codeBlockPlaceholders: Array<{
-      placeholder: string;
-      content: string;
-      language?: string;
-      start: number;
-      entity?: TelegramMessageEntity;
-    }> = [];
+	/**
+	 * Remove frontmatter from markdown content
+	 */
+	public removeFrontmatter(content: string): string {
+		// Remove YAML frontmatter (between --- markers)
+		const frontmatterRegex = /^---\s*\n[\s\S]*?\n---\s*\n?/;
+		const result = content.replace(frontmatterRegex, '');
+		return result;
+	}
 
-    let placeholderIndex = 0;
-    text = text.replace(/```(\w+)?\n([\s\S]*?)\n```/g, (match, lang, content, offset) => {
-      const placeholder = `\x00CODEBLOCK${placeholderIndex++}\x00`;
-      const language = lang || 'text';
-      
-      console.log(`🔧 Code block: "${match}" at offset ${offset} → placeholder ${placeholder}`);
-      
-      if (options.preserveCodeBlocks) {
-        codeBlockPlaceholders.push({
-          placeholder,
-          content,
-          language,
-          start: offset,
-          entity: {
-            type: 'pre',
-            offset: 0, // Will be calculated later
-            length: content.length,
-            language
-          }
-        });
-      } else {
-        codeBlockPlaceholders.push({
-          placeholder,
-          content,
-          start: offset
-        });
-      }
-      
-      return placeholder;
-    });
+	/**
+	 * Remove H1 headers from markdown content
+	 */
+	private removeH1Headers(content: string): string {
+		// Remove # headers at the beginning of lines
+		const h1Regex = /^# .+$/gm;
+		const result = content.replace(h1Regex, '');
+		return result.trim();
+	}
 
-    // Step 2: Process blockquotes first (before other patterns to avoid conflicts)
-    const blockquoteResult = this.processBlockquotes(text, []);
-    text = blockquoteResult.text;
-    entities.push(...blockquoteResult.entities);
-    
-    // Create a map of already processed areas (where inline formatting was handled within blockquotes)
-    const processedAreas: Array<{ start: number; end: number }> = [];
-    blockquoteResult.entities
-      .filter(e => e.type === 'blockquote' || e.type === 'expandable_blockquote')
-      .forEach(blockquote => {
-        processedAreas.push({
-          start: blockquote.offset,
-          end: blockquote.offset + blockquote.length
-        });
-      });
+	/**
+	 * Convert markdown formatting to Telegram MarkdownV2
+	 */
+	private convertMarkdownToTelegram(
+		content: string,
+		options: ConversionOptions
+	): { text: string; entities: TelegramMessageEntity[] } {
+		let text = content;
+		const entities: TelegramMessageEntity[] = [];
 
-    // Step 3: Process remaining markdown patterns (now code blocks and blockquotes are protected)
-    const patterns = [
-      { regex: /\*\*(.*?)\*\*/g, type: 'bold', removedChars: 4 },
-      { regex: /__(.*?)__/g, type: 'bold', removedChars: 4 },
-      { regex: /(?<!\*)\*([^*]+?)\*(?!\*)/g, type: 'italic', removedChars: 2 },
-      { regex: /(?<!_)_([^_]+?)_(?!_)/g, type: 'italic', removedChars: 2 },
-      { regex: /`([^`]+?)`/g, type: 'code', removedChars: 2 },
-      { regex: /~~(.*?)~~/g, type: 'strikethrough', removedChars: 4 },
-      { regex: /\[([^\]]+?)\](?!\()/g, type: 'spoiler', removedChars: 2 },
-    ];
+		// Step 1: Process code blocks first and protect them from further processing
+		const codeBlockPlaceholders: Array<{
+			placeholder: string;
+			content: string;
+			language?: string;
+			start: number;
+			entity?: TelegramMessageEntity;
+		}> = [];
 
-    // Find all matches and sort by position
-    const matches: Array<{
-      type: string;
-      content: string;
-      start: number;
-      end: number;
-      removedChars: number;
-      match: string;
-      language?: string;
-      url?: string;
-    }> = [];
+		let placeholderIndex = 0;
+		text = text.replace(
+			/```(\w+)?\n([\s\S]*?)\n```/g,
+			(match, lang, content, offset) => {
+				const placeholder = `\x00CODEBLOCK${placeholderIndex++}\x00`;
+				const language = lang || 'text';
 
-    patterns.forEach(pattern => {
-      let match;
-      const regex = new RegExp(pattern.regex);
-      console.log(`🔍 Searching for pattern: ${pattern.type} - ${pattern.regex}`);
-      while ((match = regex.exec(text)) !== null) {
-        const matchStart = match.index;
-        const matchEnd = match.index + match[0].length;
-        
-        // Check if this match is within a processed area (blockquote)
-        const isInProcessedArea = processedAreas.some(area => 
-          matchStart >= area.start && matchEnd <= area.end
-        );
-        
-        if (isInProcessedArea) {
-          console.log(`   Skipping match "${match[0]}" at [${matchStart}:${matchEnd}] - already processed in blockquote`);
-          continue;
-        }
-        
-        console.log(`   Found match: "${match[0]}" at [${matchStart}:${matchEnd}]`);
-        
-        matches.push({
-          type: pattern.type,
-          content: match[1],
-          start: matchStart,
-          end: matchEnd,
-          removedChars: pattern.removedChars,
-          match: match[0]
-        });
-      }
-    });
+				console.log(
+					`🔧 Code block: "${match}" at offset ${offset} → placeholder ${placeholder}`
+				);
 
-    // Sort matches by start position
-    matches.sort((a, b) => a.start - b.start);
+				if (options.preserveCodeBlocks) {
+					codeBlockPlaceholders.push({
+						placeholder,
+						content,
+						language,
+						start: offset,
+						entity: {
+							type: 'pre',
+							offset: 0, // Will be calculated later
+							length: content.length,
+							language,
+						},
+					});
+				} else {
+					codeBlockPlaceholders.push({
+						placeholder,
+						content,
+						start: offset,
+					});
+				}
 
-    // Process matches in order and track offset changes
-    let offsetDelta = 0;
-    for (const match of matches) {
-      const adjustedOffset = match.start - offsetDelta;
-      console.log(`🔧 ${match.type}: "${match.match}" at offset ${match.start}, delta ${offsetDelta}, adjusted ${adjustedOffset}, content: "${match.content}"`);
-      
-      entities.push({
-        type: match.type,
-        offset: adjustedOffset,
-        length: match.content.length,
-      });
-      
-      offsetDelta += match.removedChars;
-      console.log(`   New offsetDelta: ${offsetDelta}`);
-    }
+				return placeholder;
+			}
+		);
 
-    // Apply all replacements in one pass (from end to start to avoid offset issues)
-    const sortedMatches = [...matches].sort((a, b) => b.start - a.start);
-    console.log(`📝 Text before replacements: "${text}"`);
-    for (const match of sortedMatches) {
-      const before = text;
-      text = text.slice(0, match.start) + match.content + text.slice(match.end);
-      console.log(`   Replaced "${match.match}" → "${match.content}" at ${match.start}: "${before}" → "${text}"`);
-    }
-    console.log(`📝 Text after replacements: "${text}"`)
+		// Step 2: Process blockquotes first (before other patterns to avoid conflicts)
+		const blockquoteResult = this.processBlockquotes(text, []);
+		text = blockquoteResult.text;
+		entities.push(...blockquoteResult.entities);
 
-    // Step 3: Restore code blocks and calculate their positions
-    // Process in order of appearance to correctly adjust offsets
-    const sortedCodeBlocks = codeBlockPlaceholders.sort((a, b) => {
-      const aIndex = text.indexOf(a.placeholder);
-      const bIndex = text.indexOf(b.placeholder);
-      return aIndex - bIndex;
-    });
+		// Create a map of already processed areas (where inline formatting was handled within blockquotes)
+		const processedAreas: Array<{ start: number; end: number }> = [];
+		blockquoteResult.entities
+			.filter(
+				e => e.type === 'blockquote' || e.type === 'expandable_blockquote'
+			)
+			.forEach(blockquote => {
+				processedAreas.push({
+					start: blockquote.offset,
+					end: blockquote.offset + blockquote.length,
+				});
+			});
 
-    for (const codeBlock of sortedCodeBlocks) {
-      const placeholderIndex = text.indexOf(codeBlock.placeholder);
-      if (placeholderIndex !== -1) {
-        const placeholderLength = codeBlock.placeholder.length;
-        const contentLength = codeBlock.content.length;
-        const lengthDelta = contentLength - placeholderLength;
-        
-        console.log(`🔧 Restoring code block at position ${placeholderIndex}, placeholder "${codeBlock.placeholder}" → content length ${contentLength}, delta: ${lengthDelta}`);
-        
-        // Replace placeholder with actual content
-        text = text.replace(codeBlock.placeholder, codeBlock.content);
-        
-        // Adjust offset of all entities that come after this placeholder
-        entities.forEach(entity => {
-          if (entity.offset > placeholderIndex) {
-            const oldOffset = entity.offset;
-            entity.offset += lengthDelta;
-            console.log(`   Adjusted entity ${entity.type} offset: ${oldOffset} → ${entity.offset}`);
-          }
-        });
-        
-        // Add entity if preserving code blocks
-        if (codeBlock.entity) {
-          codeBlock.entity.offset = placeholderIndex;
-          entities.push(codeBlock.entity);
-        }
-      }
-    }
+		// Step 3: Process remaining markdown patterns (now code blocks and blockquotes are protected)
+		const patterns = [
+			{ regex: /\*\*(.*?)\*\*/g, type: 'bold', removedChars: 4 },
+			{ regex: /__(.*?)__/g, type: 'bold', removedChars: 4 },
+			{ regex: /(?<!\*)\*([^*]+?)\*(?!\*)/g, type: 'italic', removedChars: 2 },
+			{ regex: /(?<!_)_([^_]+?)_(?!_)/g, type: 'italic', removedChars: 2 },
+			{ regex: /`([^`]+?)`/g, type: 'code', removedChars: 2 },
+			{ regex: /~~(.*?)~~/g, type: 'strikethrough', removedChars: 4 },
+			{ regex: /\[([^\]]+?)\](?!\()/g, type: 'spoiler', removedChars: 2 },
+		];
 
-    // Step 4: Process links (they can contain other formatting)
-    // We need to collect all link matches first, then process them from end to start
-    const linkMatches: Array<{
-      match: string;
-      linkText: string;
-      url?: string;
-      start: number;
-      end: number;
-      lengthDelta: number;
-    }> = [];
+		// Find all matches and sort by position
+		const matches: Array<{
+			type: string;
+			content: string;
+			start: number;
+			end: number;
+			removedChars: number;
+			match: string;
+			language?: string;
+			url?: string;
+		}> = [];
 
-    // Find all link matches
-    if (options.preserveLinks) {
-      const linkRegex = /\[([^\]]+?)\]\(([^)]+?)\)/g;
-      let match;
-      while ((match = linkRegex.exec(text)) !== null) {
-        linkMatches.push({
-          match: match[0],
-          linkText: match[1],
-          url: match[2],
-          start: match.index,
-          end: match.index + match[0].length,
-          lengthDelta: match[0].length - match[1].length
-        });
-      }
-    } else {
-      const linkRegex = /\[([^\]]+?)\]\([^)]+?\)/g;
-      let match;
-      while ((match = linkRegex.exec(text)) !== null) {
-        linkMatches.push({
-          match: match[0],
-          linkText: match[1],
-          start: match.index,
-          end: match.index + match[0].length,
-          lengthDelta: match[0].length - match[1].length
-        });
-      }
-    }
+		patterns.forEach(pattern => {
+			let match;
+			const regex = new RegExp(pattern.regex);
+			console.log(
+				`🔍 Searching for pattern: ${pattern.type} - ${pattern.regex}`
+			);
+			while ((match = regex.exec(text)) !== null) {
+				const matchStart = match.index;
+				const matchEnd = match.index + match[0].length;
 
-    // Process links from end to start to avoid offset issues
-    const sortedLinkMatches = linkMatches.sort((a, b) => b.start - a.start);
-    for (const linkMatch of sortedLinkMatches) {
-      console.log(`🔗 Processing link "${linkMatch.match}" at offset ${linkMatch.start}`);
-      
-      // Replace link with just the text
-      text = text.slice(0, linkMatch.start) + linkMatch.linkText + text.slice(linkMatch.end);
-      
-      // Add entity if preserving links
-      if (options.preserveLinks && linkMatch.url) {
-        entities.push({
-          type: 'text_link',
-          offset: linkMatch.start,
-          length: linkMatch.linkText.length,
-          url: linkMatch.url,
-        });
-      }
-      
-      // Adjust offset of entities that come after this link (including other links)
-      entities.forEach(entity => {
-        if (entity.offset > linkMatch.start) {
-          const oldOffset = entity.offset;
-          entity.offset -= linkMatch.lengthDelta;
-          console.log(`   Adjusted entity ${entity.type} offset after link: ${oldOffset} → ${entity.offset}`);
-        }
-      });
-    }
+				// Check if this match is within a processed area (blockquote)
+				const isInProcessedArea = processedAreas.some(
+					area => matchStart >= area.start && matchEnd <= area.end
+				);
 
+				if (isInProcessedArea) {
+					console.log(
+						`   Skipping match "${match[0]}" at [${matchStart}:${matchEnd}] - already processed in blockquote`
+					);
+					continue;
+				}
 
+				console.log(
+					`   Found match: "${match[0]}" at [${matchStart}:${matchEnd}]`
+				);
 
-    // Convert headers (h2-h6) to bold text
-    text = text.replace(/^#{2,6} (.+)$/gm, (match, headerText) => {
-      return `*${headerText}*`;
-    });
+				matches.push({
+					type: pattern.type,
+					content: match[1],
+					start: matchStart,
+					end: matchEnd,
+					removedChars: pattern.removedChars,
+					match: match[0],
+				});
+			}
+		});
 
-    // Clean up extra whitespace and newlines
-    text = text.replace(/\n{3,}/g, '\n\n'); // Max 2 consecutive newlines
-    text = text.replace(/^\s+|\s+$/g, ''); // Trim start and end
+		// Sort matches by start position
+		matches.sort((a, b) => a.start - b.start);
 
-    // Sort entities by offset
-    entities.sort((a, b) => a.offset - b.offset);
-    console.log('📊 Entities after sorting:', entities.map(e => `${e.type}[${e.offset}:${e.offset + e.length}]`).join(', '));
+		// Process matches in order and track offset changes
+		let offsetDelta = 0;
+		for (const match of matches) {
+			const adjustedOffset = match.start - offsetDelta;
+			console.log(
+				`🔧 ${match.type}: "${match.match}" at offset ${match.start}, delta ${offsetDelta}, adjusted ${adjustedOffset}, content: "${match.content}"`
+			);
 
-    return { text, entities };
-  }
+			entities.push({
+				type: match.type,
+				offset: adjustedOffset,
+				length: match.content.length,
+			});
 
-  /**
-   * Truncate text while preserving word boundaries
-   */
-  private truncateText(text: string, maxLength: number): string {
-    if (text.length <= maxLength) {
-      return text;
-    }
+			offsetDelta += match.removedChars;
+			console.log(`   New offsetDelta: ${offsetDelta}`);
+		}
 
-    // Reserve 3 characters for '...'
-    const targetLength = maxLength - 3;
-    
-    // Try to truncate at word boundary
-    const truncated = text.substring(0, targetLength);
-    const lastSpaceIndex = truncated.lastIndexOf(' ');
-    const wordBoundaryThreshold = targetLength * 0.8;
-    
-    if (lastSpaceIndex > wordBoundaryThreshold) {
-      // If we found a space in the last 20% of the text, truncate there
-      const result = truncated.substring(0, lastSpaceIndex) + '...';
-      return result;
-    } else {
-      // Otherwise just truncate at the limit
-      const result = truncated + '...';
-      return result;
-    }
-  }
+		// Apply all replacements in one pass (from end to start to avoid offset issues)
+		const sortedMatches = [...matches].sort((a, b) => b.start - a.start);
+		console.log(`📝 Text before replacements: "${text}"`);
+		for (const match of sortedMatches) {
+			const before = text;
+			text = text.slice(0, match.start) + match.content + text.slice(match.end);
+			console.log(
+				`   Replaced "${match.match}" → "${match.content}" at ${match.start}: "${before}" → "${text}"`
+			);
+		}
+		console.log(`📝 Text after replacements: "${text}"`);
 
-  /**
-   * Process blockquotes (both regular and expandable)
-   * Groups consecutive blockquote lines into single blocks
-   */
-  private processBlockquotes(text: string, currentEntities: TelegramMessageEntity[]): { text: string; entities: TelegramMessageEntity[] } {
-    const newEntities: TelegramMessageEntity[] = [];
-    const lines = text.split('\n');
-    const processedLines: string[] = [];
-    
-    let i = 0;
-    while (i < lines.length) {
-      const line = lines[i];
-      
-      // Check if this line starts a blockquote block
-      const expandableMatch = line.match(/^>\[!\s*[^\]]*\](-?)\s*(.*)$/);
-      const regularMatch = line.match(/^>\s*(.+)$/);
-      
-      if (expandableMatch) {
-        // Process expandable blockquote block
-        const isCollapsed = expandableMatch[1] === '-';
-        const firstLineContent = expandableMatch[2];
-        const blockStartOffset = processedLines.join('\n').length + (processedLines.length > 0 ? 1 : 0);
-        
-        // Collect all content lines for this blockquote
-        const contentLines: string[] = [];
-        if (firstLineContent.trim()) {
-          contentLines.push(firstLineContent);
-        }
-        
-        // Look for following blockquote lines
-        let j = i + 1;
-        while (j < lines.length && lines[j].match(/^>\s*(.*)$/)) {
-          const nextMatch = lines[j].match(/^>\s*(.*)$/);
-          if (nextMatch) {
-            contentLines.push(nextMatch[1]);
-          }
-          j++;
-        }
-        
-        const blockContent = contentLines.join('\n');
-        console.log(`🔧 Expandable blockquote (${isCollapsed ? 'collapsed' : 'expanded'}): content="${blockContent}" at offset ${blockStartOffset}`);
-        
-        // Process formatting within this blockquote
-        const blockResult = this.processInlineFormatting(blockContent);
-        const processedBlockContent = blockResult.text;
-        
-        // Add the processed content to processed lines
-        processedLines.push(processedBlockContent);
-        
-        // Add blockquote entity
-        newEntities.push({
-          type: isCollapsed ? 'expandable_blockquote' : 'blockquote',
-          offset: blockStartOffset,
-          length: processedBlockContent.length,
-        });
-        
-        // Add inline entities with adjusted offsets
-        blockResult.entities.forEach(entity => {
-          newEntities.push({
-            ...entity,
-            offset: blockStartOffset + entity.offset,
-          });
-        });
-        
-        // Skip all processed lines
-        i = j;
-        
-      } else if (regularMatch && !expandableMatch) {
-        // Process regular blockquote block
-        const blockStartOffset = processedLines.join('\n').length + (processedLines.length > 0 ? 1 : 0);
-        
-        // Collect all content lines for this blockquote
-        const contentLines: string[] = [];
-        let j = i;
-        while (j < lines.length && lines[j].match(/^>\s*(.*)$/)) {
-          const match = lines[j].match(/^>\s*(.*)$/);
-          if (match) {
-            contentLines.push(match[1]);
-          }
-          j++;
-        }
-        
-        const blockContent = contentLines.join('\n');
-        console.log(`🔧 Regular blockquote: content="${blockContent}" at offset ${blockStartOffset}`);
-        
-        // Process formatting within this blockquote
-        const blockResult = this.processInlineFormatting(blockContent);
-        const processedBlockContent = blockResult.text;
-        
-        // Add the processed content to processed lines
-        processedLines.push(processedBlockContent);
-        
-        // Add blockquote entity
-        newEntities.push({
-          type: 'blockquote',
-          offset: blockStartOffset,
-          length: processedBlockContent.length,
-        });
-        
-        // Add inline entities with adjusted offsets
-        blockResult.entities.forEach(entity => {
-          newEntities.push({
-            ...entity,
-            offset: blockStartOffset + entity.offset,
-          });
-        });
-        
-        // Skip all processed lines
-        i = j;
-        
-      } else {
-        // Regular line, keep as is
-        processedLines.push(line);
-        i++;
-      }
-    }
+		// Step 3: Restore code blocks and calculate their positions
+		// Process in order of appearance to correctly adjust offsets
+		const sortedCodeBlocks = codeBlockPlaceholders.sort((a, b) => {
+			const aIndex = text.indexOf(a.placeholder);
+			const bIndex = text.indexOf(b.placeholder);
+			return aIndex - bIndex;
+		});
 
-    return { text: processedLines.join('\n'), entities: newEntities };
-  }
+		for (const codeBlock of sortedCodeBlocks) {
+			const placeholderIndex = text.indexOf(codeBlock.placeholder);
+			if (placeholderIndex !== -1) {
+				const placeholderLength = codeBlock.placeholder.length;
+				const contentLength = codeBlock.content.length;
+				const lengthDelta = contentLength - placeholderLength;
 
-  /**
-   * Process inline formatting (bold, italic, spoilers, etc.) within a text block
-   */
-  private processInlineFormatting(text: string): { text: string; entities: TelegramMessageEntity[] } {
-    let processedText = text;
-    const entities: TelegramMessageEntity[] = [];
+				console.log(
+					`🔧 Restoring code block at position ${placeholderIndex}, placeholder "${codeBlock.placeholder}" → content length ${contentLength}, delta: ${lengthDelta}`
+				);
 
-    // Use the same patterns as main processing
-    const patterns = [
-      { regex: /\*\*(.*?)\*\*/g, type: 'bold', removedChars: 4 },
-      { regex: /__(.*?)__/g, type: 'bold', removedChars: 4 },
-      { regex: /(?<!\*)\*([^*]+?)\*(?!\*)/g, type: 'italic', removedChars: 2 },
-      { regex: /(?<!_)_([^_]+?)_(?!_)/g, type: 'italic', removedChars: 2 },
-      { regex: /`([^`]+?)`/g, type: 'code', removedChars: 2 },
-      { regex: /~~(.*?)~~/g, type: 'strikethrough', removedChars: 4 },
-      { regex: /\[([^\]]+?)\](?!\()/g, type: 'spoiler', removedChars: 2 },
-    ];
+				// Replace placeholder with actual content
+				text = text.replace(codeBlock.placeholder, codeBlock.content);
 
-    // Find all matches and sort by position
-    const matches: Array<{
-      type: string;
-      content: string;
-      start: number;
-      end: number;
-      removedChars: number;
-      match: string;
-    }> = [];
+				// Adjust offset of all entities that come after this placeholder
+				entities.forEach(entity => {
+					if (entity.offset > placeholderIndex) {
+						const oldOffset = entity.offset;
+						entity.offset += lengthDelta;
+						console.log(
+							`   Adjusted entity ${entity.type} offset: ${oldOffset} → ${entity.offset}`
+						);
+					}
+				});
 
-    patterns.forEach(pattern => {
-      let match;
-      const regex = new RegExp(pattern.regex);
-      while ((match = regex.exec(processedText)) !== null) {
-        matches.push({
-          type: pattern.type,
-          content: match[1],
-          start: match.index,
-          end: match.index + match[0].length,
-          removedChars: pattern.removedChars,
-          match: match[0]
-        });
-      }
-    });
+				// Add entity if preserving code blocks
+				if (codeBlock.entity) {
+					codeBlock.entity.offset = placeholderIndex;
+					entities.push(codeBlock.entity);
+				}
+			}
+		}
 
-    // Sort matches by start position
-    matches.sort((a, b) => a.start - b.start);
+		// Step 4: Process links (they can contain other formatting)
+		// We need to collect all link matches first, then process them from end to start
+		const linkMatches: Array<{
+			match: string;
+			linkText: string;
+			url?: string;
+			start: number;
+			end: number;
+			lengthDelta: number;
+		}> = [];
 
-    // Process matches in order and track offset changes
-    let offsetDelta = 0;
-    for (const match of matches) {
-      const adjustedOffset = match.start - offsetDelta;
-      
-      entities.push({
-        type: match.type,
-        offset: adjustedOffset,
-        length: match.content.length,
-      });
-      
-      offsetDelta += match.removedChars;
-    }
+		// Find all link matches
+		if (options.preserveLinks) {
+			const linkRegex = /\[([^\]]+?)\]\(([^)]+?)\)/g;
+			let match;
+			while ((match = linkRegex.exec(text)) !== null) {
+				linkMatches.push({
+					match: match[0],
+					linkText: match[1],
+					url: match[2],
+					start: match.index,
+					end: match.index + match[0].length,
+					lengthDelta: match[0].length - match[1].length,
+				});
+			}
+		} else {
+			const linkRegex = /\[([^\]]+?)\]\([^)]+?\)/g;
+			let match;
+			while ((match = linkRegex.exec(text)) !== null) {
+				linkMatches.push({
+					match: match[0],
+					linkText: match[1],
+					start: match.index,
+					end: match.index + match[0].length,
+					lengthDelta: match[0].length - match[1].length,
+				});
+			}
+		}
 
-    // Apply all replacements in one pass (from end to start to avoid offset issues)
-    const sortedMatches = [...matches].sort((a, b) => b.start - a.start);
-    for (const match of sortedMatches) {
-      processedText = processedText.slice(0, match.start) + match.content + processedText.slice(match.end);
-    }
+		// Process links from end to start to avoid offset issues
+		const sortedLinkMatches = linkMatches.sort((a, b) => b.start - a.start);
+		for (const linkMatch of sortedLinkMatches) {
+			console.log(
+				`🔗 Processing link "${linkMatch.match}" at offset ${linkMatch.start}`
+			);
 
-    return { text: processedText, entities };
-  }
+			// Replace link with just the text
+			text =
+				text.slice(0, linkMatch.start) +
+				linkMatch.linkText +
+				text.slice(linkMatch.end);
 
-  /**
-   * Check if the text is suitable for Telegram
-   */
-  validateForTelegram(text: string): { valid: boolean; issues: string[] } {
-    const issues: string[] = [];
-    
-    if (text.length > 4096) {
-      issues.push(`Text too long: ${text.length} characters (max 4096)`);
-    }
-    
-    if (text.trim().length === 0) {
-      issues.push('Text is empty after conversion');
-    }
-    
-    return {
-      valid: issues.length === 0,
-      issues,
-    };
-  }
+			// Add entity if preserving links
+			if (options.preserveLinks && linkMatch.url) {
+				entities.push({
+					type: 'text_link',
+					offset: linkMatch.start,
+					length: linkMatch.linkText.length,
+					url: linkMatch.url,
+				});
+			}
+
+			// Adjust offset of entities that come after this link (including other links)
+			entities.forEach(entity => {
+				if (entity.offset > linkMatch.start) {
+					const oldOffset = entity.offset;
+					entity.offset -= linkMatch.lengthDelta;
+					console.log(
+						`   Adjusted entity ${entity.type} offset after link: ${oldOffset} → ${entity.offset}`
+					);
+				}
+			});
+		}
+
+		// Convert headers (h2-h6) to bold text
+		text = text.replace(/^#{2,6} (.+)$/gm, (match, headerText) => {
+			return `*${headerText}*`;
+		});
+
+		// Clean up extra whitespace and newlines
+		text = text.replace(/\n{3,}/g, '\n\n'); // Max 2 consecutive newlines
+		text = text.replace(/^\s+|\s+$/g, ''); // Trim start and end
+
+		// Sort entities by offset
+		entities.sort((a, b) => a.offset - b.offset);
+		console.log(
+			'📊 Entities after sorting:',
+			entities
+				.map(e => `${e.type}[${e.offset}:${e.offset + e.length}]`)
+				.join(', ')
+		);
+
+		return { text, entities };
+	}
+
+	/**
+	 * Truncate text while preserving word boundaries
+	 */
+	private truncateText(text: string, maxLength: number): string {
+		if (text.length <= maxLength) {
+			return text;
+		}
+
+		// Reserve 3 characters for '...'
+		const targetLength = maxLength - 3;
+
+		// Try to truncate at word boundary
+		const truncated = text.substring(0, targetLength);
+		const lastSpaceIndex = truncated.lastIndexOf(' ');
+		const wordBoundaryThreshold = targetLength * 0.8;
+
+		if (lastSpaceIndex > wordBoundaryThreshold) {
+			// If we found a space in the last 20% of the text, truncate there
+			const result = truncated.substring(0, lastSpaceIndex) + '...';
+			return result;
+		} else {
+			// Otherwise just truncate at the limit
+			const result = truncated + '...';
+			return result;
+		}
+	}
+
+	/**
+	 * Process blockquotes (both regular and expandable)
+	 * Groups consecutive blockquote lines into single blocks
+	 */
+	private processBlockquotes(
+		text: string,
+		currentEntities: TelegramMessageEntity[]
+	): { text: string; entities: TelegramMessageEntity[] } {
+		const newEntities: TelegramMessageEntity[] = [];
+		const lines = text.split('\n');
+		const processedLines: string[] = [];
+
+		let i = 0;
+		while (i < lines.length) {
+			const line = lines[i];
+
+			// Check if this line starts a blockquote block
+			const expandableMatch = line.match(/^>\[!\s*[^\]]*\](-?)\s*(.*)$/);
+			const regularMatch = line.match(/^>\s*(.+)$/);
+
+			if (expandableMatch) {
+				// Process expandable blockquote block
+				const isCollapsed = expandableMatch[1] === '-';
+				const firstLineContent = expandableMatch[2];
+				const blockStartOffset =
+					processedLines.join('\n').length +
+					(processedLines.length > 0 ? 1 : 0);
+
+				// Collect all content lines for this blockquote
+				const contentLines: string[] = [];
+				if (firstLineContent.trim()) {
+					contentLines.push(firstLineContent);
+				}
+
+				// Look for following blockquote lines
+				let j = i + 1;
+				while (j < lines.length && lines[j].match(/^>\s*(.*)$/)) {
+					const nextMatch = lines[j].match(/^>\s*(.*)$/);
+					if (nextMatch) {
+						contentLines.push(nextMatch[1]);
+					}
+					j++;
+				}
+
+				const blockContent = contentLines.join('\n');
+				console.log(
+					`🔧 Expandable blockquote (${isCollapsed ? 'collapsed' : 'expanded'}): content="${blockContent}" at offset ${blockStartOffset}`
+				);
+
+				// Process formatting within this blockquote
+				const blockResult = this.processInlineFormatting(blockContent);
+				const processedBlockContent = blockResult.text;
+
+				// Add the processed content to processed lines
+				processedLines.push(processedBlockContent);
+
+				// Add blockquote entity
+				newEntities.push({
+					type: isCollapsed ? 'expandable_blockquote' : 'blockquote',
+					offset: blockStartOffset,
+					length: processedBlockContent.length,
+				});
+
+				// Add inline entities with adjusted offsets
+				blockResult.entities.forEach(entity => {
+					newEntities.push({
+						...entity,
+						offset: blockStartOffset + entity.offset,
+					});
+				});
+
+				// Skip all processed lines
+				i = j;
+			} else if (regularMatch && !expandableMatch) {
+				// Process regular blockquote block
+				const blockStartOffset =
+					processedLines.join('\n').length +
+					(processedLines.length > 0 ? 1 : 0);
+
+				// Collect all content lines for this blockquote
+				const contentLines: string[] = [];
+				let j = i;
+				while (j < lines.length && lines[j].match(/^>\s*(.*)$/)) {
+					const match = lines[j].match(/^>\s*(.*)$/);
+					if (match) {
+						contentLines.push(match[1]);
+					}
+					j++;
+				}
+
+				const blockContent = contentLines.join('\n');
+				console.log(
+					`🔧 Regular blockquote: content="${blockContent}" at offset ${blockStartOffset}`
+				);
+
+				// Process formatting within this blockquote
+				const blockResult = this.processInlineFormatting(blockContent);
+				const processedBlockContent = blockResult.text;
+
+				// Add the processed content to processed lines
+				processedLines.push(processedBlockContent);
+
+				// Add blockquote entity
+				newEntities.push({
+					type: 'blockquote',
+					offset: blockStartOffset,
+					length: processedBlockContent.length,
+				});
+
+				// Add inline entities with adjusted offsets
+				blockResult.entities.forEach(entity => {
+					newEntities.push({
+						...entity,
+						offset: blockStartOffset + entity.offset,
+					});
+				});
+
+				// Skip all processed lines
+				i = j;
+			} else {
+				// Regular line, keep as is
+				processedLines.push(line);
+				i++;
+			}
+		}
+
+		return { text: processedLines.join('\n'), entities: newEntities };
+	}
+
+	/**
+	 * Process inline formatting (bold, italic, spoilers, etc.) within a text block
+	 */
+	private processInlineFormatting(text: string): {
+		text: string;
+		entities: TelegramMessageEntity[];
+	} {
+		let processedText = text;
+		const entities: TelegramMessageEntity[] = [];
+
+		// Use the same patterns as main processing
+		const patterns = [
+			{ regex: /\*\*(.*?)\*\*/g, type: 'bold', removedChars: 4 },
+			{ regex: /__(.*?)__/g, type: 'bold', removedChars: 4 },
+			{ regex: /(?<!\*)\*([^*]+?)\*(?!\*)/g, type: 'italic', removedChars: 2 },
+			{ regex: /(?<!_)_([^_]+?)_(?!_)/g, type: 'italic', removedChars: 2 },
+			{ regex: /`([^`]+?)`/g, type: 'code', removedChars: 2 },
+			{ regex: /~~(.*?)~~/g, type: 'strikethrough', removedChars: 4 },
+			{ regex: /\[([^\]]+?)\](?!\()/g, type: 'spoiler', removedChars: 2 },
+		];
+
+		// Find all matches and sort by position
+		const matches: Array<{
+			type: string;
+			content: string;
+			start: number;
+			end: number;
+			removedChars: number;
+			match: string;
+		}> = [];
+
+		patterns.forEach(pattern => {
+			let match;
+			const regex = new RegExp(pattern.regex);
+			while ((match = regex.exec(processedText)) !== null) {
+				matches.push({
+					type: pattern.type,
+					content: match[1],
+					start: match.index,
+					end: match.index + match[0].length,
+					removedChars: pattern.removedChars,
+					match: match[0],
+				});
+			}
+		});
+
+		// Sort matches by start position
+		matches.sort((a, b) => a.start - b.start);
+
+		// Process matches in order and track offset changes
+		let offsetDelta = 0;
+		for (const match of matches) {
+			const adjustedOffset = match.start - offsetDelta;
+
+			entities.push({
+				type: match.type,
+				offset: adjustedOffset,
+				length: match.content.length,
+			});
+
+			offsetDelta += match.removedChars;
+		}
+
+		// Apply all replacements in one pass (from end to start to avoid offset issues)
+		const sortedMatches = [...matches].sort((a, b) => b.start - a.start);
+		for (const match of sortedMatches) {
+			processedText =
+				processedText.slice(0, match.start) +
+				match.content +
+				processedText.slice(match.end);
+		}
+
+		return { text: processedText, entities };
+	}
+
+	/**
+	 * Check if the text is suitable for Telegram
+	 */
+	validateForTelegram(text: string): { valid: boolean; issues: string[] } {
+		const issues: string[] = [];
+
+		if (text.length > 4096) {
+			issues.push(`Text too long: ${text.length} characters (max 4096)`);
+		}
+
+		if (text.trim().length === 0) {
+			issues.push('Text is empty after conversion');
+		}
+
+		return {
+			valid: issues.length === 0,
+			issues,
+		};
+	}
 }
 
 // Export singleton instance for convenience

@@ -8,9 +8,9 @@ console.error('[kora] server booted');
 const KORA_URL = getMcpUrl(MCP_CONFIG.DEFAULT_PORT);
 
 const server = new McpServer({
-  name:    'kora-obsidian-vault',
-  version: '0.1.0',
-  info: { summary: 'Expose Obsidian vault files through MCP' }
+	name: 'kora-obsidian-vault',
+	version: '0.1.0',
+	info: { summary: 'Expose Obsidian vault files through MCP' },
 });
 
 // 🚀 Автоматическая регистрация всех MCP инструментов из эндпоинтов
@@ -24,12 +24,12 @@ console.error(`[kora] Registered ${summary.length} MCP tools:`, summary);
 // and accessed through the HTTP bridge in the main plugin
 
 async function main() {
-  // 3. Connect the server to the stdio transport
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
+	// 3. Connect the server to the stdio transport
+	const transport = new StdioServerTransport();
+	await server.connect(transport);
 }
 
-main().catch((e) => {
-  console.error(e);
-  // The SDK handles logging errors to stderr, which is visible in Cursor's MCP logs.
-}); 
+main().catch(e => {
+	console.error(e);
+	// The SDK handles logging errors to stderr, which is visible in Cursor's MCP logs.
+});

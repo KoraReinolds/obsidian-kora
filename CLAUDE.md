@@ -109,13 +109,14 @@ The plugin serves these endpoints on localhost:8123:
 The GramJS server runs as a separate Node.js process and provides:
 
 - `POST /send_message` - Send text message via userbot
-- `POST /send_file` - Send file via userbot  
+- `POST /send_file` - Send file via userbot
 - `GET /me` - Get current user info
 - `GET /health` - Health check endpoint
 - `GET /channels` - Get all channels, groups, and chats
 - `GET /messages` - Get messages from specific channel/chat between dates
 
 **Vector Search Endpoints:**
+
 - `POST /vectorize` - Vectorize any content (universal endpoint)
 - `POST /vectorize_messages` - Vectorize Telegram messages from a channel
 - `POST /search` - Search vectorized content with semantic similarity
@@ -129,17 +130,20 @@ The GramJS server runs as a separate Node.js process and provides:
 The plugin includes a comprehensive AI-powered vector search system that can index and search across multiple content types:
 
 **Components:**
+
 - **EmbeddingService** (`gramjs-server/src/embedding-service.ts`): OpenAI embeddings with chunking and averaging
 - **VectorService** (`gramjs-server/src/vector-service.ts`): Qdrant integration with CRUD operations
 - **VectorBridge** (`modules/vector/vector-bridge.ts`): TypeScript interface for vector operations
 - **VectorSettings** (`settings/VectorSettings.ts`): Configuration UI with connection testing
 
 **Supported Content Types:**
+
 - `telegram_post` - Messages from Telegram channels/groups
 - `telegram_comment` - Comments in Telegram chats
 - `obsidian_note` - Notes from Obsidian vault
 
 **Features:**
+
 - Semantic similarity search using cosine distance
 - Content deduplication via hash checking
 - Batch processing for large datasets
@@ -226,6 +230,7 @@ docs/                # Documentation
 ## GramJS Setup
 
 For GramJS userbot setup, see `docs/GRAMJS_SETUP.md` for detailed instructions including:
+
 - Getting Telegram API credentials
 - Running the GramJS server
 - Configuring authentication
@@ -234,6 +239,7 @@ For GramJS userbot setup, see `docs/GRAMJS_SETUP.md` for detailed instructions i
 ## Dependencies
 
 Key dependencies:
+
 - `@modelcontextprotocol/sdk`: MCP protocol implementation
 - `@qdrant/js-client-rest`: Qdrant vector database client
 - `openai`: OpenAI API client for embeddings
@@ -247,6 +253,7 @@ Key dependencies:
 ## Configuration
 
 Settings are managed through:
+
 1. Plugin settings tab in Obsidian
 2. Default settings in `main.ts:26`
 3. Modular setting components in `settings/`
@@ -258,6 +265,7 @@ The plugin automatically handles settings persistence and validation.
 The plugin follows a domain-driven modular architecture for better organization and maintainability:
 
 ### Import Patterns
+
 ```typescript
 // Import from specific modules
 import { VaultOperations, FrontmatterUtils } from './modules/obsidian';
@@ -272,6 +280,7 @@ import { VaultOperations, GramJSBridge, VectorBridge } from './modules';
 ```
 
 ### Module Boundaries
+
 - **obsidian/**: Core Obsidian API interactions and vault operations
 - **telegram/**: All Telegram-related functionality (GramJS, formatting, emojis)
 - **vector/**: Vector search and embedding operations
@@ -280,7 +289,9 @@ import { VaultOperations, GramJSBridge, VectorBridge } from './modules';
 - **chunking/**: Note parsing, chunking, and chunk UI components
 
 ### Extension Guidelines
+
 When adding new features:
+
 1. Identify the appropriate functional domain
 2. Add to existing module or create new module if needed
 3. Update module's index.ts to export new functionality
@@ -289,17 +300,21 @@ When adding new features:
 # Code Development Principles
 
 ## Before Writing Code
+
 1. **Check existing implementations** - Search for similar logic in the codebase first
 2. **Identify reusable patterns** - Look for existing design patterns that match your use case
 3. **Ask when uncertain** - Clarify requirements for any ambiguous situations
 
 ## Code Organization
+
 ### Prefer Universal Functions
+
 - Replace specific functions with generic ones: `getByField1()` → `getBy(field)`
 - Update all existing calls when refactoring to generic functions
 - Design APIs for multiple items even when single item is needed: `getItems()` vs `getItem()`
 
 ### Extract Repeated Logic
+
 - Move duplicate code to shared modules
 - Create utility functions for:
   - Error handling
@@ -308,18 +323,22 @@ When adding new features:
 - Use functional programming patterns where appropriate
 
 ## Design Principles
+
 ### Future-Proof Development
+
 - Write extensible code from the start
 - Implement batch operations even if currently processing single items
 - Apply design patterns proactively for scalability
 - Consider future use cases when designing interfaces
 
 ### Refactoring Priority
+
 - Universality > Backward compatibility
 - DRY (Don't Repeat Yourself) > Quick fixes
 - Composition > Duplication
 
 ## Code Review Checklist
+
 - [ ] Searched for existing similar implementations
 - [ ] Identified opportunities to generalize existing functions
 - [ ] Extracted common logic into reusable utilities

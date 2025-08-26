@@ -1,3 +1,7 @@
 node_modules/
 
 main.js
+
+build/
+gramjs-server/dist/
+mcp-obsidian/

@@ -12,6 +12,10 @@
 		"gramjs-dev": "cd gramjs-server && npm run dev:dual",
 		"dev-all": "concurrently \"npm run dev\" \"npm run watch:mcp\" \"npm run gramjs-dev\" --names \"obsidian,mcp,gramjs\" --prefix-colors \"blue,green,yellow\"",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+		"lint": "eslint . --ext .ts,.js",
+		"lint:fix": "eslint . --ext .ts,.js --fix",
+		"format": "prettier --write .",
+		"format:check": "prettier --check .",
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"test:coverage": "vitest run --coverage",
@@ -29,8 +33,11 @@
 		"builtin-modules": "3.3.0",
 		"concurrently": "^9.2.0",
 		"esbuild": "0.17.3",
+		"eslint-config-prettier": "^10.1.8",
+		"eslint-plugin-prettier": "^5.5.4",
 		"nodemon": "^3.1.10",
 		"obsidian": "latest",
+		"prettier": "^3.6.2",
 		"tslib": "2.4.0",
 		"typescript": "4.7.4",
 		"vitest": "^1.6.1"
@@ -47,37 +54,43 @@
 		"openai": "^4.68.4",
 		"telegram": "^2.22.2",
 		"uuid": "^11.1.0",
-    "zod": "^3.25.67"
-  },
-  "vitest": {
-    "include": [
-      "modules/chunking/__tests__/**/*.spec.ts",
-      "modules/telegram/__tests__/**/*.{test,spec}.ts"
-    ],
-    "exclude": [
-      "mcp-obsidian/**",
-      "gramjs-server/**"
-    ],
-    "environment": "node",
-    "setupFiles": ["modules/telegram/__tests__/setup.ts"],
-    "coverage": {
-      "provider": "v8",
-      "reporter": ["text", "json", "html"],
-      "include": [
-        "modules/telegram/**/*.ts"
-      ],
-      "exclude": [
-        "modules/telegram/__tests__/**",
-        "**/*.d.ts"
-      ],
-      "thresholds": {
-        "global": {
-          "branches": 80,
-          "functions": 80,
-          "lines": 80,
-          "statements": 80
-        }
-      }
-    }
-  }
+		"zod": "^3.25.67"
+	},
+	"vitest": {
+		"include": [
+			"modules/chunking/__tests__/**/*.spec.ts",
+			"modules/telegram/__tests__/**/*.{test,spec}.ts"
+		],
+		"exclude": [
+			"mcp-obsidian/**",
+			"gramjs-server/**"
+		],
+		"environment": "node",
+		"setupFiles": [
+			"modules/telegram/__tests__/setup.ts"
+		],
+		"coverage": {
+			"provider": "v8",
+			"reporter": [
+				"text",
+				"json",
+				"html"
+			],
+			"include": [
+				"modules/telegram/**/*.ts"
+			],
+			"exclude": [
+				"modules/telegram/__tests__/**",
+				"**/*.d.ts"
+			],
+			"thresholds": {
+				"global": {
+					"branches": 80,
+					"functions": 80,
+					"lines": 80,
+					"statements": 80
+				}
+			}
+		}
+	}
 }

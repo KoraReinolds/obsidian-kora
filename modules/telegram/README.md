@@ -9,6 +9,7 @@
 Основной класс для конвертации Markdown заметок в формат, совместимый с Telegram API.
 
 #### Возможности:
+
 - ✅ Удаление frontmatter из заметок
 - ✅ Удаление H1 заголовков
 - ✅ Конвертация MD форматирования в Telegram entities
@@ -40,11 +41,11 @@ console.log(result.entities); // Массив Telegram entities для форм�
 
 ```typescript
 interface ConversionOptions {
-  removeFrontmatter?: boolean;   // По умолчанию: true
-  removeH1Headers?: boolean;     // По умолчанию: true  
-  maxLength?: number;           // По умолчанию: 4096
-  preserveCodeBlocks?: boolean; // По умолчанию: true
-  preserveLinks?: boolean;      // По умолчанию: true
+	removeFrontmatter?: boolean; // По умолчанию: true
+	removeH1Headers?: boolean; // По умолчанию: true
+	maxLength?: number; // По умолчанию: 4096
+	preserveCodeBlocks?: boolean; // По умолчанию: true
+	preserveLinks?: boolean; // По умолчанию: true
 }
 ```
 
@@ -71,7 +72,7 @@ getMarkdownConverter(): MarkdownToTelegramConverter
 import { MessageFormatter } from './modules/telegram';
 
 const formatter = new MessageFormatter();
-const result = formatter.formatMarkdownNote("My Note.md", markdownContent);
+const result = formatter.formatMarkdownNote('My Note.md', markdownContent);
 
 // result.text будет содержать: "📝 *My Note.md*\n\nконвертированный текст"
 // result.entities будет содержать entities с правильными offset'ами
@@ -79,18 +80,18 @@ const result = formatter.formatMarkdownNote("My Note.md", markdownContent);
 
 ## Поддерживаемые Markdown элементы
 
-| Markdown | Telegram Result | Entity Type |
-|----------|----------------|-------------|
-| `**bold**` | bold text | `bold` |
-| `*italic*` | italic text | `italic` |
-| `__bold__` | bold text | `bold` |
-| `_italic_` | italic text | `italic` |
-| `` `code` `` | code text | `code` |
-| `~~strike~~` | strike text | `strikethrough` |
-| `[text](url)` | text | `text_link` |
-| `# Header` | (удаляется) | - |
-| `## Header` | **Header** | `bold` |
-| ` ```code``` ` | code | `pre` |
+| Markdown       | Telegram Result | Entity Type     |
+| -------------- | --------------- | --------------- |
+| `**bold**`     | bold text       | `bold`          |
+| `*italic*`     | italic text     | `italic`        |
+| `__bold__`     | bold text       | `bold`          |
+| `_italic_`     | italic text     | `italic`        |
+| `` `code` ``   | code text       | `code`          |
+| `~~strike~~`   | strike text     | `strikethrough` |
+| `[text](url)`  | text            | `text_link`     |
+| `# Header`     | (удаляется)     | -               |
+| `## Header`    | **Header**      | `bold`          |
+| ` ```code``` ` | code            | `pre`           |
 
 ## Ограничения и особенности
 
@@ -108,7 +109,6 @@ const result = formatter.formatMarkdownNote("My Note.md", markdownContent);
 - `gramjs-bridge.ts` - Мост для GramJS
 - `image-utils.ts` - Утилиты для изображений
 - `index.ts` - Экспорты модуля
-
 
 ## Интеграция с существующим кодом
 

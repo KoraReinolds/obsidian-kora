@@ -13,7 +13,9 @@ export class DuplicateTimeFixer {
 	/**
 	 * Находит все заметки с одинаковым временем создания из поля date created в frontmatter
 	 */
-	async findDuplicateCreationTimes(): Promise<{ [dateCreated: string]: TFile[] }> {
+	async findDuplicateCreationTimes(): Promise<{
+		[dateCreated: string]: TFile[];
+	}> {
 		const files = this.app.vault.getMarkdownFiles();
 		const timeMap: { [dateCreated: string]: TFile[] } = {};
 
@@ -47,13 +49,15 @@ export class DuplicateTimeFixer {
 	/**
 	 * Исправляет дубликаты времени создания, добавляя случайные секунды
 	 */
-	async fixDuplicateCreationTimes(dryRun: boolean = false): Promise<DuplicateTimeResult> {
+	async fixDuplicateCreationTimes(
+		dryRun = false
+	): Promise<DuplicateTimeResult> {
 		const duplicateGroups = await this.findDuplicateCreationTimes();
 		const result: DuplicateTimeResult = {
 			duplicateGroups,
 			totalDuplicates: 0,
 			fixed: 0,
-			errors: []
+			errors: [],
 		};
 
 		// Подсчитываем общее количество дубликатов
@@ -66,9 +70,14 @@ export class DuplicateTimeFixer {
 		}
 
 		// Исправляем дубликаты
-		for (const [originalDateCreated, files] of Object.entries(duplicateGroups)) {
-      // @ts-ignore
-      const originalMoment = moment(originalDateCreated, "dddd, MMMM Do YYYY, h:mm:ss a");
+		for (const [originalDateCreated, files] of Object.entries(
+			duplicateGroups
+		)) {
+			// @ts-ignore
+			const originalMoment = moment(
+				originalDateCreated,
+				'dddd, MMMM Do YYYY, h:mm:ss a'
+			);
 
 			// Оставляем первый файл с оригинальным временем, остальные изменяем
 			for (let i = 1; i < files.length; i++) {
@@ -77,19 +86,23 @@ export class DuplicateTimeFixer {
 					if (!dryRun) {
 						// Генерируем новое время: оригинальное + случайное количество секунд (1-300)
 						const randomSeconds = Math.floor(Math.random() * 300) + 1;
-            const newMoment = originalMoment.clone().add(randomSeconds, 'seconds');
-            // Вернуть в исходный формат
-            const formattedDate = newMoment.format("dddd, MMMM Do YYYY, h:mm:ss a");	
-            // @ts-ignore
-            window.app.fileManager.processFrontMatter(file, (frontmatter) => {
-              frontmatter['date created'] = formattedDate;
-            });
+						const newMoment = originalMoment
+							.clone()
+							.add(randomSeconds, 'seconds');
+						// Вернуть в исходный формат
+						const formattedDate = newMoment.format(
+							'dddd, MMMM Do YYYY, h:mm:ss a'
+						);
+						// @ts-ignore
+						window.app.fileManager.processFrontMatter(file, frontmatter => {
+							frontmatter['date created'] = formattedDate;
+						});
 					}
 					result.fixed++;
 				} catch (error) {
 					result.errors.push({
 						file: file.path,
-						error: error instanceof Error ? error.message : String(error)
+						error: error instanceof Error ? error.message : String(error),
 					});
 				}
 			}
@@ -101,8 +114,11 @@ export class DuplicateTimeFixer {
 	/**
 	 * Обновляет время создания файла через поле date created в frontmatter
 	 */
-	private async updateFileCreationTime(file: TFile, newDate: string): Promise<void> {
-		await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
+	private async updateFileCreationTime(
+		file: TFile,
+		newDate: string
+	): Promise<void> {
+		await this.app.fileManager.processFrontMatter(file, frontmatter => {
 			// Обновляем поле date created в frontmatter
 			frontmatter['date created'] = newDate;
 		});
@@ -113,10 +129,14 @@ export class DuplicateTimeFixer {
 	 */
 	generateReport(result: DuplicateTimeResult): string {
 		const lines: string[] = [];
-		
+
 		lines.push(`# Отчет о дубликатах времени создания`);
-		lines.push(`Найдено групп дубликатов: ${Object.keys(result.duplicateGroups).length}`);
-		lines.push(`Общее количество файлов с дубликатами: ${result.totalDuplicates}`);
+		lines.push(
+			`Найдено групп дубликатов: ${Object.keys(result.duplicateGroups).length}`
+		);
+		lines.push(
+			`Общее количество файлов с дубликатами: ${result.totalDuplicates}`
+		);
 		lines.push(`Исправлено: ${result.fixed}`);
 		lines.push(`Ошибки: ${result.errors.length}`);
 		lines.push('');
@@ -125,7 +145,9 @@ export class DuplicateTimeFixer {
 			lines.push('## Найденные дубликаты:');
 			lines.push('');
 
-			for (const [dateCreated, files] of Object.entries(result.duplicateGroups)) {
+			for (const [dateCreated, files] of Object.entries(
+				result.duplicateGroups
+			)) {
 				const date = new Date(dateCreated);
 				lines.push(`### ${date.toLocaleString()} (${dateCreated})`);
 				for (const file of files) {

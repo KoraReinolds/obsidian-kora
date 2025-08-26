@@ -9,16 +9,18 @@ import { getConfig } from '../services/config-service.js';
 import { getCurrentStrategy } from '../services/strategy-service.js';
 
 export function registerHealthRoutes(app: Express): void {
-  app.get('/health', (req: Request, res: Response) => {
-    const cfg = getConfig();
-    const strategy = getCurrentStrategy();
-    res.json({
-      status: 'ok',
-      connected: strategy ? strategy.isClientConnected() : false,
-      mode: strategy ? strategy.getMode() : null,
-      configuredMode: cfg.mode,
-      strategyInfo: strategy ? StrategyFactory.getStrategyInfo(strategy.getMode()) : null,
-      timestamp: new Date().toISOString(),
-    });
-  });
+	app.get('/health', (req: Request, res: Response) => {
+		const cfg = getConfig();
+		const strategy = getCurrentStrategy();
+		res.json({
+			status: 'ok',
+			connected: strategy ? strategy.isClientConnected() : false,
+			mode: strategy ? strategy.getMode() : null,
+			configuredMode: cfg.mode,
+			strategyInfo: strategy
+				? StrategyFactory.getStrategyInfo(strategy.getMode())
+				: null,
+			timestamp: new Date().toISOString(),
+		});
+	});
 }

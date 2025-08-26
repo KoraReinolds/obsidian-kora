@@ -5,12 +5,17 @@ import { FrontmatterUtils } from '../../obsidian';
 
 const FrontmatterUpdateSchema = z.object({
 	files: z.array(z.string()).describe('Array of file paths to update.'),
-	frontmatter: z.record(z.any()).describe('JSON object with frontmatter keys and values to set.'),
+	frontmatter: z
+		.record(z.any())
+		.describe('JSON object with frontmatter keys and values to set.'),
 });
 
 type FrontmatterUpdateInput = z.infer<typeof FrontmatterUpdateSchema>;
 
-export class FrontmatterUpdateEndpoint extends BaseEndpoint<FrontmatterUpdateInput, any> {
+export class FrontmatterUpdateEndpoint extends BaseEndpoint<
+	FrontmatterUpdateInput,
+	any
+> {
 	path = '/frontmatter';
 	method = 'POST' as const;
 	description = 'Create or update frontmatter for a list of files';

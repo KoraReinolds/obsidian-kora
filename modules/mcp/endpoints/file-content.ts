@@ -13,7 +13,10 @@ interface FileContentOutput {
 	content: string;
 }
 
-export class FileContentEndpoint extends BaseEndpoint<FileContentInput, FileContentOutput> {
+export class FileContentEndpoint extends BaseEndpoint<
+	FileContentInput,
+	FileContentOutput
+> {
 	path = '/file_content';
 	method = 'POST' as const;
 	description = 'Return raw markdown content of a specified file';
@@ -22,7 +25,7 @@ export class FileContentEndpoint extends BaseEndpoint<FileContentInput, FileCont
 
 	async handler(app: App, input: FileContentInput): Promise<FileContentOutput> {
 		const { file } = input;
-		
+
 		const abstract = app.vault.getAbstractFileByPath(file);
 		if (!(abstract instanceof TFile)) {
 			throw new Error('File not found');

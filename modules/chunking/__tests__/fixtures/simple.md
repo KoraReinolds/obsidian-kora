@@ -12,4 +12,3 @@ Olive oil is healthy.
 ## Proteins
 
 Eggs are complete.
-

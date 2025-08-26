@@ -4,8 +4,8 @@
  * Main entry point for MCP plugin settings tab.
  * Assembles modular settings sections: server, telegram, GramJS, custom emojis.
  */
-import { App, PluginSettingTab } from "obsidian";
-import KoraPlugin from "../main";
+import { App, PluginSettingTab } from 'obsidian';
+import KoraPlugin from '../main';
 
 /**
  * Settings tab for the MCP plugin, assembling all modular sections.
@@ -23,6 +23,8 @@ export class McpSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 		containerEl.createEl('h2', { text: 'Kora Settings' });
-		containerEl.createEl('p', { text: 'Settings are now split into separate tabs: MCP Server, Telegram, Vector.' });
+		containerEl.createEl('p', {
+			text: 'Settings are now split into separate tabs: MCP Server, Telegram, Vector.',
+		});
 	}
 }

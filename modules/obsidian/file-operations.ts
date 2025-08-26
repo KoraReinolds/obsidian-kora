@@ -4,7 +4,6 @@
 
 import { App, TFile } from 'obsidian';
 
-
 /**
  * Options for getMarkdownFiles function
  */
@@ -28,7 +27,7 @@ function matchesPattern(path: string, pattern: string): boolean {
 		.replace(/\*\*/g, '__DOUBLE_STAR__') // Temporary placeholder for **
 		.replace(/\*/g, '[^/]*') // * matches any characters except /
 		.replace(/__DOUBLE_STAR__/g, '.*'); // ** matches any directories
-	
+
 	const regex = new RegExp(`^${regexPattern}$`);
 	return regex.test(path);
 }
@@ -37,11 +36,11 @@ function matchesPattern(path: string, pattern: string): boolean {
  * Checks include pattern: if pattern has wildcards, use glob matching; otherwise use simple substring search.
  */
 function matchesInclude(path: string, pattern: string): boolean {
-    const hasWildcard = pattern.includes('*');
-    if (hasWildcard) {
-        return matchesPattern(path, pattern);
-    }
-    return path.includes(pattern);
+	const hasWildcard = pattern.includes('*');
+	if (hasWildcard) {
+		return matchesPattern(path, pattern);
+	}
+	return path.includes(pattern);
 }
 
 /**
@@ -49,16 +48,16 @@ function matchesInclude(path: string, pattern: string): boolean {
  * @param app The Obsidian application instance.
  * @param options Optional parameters for filtering and content inclusion.
  * @returns An array of markdown file data.
- * 
+ *
  * Note: Use 'include' with glob patterns instead of folderPath for folder filtering.
  * Example: include: ['Notes/**', 'Projects/*.md'] for files in Notes folder and md files in Projects folder.
  */
 export function getMarkdownFiles(
-	app: App, 
+	app: App,
 	options?: GetMarkdownFilesOptions
 ): TFile[] {
 	const files = app.vault.getMarkdownFiles();
-	
+
 	// Start with all files
 	let filteredFiles = files;
 
@@ -71,13 +70,11 @@ export function getMarkdownFiles(
 
 	// Apply exclude filter if provided
 	if (options?.exclude && options.exclude.length > 0) {
-		filteredFiles = filteredFiles.filter(file => 
-			!options.exclude!.some(pattern => matchesInclude(file.path, pattern))
+		filteredFiles = filteredFiles.filter(
+			file =>
+				!options.exclude!.some(pattern => matchesInclude(file.path, pattern))
 		);
 	}
-	
+
 	return filteredFiles;
 }
-
-
-

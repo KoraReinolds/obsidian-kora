@@ -12,7 +12,13 @@
  * - table: Markdown table block
  * - quote: Blockquote (>
  */
-export type ChunkType = 'paragraph' | 'list_item' | 'list_group' | 'code' | 'table' | 'quote';
+export type ChunkType =
+	| 'paragraph'
+	| 'list_item'
+	| 'list_group'
+	| 'code'
+	| 'table'
+	| 'quote';
 
 /**
  * Detailed metadata persisted alongside each chunk for search and traceability.
@@ -27,39 +33,39 @@ export type ChunkType = 'paragraph' | 'list_item' | 'list_group' | 'code' | 'tab
  * - obsidian: Source path and optional tags/aliases
  */
 export interface ChunkPayloadMeta {
-  originalId: string;
-  chunkId: string;
-  noteHash: string;
-  contentHash: string;
-  contentType: 'obsidian_note';
-  chunkType: ChunkType;
-  section: string;
-  headingsPath: string[];
-  parentItemText?: string;
-  obsidian: {
-    path: string;
-    tags?: string[];
-    aliases?: string[];
-  };
-  createdAtTs?: number;
-  updatedAtTs?: number;
+	originalId: string;
+	chunkId: string;
+	noteHash: string;
+	contentHash: string;
+	contentType: 'obsidian_note';
+	chunkType: ChunkType;
+	section: string;
+	headingsPath: string[];
+	parentItemText?: string;
+	obsidian: {
+		path: string;
+		tags?: string[];
+		aliases?: string[];
+	};
+	createdAtTs?: number;
+	updatedAtTs?: number;
 }
 
 /**
  * A single content unit extracted from a note.
  * - contentRaw: Raw block text as parsed (may include code fences, bullets, etc.)
  * - meta: Rich metadata enabling navigation, deduplication, and search
-*/
+ */
 export interface Chunk {
-  chunkId: string;
-  chunkType: ChunkType;
-  headingsPath: string[];
-  section: string;
-  parentItemText?: string;
-  contentRaw: string;
-  meta: ChunkPayloadMeta;
-  // Optional position info for editor mapping
-  position?: import('./cache-types').TGap;
+	chunkId: string;
+	chunkType: ChunkType;
+	headingsPath: string[];
+	section: string;
+	parentItemText?: string;
+	contentRaw: string;
+	meta: ChunkPayloadMeta;
+	// Optional position info for editor mapping
+	position?: import('./cache-types').TGap;
 }
 
 /**
@@ -69,11 +75,11 @@ export interface Chunk {
  * - tags/aliases: Optional Obsidian note attributes
  */
 export interface ChunkNoteContext {
-  notePath: string;
-  originalId: string;
-  frontmatter?: Record<string, any>;
-  tags?: string[];
-  aliases?: string[];
+	notePath: string;
+	originalId: string;
+	frontmatter?: Record<string, any>;
+	tags?: string[];
+	aliases?: string[];
 }
 
 /**
@@ -84,11 +90,9 @@ export interface ChunkNoteContext {
  * - maxChunksSoft: Soft cap on returned chunks for UI/perf (default 50)
  */
 export interface ChunkOptions {
-  longParagraphWordThreshold?: number;
-  listShortCharThreshold?: number;
-  listGroupMin?: number;
-  listGroupMax?: number;
-  maxChunksSoft?: number;
+	longParagraphWordThreshold?: number;
+	listShortCharThreshold?: number;
+	listGroupMin?: number;
+	listGroupMax?: number;
+	maxChunksSoft?: number;
 }
-
-

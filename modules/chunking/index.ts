@@ -10,5 +10,3 @@ export * from './model/parser-types.js';
 export * from './model/cache-blocks.js';
 export * from './model/cache-types.js';
 export * from './model/obsidian-cache.js';
-
-

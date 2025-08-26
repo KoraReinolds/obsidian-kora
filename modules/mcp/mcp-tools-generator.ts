@@ -8,7 +8,7 @@ export class McpToolsGenerator {
 	 */
 	static registerAllTools(server: McpServer, baseUrl?: string): void {
 		const url = baseUrl || getMcpUrl(MCP_CONFIG.DEFAULT_PORT);
-		
+
 		for (const endpoint of ALL_ENDPOINTS) {
 			server.registerTool(
 				endpoint.toolName,
@@ -16,12 +16,14 @@ export class McpToolsGenerator {
 					description: endpoint.description,
 					inputSchema: endpoint.inputSchema,
 				},
-				async (input) => {
+				async input => {
 					return await endpoint.mcpTool(url, input);
 				}
 			);
-			
-			console.log(`✅ Registered MCP tool: ${endpoint.toolName} -> ${endpoint.path}`);
+
+			console.log(
+				`✅ Registered MCP tool: ${endpoint.toolName} -> ${endpoint.path}`
+			);
 		}
 	}
 

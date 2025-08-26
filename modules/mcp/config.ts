@@ -3,7 +3,7 @@ export const MCP_CONFIG = {
 	BASE_URL: '127.0.0.1',
 } as const;
 
-export const getMcpUrl = (port: number = MCP_CONFIG.DEFAULT_PORT) => 
+export const getMcpUrl = (port: number = MCP_CONFIG.DEFAULT_PORT) =>
 	`http://${MCP_CONFIG.BASE_URL}:${port}`;
 
 export const MCP_ENDPOINTS = {

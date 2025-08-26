@@ -19,6 +19,7 @@ The folder-based Telegram posting system allows you to configure different Teleg
 ### Channel Configuration
 
 For each folder, you can add multiple channels:
+
 - **Channel Name**: Display name shown on the posting button
 - **Channel ID**: Telegram channel ID (e.g., `@mychannel` or `-1001234567890`)
 
@@ -27,6 +28,7 @@ For each folder, you can add multiple channels:
 ### Button Display Logic
 
 Telegram posting buttons only appear for files that are located in configured folders:
+
 - Files in configured folders → Show buttons for that folder's channels
 - Files outside configured folders → No Telegram buttons (use GramJS commands if needed)
 - No configuration → No Telegram buttons
@@ -37,8 +39,8 @@ The system uses a simple frontmatter structure:
 
 ```yaml
 post_ids:
-  "@mychannel": 123
-  "-1001234567890": 456
+  '@mychannel': 123
+  '-1001234567890': 456
 ```
 
 The `post_ids` object maps channel IDs to message IDs for tracking published posts.
@@ -53,11 +55,13 @@ This allows you to use official Telegram bots for folder-based posting, while Gr
 ## Button Behavior
 
 ### New Post
+
 - Button shows `📤 Channel Name`
 - Posts new message to Telegram
 - Saves message ID to `post_ids`
 
 ### Update Existing Post
+
 - Button shows `✏️ Channel Name`
 - Updates existing Telegram message
 - Uses saved message ID from `post_ids`
@@ -101,22 +105,25 @@ Channels:
 5. Frontmatter gets updated with:
    ```yaml
    post_ids:
-     "@myblog": 123
+     '@myblog': 123
    ```
 
 ## Troubleshooting
 
 ### Buttons Not Appearing
+
 - Check if file is in a configured folder
 - Verify folder path matches exactly
 - Ensure bot token is configured
 
 ### Posting Errors
+
 - Verify bot token is valid
 - Check if bot has admin permissions in the channel
 - Confirm channel ID format is correct
 
 ### Common Issues
+
 - Ensure bot has admin permissions in channels
 - Verify folder paths match exactly (case sensitive)
 - Check that bot tokens are correctly configured

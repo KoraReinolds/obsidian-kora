@@ -4,18 +4,21 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
-import { MarkdownToTelegramConverter, ConversionOptions } from '../markdown-to-telegram-converter';
+import {
+	MarkdownToTelegramConverter,
+	ConversionOptions,
+} from '../markdown-to-telegram-converter';
 
 describe('MarkdownToTelegramConverter - Integration Tests', () => {
-  let converter: MarkdownToTelegramConverter;
+	let converter: MarkdownToTelegramConverter;
 
-  beforeEach(() => {
-    converter = new MarkdownToTelegramConverter();
-  });
+	beforeEach(() => {
+		converter = new MarkdownToTelegramConverter();
+	});
 
-  describe('Real Obsidian Notes', () => {
-    test('should handle daily note format', () => {
-      const dailyNote = `---
+	describe('Real Obsidian Notes', () => {
+		test('should handle daily note format', () => {
+			const dailyNote = `---
 date: 2024-01-15
 tags: [daily, work]
 ---
@@ -56,31 +59,31 @@ Sometimes I think [this project] will never end 😅
 
 **EOD**: Good progress today!`;
 
-      const result = converter.convert(dailyNote);
-      
-      // Should remove frontmatter and H1
-      expect(result.text).not.toContain('---');
-      expect(result.text).not.toContain('# Daily Note');
-      
-      // Should preserve content structure
-      expect(result.text).toContain('Morning Tasks ✅');
-      expect(result.text).toContain('Team Standup (9:00 AM)');
-      
-      // Should have multiple entity types
-      const entityTypes = new Set(result.entities.map(e => e.type));
-      expect(entityTypes.has('expandable_blockquote')).toBe(true);
-      expect(entityTypes.has('blockquote')).toBe(true);
-      expect(entityTypes.has('bold')).toBe(true);
-      expect(entityTypes.has('italic')).toBe(true);
-      expect(entityTypes.has('code')).toBe(true);
-      expect(entityTypes.has('pre')).toBe(true);
-      expect(entityTypes.has('spoiler')).toBe(true);
-      expect(entityTypes.has('text_link')).toBe(true);
-      expect(entityTypes.has('strikethrough')).toBe(true);
-    });
+			const result = converter.convert(dailyNote);
 
-    test('should handle research note with citations', () => {
-      const researchNote = `## Literature Review
+			// Should remove frontmatter and H1
+			expect(result.text).not.toContain('---');
+			expect(result.text).not.toContain('# Daily Note');
+
+			// Should preserve content structure
+			expect(result.text).toContain('Morning Tasks ✅');
+			expect(result.text).toContain('Team Standup (9:00 AM)');
+
+			// Should have multiple entity types
+			const entityTypes = new Set(result.entities.map(e => e.type));
+			expect(entityTypes.has('expandable_blockquote')).toBe(true);
+			expect(entityTypes.has('blockquote')).toBe(true);
+			expect(entityTypes.has('bold')).toBe(true);
+			expect(entityTypes.has('italic')).toBe(true);
+			expect(entityTypes.has('code')).toBe(true);
+			expect(entityTypes.has('pre')).toBe(true);
+			expect(entityTypes.has('spoiler')).toBe(true);
+			expect(entityTypes.has('text_link')).toBe(true);
+			expect(entityTypes.has('strikethrough')).toBe(true);
+		});
+
+		test('should handle research note with citations', () => {
+			const researchNote = `## Literature Review
 
 ### Key Papers
 
@@ -105,25 +108,25 @@ def calculate_accuracy(predictions, targets):
 >- *Limited* to [English texts] only
 >- ~~No control group~~ (addressed in v2)`;
 
-      const result = converter.convert(researchNote);
-      
-      expect(result.text).toContain('Literature Review');
-      expect(result.text).toContain('Key Papers');
-      expect(result.text).toContain('Calculate prediction accuracy');
-      
-      // Check entities are properly positioned
-      const linkEntities = result.entities.filter(e => e.type === 'text_link');
-      expect(linkEntities.length).toBeGreaterThan(0);
-      
-      const codeEntities = result.entities.filter(e => e.type === 'code');
-      expect(codeEntities.length).toBeGreaterThan(0);
-      
-      const preEntities = result.entities.filter(e => e.type === 'pre');
-      expect(preEntities.length).toBeGreaterThan(0);
-    });
+			const result = converter.convert(researchNote);
 
-    test('should handle tutorial with steps', () => {
-      const tutorial = `# How to Setup Development Environment
+			expect(result.text).toContain('Literature Review');
+			expect(result.text).toContain('Key Papers');
+			expect(result.text).toContain('Calculate prediction accuracy');
+
+			// Check entities are properly positioned
+			const linkEntities = result.entities.filter(e => e.type === 'text_link');
+			expect(linkEntities.length).toBeGreaterThan(0);
+
+			const codeEntities = result.entities.filter(e => e.type === 'code');
+			expect(codeEntities.length).toBeGreaterThan(0);
+
+			const preEntities = result.entities.filter(e => e.type === 'pre');
+			expect(preEntities.length).toBeGreaterThan(0);
+		});
+
+		test('should handle tutorial with steps', () => {
+			const tutorial = `# How to Setup Development Environment
 
 ## Prerequisites
 
@@ -179,25 +182,33 @@ DEBUG=true
 >~~Don't use~~ \`sudo npm install\` globally!
 >Use *node version managers* instead.`;
 
-      const result = converter.convert(tutorial);
-      
-      // Should structure content properly
-      expect(result.text).toContain('Prerequisites');
-      expect(result.text).toContain('Step-by-Step Guide');
-      expect(result.text).toContain('git clone');
-      expect(result.text).toContain('Common Issues');
-      
-      // Should have appropriate entities
-      expect(result.entities.some(e => e.type === 'pre' && e.language === 'bash')).toBe(true);
-      expect(result.entities.some(e => e.type === 'pre' && e.language === 'env')).toBe(true);
-      expect(result.entities.filter(e => e.type === 'expandable_blockquote').length).toBeGreaterThan(0);
-      expect(result.entities.filter(e => e.type === 'blockquote').length).toBeGreaterThan(0);
-    });
-  });
+			const result = converter.convert(tutorial);
 
-  describe('Different Content Types', () => {
-    test('should handle mathematical notation', () => {
-      const mathNote = `## Linear Algebra
+			// Should structure content properly
+			expect(result.text).toContain('Prerequisites');
+			expect(result.text).toContain('Step-by-Step Guide');
+			expect(result.text).toContain('git clone');
+			expect(result.text).toContain('Common Issues');
+
+			// Should have appropriate entities
+			expect(
+				result.entities.some(e => e.type === 'pre' && e.language === 'bash')
+			).toBe(true);
+			expect(
+				result.entities.some(e => e.type === 'pre' && e.language === 'env')
+			).toBe(true);
+			expect(
+				result.entities.filter(e => e.type === 'expandable_blockquote').length
+			).toBeGreaterThan(0);
+			expect(
+				result.entities.filter(e => e.type === 'blockquote').length
+			).toBeGreaterThan(0);
+		});
+	});
+
+	describe('Different Content Types', () => {
+		test('should handle mathematical notation', () => {
+			const mathNote = `## Linear Algebra
 
 ### Vectors
 
@@ -217,20 +228,22 @@ v = [v₁, v₂, ..., vₙ]
 - **Rows** × *Columns*
 - Result: [m×n] matrix`;
 
-      const result = converter.convert(mathNote);
-      
-      expect(result.text).toContain('Linear Algebra');
-      expect(result.text).toContain('ℝⁿ');
-      expect(result.text).toContain('v₁, v₂');
-      expect(result.text).toContain('Σ(aᵢ × bᵢ)');
-      
-      // Math content should be preserved with proper formatting
-      const preEntity = result.entities.find(e => e.type === 'pre' && e.language === 'math');
-      expect(preEntity).toBeDefined();
-    });
+			const result = converter.convert(mathNote);
 
-    test('should handle code documentation', () => {
-      const codeDoc = `## API Documentation
+			expect(result.text).toContain('Linear Algebra');
+			expect(result.text).toContain('ℝⁿ');
+			expect(result.text).toContain('v₁, v₂');
+			expect(result.text).toContain('Σ(aᵢ × bᵢ)');
+
+			// Math content should be preserved with proper formatting
+			const preEntity = result.entities.find(
+				e => e.type === 'pre' && e.language === 'math'
+			);
+			expect(preEntity).toBeDefined();
+		});
+
+		test('should handle code documentation', () => {
+			const codeDoc = `## API Documentation
 
 ### Authentication
 
@@ -286,61 +299,72 @@ const response = await fetch('/auth/login', {
 >This endpoint is limited to **5 requests** per *minute* per IP.
 >Exceeded requests will return [429 Too Many Requests].`;
 
-      const result = converter.convert(codeDoc);
-      
-      expect(result.text).toContain('API Documentation');
-      expect(result.text).toContain('POST /auth/login');
-      expect(result.text).toContain('Content-Type: application/json');
-      
-      // Should have multiple code blocks with different languages
-      const jsonBlocks = result.entities.filter(e => e.type === 'pre' && e.language === 'json');
-      const bashBlocks = result.entities.filter(e => e.type === 'pre' && e.language === 'bash');
-      const jsBlocks = result.entities.filter(e => e.type === 'pre' && e.language === 'javascript');
-      
-      expect(jsonBlocks.length).toBeGreaterThan(0);
-      expect(bashBlocks.length).toBeGreaterThan(0);
-      expect(jsBlocks.length).toBeGreaterThan(0);
-    });
-  });
+			const result = converter.convert(codeDoc);
 
-  describe('Configuration Combinations', () => {
-    test('should work with minimal configuration', () => {
-      const options: ConversionOptions = {
-        removeFrontmatter: false,
-        removeH1Headers: false,
-        preserveCodeBlocks: false,
-        preserveLinks: false
-      };
+			expect(result.text).toContain('API Documentation');
+			expect(result.text).toContain('POST /auth/login');
+			expect(result.text).toContain('Content-Type: application/json');
 
-      const result = converter.convert('# Title\n**Bold** [text](url) \`code\`', options);
-      
-      expect(result.text).toContain('# Title');
-      expect(result.text).toContain('text'); // Link text preserved
-      expect(result.text).toContain('code'); // Code content preserved
-      expect(result.entities.some(e => e.type === 'text_link')).toBe(false);
-      expect(result.entities.some(e => e.type === 'pre')).toBe(false);
-    });
+			// Should have multiple code blocks with different languages
+			const jsonBlocks = result.entities.filter(
+				e => e.type === 'pre' && e.language === 'json'
+			);
+			const bashBlocks = result.entities.filter(
+				e => e.type === 'pre' && e.language === 'bash'
+			);
+			const jsBlocks = result.entities.filter(
+				e => e.type === 'pre' && e.language === 'javascript'
+			);
 
-    test('should work with maximal configuration', () => {
-      const options: ConversionOptions = {
-        removeFrontmatter: true,
-        removeH1Headers: true,
-        preserveCodeBlocks: true,
-        preserveLinks: true,
-        maxLength: 2000
-      };
+			expect(jsonBlocks.length).toBeGreaterThan(0);
+			expect(bashBlocks.length).toBeGreaterThan(0);
+			expect(jsBlocks.length).toBeGreaterThan(0);
+		});
+	});
 
-      const longContent = Array(100).fill('**Bold** *italic* `code` [link](url)').join('\n');
-      const result = converter.convert(longContent, options);
-      
-      expect(result.entities.length).toBeGreaterThan(0);
-      expect(result.text.length).toBeLessThanOrEqual(2000);
-    });
-  });
+	describe('Configuration Combinations', () => {
+		test('should work with minimal configuration', () => {
+			const options: ConversionOptions = {
+				removeFrontmatter: false,
+				removeH1Headers: false,
+				preserveCodeBlocks: false,
+				preserveLinks: false,
+			};
 
-  describe('Entity Validation', () => {
-    test('should maintain entity integrity across complex transformations', () => {
-      const complex = `>[! multi]- Complex Test
+			const result = converter.convert(
+				'# Title\n**Bold** [text](url) \`code\`',
+				options
+			);
+
+			expect(result.text).toContain('# Title');
+			expect(result.text).toContain('text'); // Link text preserved
+			expect(result.text).toContain('code'); // Code content preserved
+			expect(result.entities.some(e => e.type === 'text_link')).toBe(false);
+			expect(result.entities.some(e => e.type === 'pre')).toBe(false);
+		});
+
+		test('should work with maximal configuration', () => {
+			const options: ConversionOptions = {
+				removeFrontmatter: true,
+				removeH1Headers: true,
+				preserveCodeBlocks: true,
+				preserveLinks: true,
+				maxLength: 2000,
+			};
+
+			const longContent = Array(100)
+				.fill('**Bold** *italic* `code` [link](url)')
+				.join('\n');
+			const result = converter.convert(longContent, options);
+
+			expect(result.entities.length).toBeGreaterThan(0);
+			expect(result.text.length).toBeLessThanOrEqual(2000);
+		});
+	});
+
+	describe('Entity Validation', () => {
+		test('should maintain entity integrity across complex transformations', () => {
+			const complex = `>[! multi]- Complex Test
 >**Bold with *nested italic* and \`code\`**
 >
 >Regular text with [spoiler]
@@ -352,84 +376,95 @@ const response = await fetch('/auth/login', {
 
 Outside text with **bold** and *italic*`;
 
-      const result = converter.convert(complex);
-      
-      // Validate all entities are within text bounds
-      result.entities.forEach(entity => {
-        expect(entity.offset).toBeGreaterThanOrEqual(0);
-        expect(entity.offset + entity.length).toBeLessThanOrEqual(result.text.length);
-        
-        // Validate entity text makes sense
-        const entityText = result.text.substring(entity.offset, entity.offset + entity.length);
-        expect(entityText).toBeTruthy();
-        expect(entityText.trim()).toBeTruthy();
-      });
+			const result = converter.convert(complex);
 
-      // Check for overlapping entities (except nested ones)
-      const sortedEntities = [...result.entities].sort((a, b) => a.offset - b.offset);
-      for (let i = 0; i < sortedEntities.length - 1; i++) {
-        const current = sortedEntities[i];
-        const next = sortedEntities[i + 1];
-        
-        // Either no overlap, or complete nesting
-        const noOverlap = current.offset + current.length <= next.offset;
-        const completeNesting = next.offset + next.length <= current.offset + current.length;
-        
-        expect(noOverlap || completeNesting).toBe(true);
-      }
-    });
+			// Validate all entities are within text bounds
+			result.entities.forEach(entity => {
+				expect(entity.offset).toBeGreaterThanOrEqual(0);
+				expect(entity.offset + entity.length).toBeLessThanOrEqual(
+					result.text.length
+				);
 
-    test('should handle entity boundaries correctly', () => {
-      const testCases = [
-        { input: '**start** middle **end**', entityCount: 2 },
-        { input: 'a **b** c **d** e', entityCount: 2 },
-        { input: '**a***b*`c`[d]', entityCount: 4 },
-        { input: '>[! note]- **Bold** in quote', entityCount: 2 }, // blockquote + bold
-      ];
+				// Validate entity text makes sense
+				const entityText = result.text.substring(
+					entity.offset,
+					entity.offset + entity.length
+				);
+				expect(entityText).toBeTruthy();
+				expect(entityText.trim()).toBeTruthy();
+			});
 
-      testCases.forEach(({ input, entityCount }) => {
-        const result = converter.convert(input);
-        expect(result.entities).toHaveLength(entityCount);
-        
-        // All entities should have valid text
-        result.entities.forEach(entity => {
-          const text = result.text.substring(entity.offset, entity.offset + entity.length);
-          expect(text.trim()).toBeTruthy();
-        });
-      });
-    });
-  });
+			// Check for overlapping entities (except nested ones)
+			const sortedEntities = [...result.entities].sort(
+				(a, b) => a.offset - b.offset
+			);
+			for (let i = 0; i < sortedEntities.length - 1; i++) {
+				const current = sortedEntities[i];
+				const next = sortedEntities[i + 1];
 
-  describe('Memory and Performance', () => {
-    test('should handle repeated conversions without memory leaks', () => {
-      const testInput = '**Bold** *italic* `code` [spoiler] and >quote';
-      
-      // Simulate many conversions
-      for (let i = 0; i < 100; i++) {
-        const result = converter.convert(testInput);
-        expect(result.entities.length).toBeGreaterThan(0);
-      }
-      
-      // No memory leak assertions (would need more sophisticated monitoring)
-      expect(true).toBe(true);
-    });
+				// Either no overlap, or complete nesting
+				const noOverlap = current.offset + current.length <= next.offset;
+				const completeNesting =
+					next.offset + next.length <= current.offset + current.length;
 
-    test('should scale linearly with content size', () => {
-      const sizes = [100, 500, 1000, 2000];
-      const times: number[] = [];
-      
-      sizes.forEach(size => {
-        const content = Array(size).fill('**test**').join(' ');
-        
-        const start = performance.now();
-        converter.convert(content);
-        const end = performance.now();
-        
-        times.push(end - start);
-      });
-      
-      // Later times should be proportionally longer, but not exponentially
-      expect(times[3] / times[0]).toBeLessThan(50); // Should scale reasonably
-    });
-  });
+				expect(noOverlap || completeNesting).toBe(true);
+			}
+		});
+
+		test('should handle entity boundaries correctly', () => {
+			const testCases = [
+				{ input: '**start** middle **end**', entityCount: 2 },
+				{ input: 'a **b** c **d** e', entityCount: 2 },
+				{ input: '**a***b*`c`[d]', entityCount: 4 },
+				{ input: '>[! note]- **Bold** in quote', entityCount: 2 }, // blockquote + bold
+			];
+
+			testCases.forEach(({ input, entityCount }) => {
+				const result = converter.convert(input);
+				expect(result.entities).toHaveLength(entityCount);
+
+				// All entities should have valid text
+				result.entities.forEach(entity => {
+					const text = result.text.substring(
+						entity.offset,
+						entity.offset + entity.length
+					);
+					expect(text.trim()).toBeTruthy();
+				});
+			});
+		});
+	});
+
+	describe('Memory and Performance', () => {
+		test('should handle repeated conversions without memory leaks', () => {
+			const testInput = '**Bold** *italic* `code` [spoiler] and >quote';
+
+			// Simulate many conversions
+			for (let i = 0; i < 100; i++) {
+				const result = converter.convert(testInput);
+				expect(result.entities.length).toBeGreaterThan(0);
+			}
+
+			// No memory leak assertions (would need more sophisticated monitoring)
+			expect(true).toBe(true);
+		});
+
+		test('should scale linearly with content size', () => {
+			const sizes = [100, 500, 1000, 2000];
+			const times: number[] = [];
+
+			sizes.forEach(size => {
+				const content = Array(size).fill('**test**').join(' ');
+
+				const start = performance.now();
+				converter.convert(content);
+				const end = performance.now();
+
+				times.push(end - start);
+			});
+
+			// Later times should be proportionally longer, but not exponentially
+			expect(times[3] / times[0]).toBeLessThan(50); // Should scale reasonably
+		});
+	});
 });

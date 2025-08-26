@@ -12,6 +12,7 @@ This document describes the modular architecture of the Kora MCP plugin, designe
 ## Module Structure
 
 ### `modules/commands.ts`
+
 - **Purpose**: Centralized command definitions and handlers
 - **Responsibilities**:
   - Define all plugin commands
@@ -20,6 +21,7 @@ This document describes the modular architecture of the Kora MCP plugin, designe
 - **Dependencies**: App, Settings, GramJSBridge, MessageFormatter
 
 ### `modules/ui-manager.ts`
+
 - **Purpose**: UI element injection and management
 - **Responsibilities**:
   - Inject buttons into workspace leaves
@@ -28,6 +30,7 @@ This document describes the modular architecture of the Kora MCP plugin, designe
 - **Dependencies**: Settings, GramJSBridge, MessageFormatter
 
 ### `modules/message-formatter.ts`
+
 - **Purpose**: Message formatting and emoji processing
 - **Responsibilities**:
   - Process custom emoji mappings
@@ -36,6 +39,7 @@ This document describes the modular architecture of the Kora MCP plugin, designe
 - **Dependencies**: None (pure utility module)
 
 ### `modules/gramjs-bridge.ts`
+
 - **Purpose**: HTTP client for GramJS server communication
 - **Responsibilities**:
   - Send HTTP requests to GramJS server

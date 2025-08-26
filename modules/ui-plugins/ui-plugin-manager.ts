@@ -6,157 +6,158 @@ import { TFile, App } from 'obsidian';
 import type { UIPlugin, UIButton, UIPluginSettings } from './types';
 
 export class UIPluginManager {
-  private app: App;
-  private settings: UIPluginSettings;
+	private app: App;
+	private settings: UIPluginSettings;
 
-  constructor(app: App, settings: UIPluginSettings) {
-    this.app = app;
-    this.settings = settings;
-  }
+	constructor(app: App, settings: UIPluginSettings) {
+		this.app = app;
+		this.settings = settings;
+	}
 
+	/**
+	 * Get plugins that should render for the given file
+	 */
+	getPluginsForFile(file: TFile): UIPlugin[] {
+		if (!this.settings.plugins) return [];
 
+		return this.settings.plugins.filter(plugin => {
+			if (!plugin.enabled) return false;
 
-  /**
-   * Get plugins that should render for the given file
-   */
-  getPluginsForFile(file: TFile): UIPlugin[] {
-    if (!this.settings.plugins) return [];
+			return plugin.folderPatterns.some(pattern => {
+				// Simple pattern matching - can be enhanced with glob patterns later
+				const filePath = file.path;
 
-    return this.settings.plugins.filter(plugin => {
-      if (!plugin.enabled) return false;
-      
-      return plugin.folderPatterns.some(pattern => {
-        // Simple pattern matching - can be enhanced with glob patterns later
-        const filePath = file.path;
-        
-        // Exact folder match
-        if (filePath.startsWith(pattern + '/') || filePath.startsWith(pattern + '\\')) {
-          return true;
-        }
-        
-        // Pattern with wildcards
-        if (pattern.includes('*')) {
-          const regexPattern = pattern
-            .replace(/\*/g, '.*')
-            .replace(/\?/g, '.');
-          return new RegExp(regexPattern).test(filePath);
-        }
-        
-        return false;
-      });
-    });
-  }
+				// Exact folder match
+				if (
+					filePath.startsWith(pattern + '/') ||
+					filePath.startsWith(pattern + '\\')
+				) {
+					return true;
+				}
 
-  /**
-   * Get all buttons for a file from matching plugins
-   */
-  getButtonsForFile(file: TFile): UIButton[] {
-    const matchingPlugins = this.getPluginsForFile(file);
-    
-    const allButtons = matchingPlugins.flatMap(plugin => plugin.buttons);
-    
-    // Sort by order (lower numbers first)
-    return allButtons.sort((a, b) => (a.order || 999) - (b.order || 999));
-  }
+				// Pattern with wildcards
+				if (pattern.includes('*')) {
+					const regexPattern = pattern.replace(/\*/g, '.*').replace(/\?/g, '.');
+					return new RegExp(regexPattern).test(filePath);
+				}
 
-  /**
-   * Execute a command for a button
-   * buttonClick
-   */
-  async executeButtonCommand(buttonId: string, file: TFile): Promise<void> {
-    // Find the button across all plugins
-    const button = this.findButtonById(buttonId);
-    if (!button) {
-      console.warn(`Button with id ${buttonId} not found`);
-      return;
-    }
+				return false;
+			});
+		});
+	}
 
-    if (!button.commandId) {
-      console.warn(`No command configured for button ${buttonId}`);
-      return;
-    }
+	/**
+	 * Get all buttons for a file from matching plugins
+	 */
+	getButtonsForFile(file: TFile): UIButton[] {
+		const matchingPlugins = this.getPluginsForFile(file);
 
-    // Execute Obsidian command with arguments through callback
-    try {
-      const command = (this.app as any).commands.commands[button.commandId];
-      if (command?.callback) {
-        // Pass arguments (if any) or empty object
-        const args = button.commandArguments || {};
-        await command.callback(args);
-      } else {
-        // Fallback for commands without callback
-        (this.app as any).commands.executeCommandById(button.commandId);
-      }
-    } catch (error) {
-      console.error(`Error executing command ${button.commandId}:`, error);
-    }
-  }
+		const allButtons = matchingPlugins.flatMap(plugin => plugin.buttons);
 
-  /**
-   * Find button by ID across all plugins
-   */
-  private findButtonById(buttonId: string): UIButton | undefined {
-    for (const plugin of this.settings.plugins) {
-      const button = plugin.buttons.find(b => b.id === buttonId);
-      if (button) return button;
-    }
-    return undefined;
-  }
+		// Sort by order (lower numbers first)
+		return allButtons.sort((a, b) => (a.order || 999) - (b.order || 999));
+	}
 
-  /**
-   * Create a new UI plugin
-   */
-  createPlugin(): UIPlugin {
-    return {
-      id: `plugin-${Date.now()}`,
-      name: 'Новый UI плагин',
-      enabled: true,
-      folderPatterns: [],
-      buttons: []
-    };
-  }
+	/**
+	 * Execute a command for a button
+	 * buttonClick
+	 */
+	async executeButtonCommand(buttonId: string, file: TFile): Promise<void> {
+		// Find the button across all plugins
+		const button = this.findButtonById(buttonId);
+		if (!button) {
+			console.warn(`Button with id ${buttonId} not found`);
+			return;
+		}
 
-  /**
-   * Create a new UI button
-   */
-  createButton(): UIButton {
-    return {
-      id: `button-${Date.now()}`,
-      label: 'Кнопка',
-      commandId: undefined,
-      order: 0,
-      commandArguments: undefined
-    };
-  }
+		if (!button.commandId) {
+			console.warn(`No command configured for button ${buttonId}`);
+			return;
+		}
 
-  /**
-   * Add plugin to settings
-   */
-  addPlugin(plugin: UIPlugin) {
-    if (!this.settings.plugins) {
-      this.settings.plugins = [];
-    }
-    this.settings.plugins.push(plugin);
-  }
+		// Execute Obsidian command with arguments through callback
+		try {
+			const command = (this.app as any).commands.commands[button.commandId];
+			if (command?.callback) {
+				// Pass arguments (if any) or empty object
+				const args = button.commandArguments || {};
+				await command.callback(args);
+			} else {
+				// Fallback for commands without callback
+				(this.app as any).commands.executeCommandById(button.commandId);
+			}
+		} catch (error) {
+			console.error(`Error executing command ${button.commandId}:`, error);
+		}
+	}
 
-  /**
-   * Remove plugin from settings
-   */
-  removePlugin(pluginId: string) {
-    if (!this.settings.plugins) return;
-    
-    this.settings.plugins = this.settings.plugins.filter(p => p.id !== pluginId);
-  }
+	/**
+	 * Find button by ID across all plugins
+	 */
+	private findButtonById(buttonId: string): UIButton | undefined {
+		for (const plugin of this.settings.plugins) {
+			const button = plugin.buttons.find(b => b.id === buttonId);
+			if (button) return button;
+		}
+		return undefined;
+	}
 
-  /**
-   * Update plugin in settings
-   */
-  updatePlugin(pluginId: string, updatedPlugin: UIPlugin) {
-    if (!this.settings.plugins) return;
-    
-    const index = this.settings.plugins.findIndex(p => p.id === pluginId);
-    if (index >= 0) {
-      this.settings.plugins[index] = updatedPlugin;
-    }
-  }
+	/**
+	 * Create a new UI plugin
+	 */
+	createPlugin(): UIPlugin {
+		return {
+			id: `plugin-${Date.now()}`,
+			name: 'Новый UI плагин',
+			enabled: true,
+			folderPatterns: [],
+			buttons: [],
+		};
+	}
+
+	/**
+	 * Create a new UI button
+	 */
+	createButton(): UIButton {
+		return {
+			id: `button-${Date.now()}`,
+			label: 'Кнопка',
+			commandId: undefined,
+			order: 0,
+			commandArguments: undefined,
+		};
+	}
+
+	/**
+	 * Add plugin to settings
+	 */
+	addPlugin(plugin: UIPlugin) {
+		if (!this.settings.plugins) {
+			this.settings.plugins = [];
+		}
+		this.settings.plugins.push(plugin);
+	}
+
+	/**
+	 * Remove plugin from settings
+	 */
+	removePlugin(pluginId: string) {
+		if (!this.settings.plugins) return;
+
+		this.settings.plugins = this.settings.plugins.filter(
+			p => p.id !== pluginId
+		);
+	}
+
+	/**
+	 * Update plugin in settings
+	 */
+	updatePlugin(pluginId: string, updatedPlugin: UIPlugin) {
+		if (!this.settings.plugins) return;
+
+		const index = this.settings.plugins.findIndex(p => p.id === pluginId);
+		if (index >= 0) {
+			this.settings.plugins[index] = updatedPlugin;
+		}
+	}
 }

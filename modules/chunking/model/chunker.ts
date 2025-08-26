@@ -8,75 +8,84 @@ import { groupShortListItems } from './grouping.js';
 import { splitLongParagraphs } from './splitting.js';
 import { extractBlockId, toHash, buildEmbeddingText } from './id.js';
 import { normalizeMarkdown, sha256 } from './utils.js';
-import type { Chunk, ChunkOptions, ChunkNoteContext, ChunkPayloadMeta } from './types.js';
+import type {
+	Chunk,
+	ChunkOptions,
+	ChunkNoteContext,
+	ChunkPayloadMeta,
+} from './types.js';
 import { buildBlocksFromCache } from './cache-blocks.js';
 
 /**
  * Chunk a markdown note according to the specification.
  */
-export function chunkNote(markdown: string, context: ChunkNoteContext, options: ChunkOptions = {}, cache: CachedMetadataLike): Chunk[] {
-  const merged: Required<ChunkOptions> = {
-    longParagraphWordThreshold: 300,
-    listShortCharThreshold: 120,
-    listGroupMin: 3,
-    listGroupMax: 7,
-    maxChunksSoft: 50,
-    ...options
-  };
+export function chunkNote(
+	markdown: string,
+	context: ChunkNoteContext,
+	options: ChunkOptions = {},
+	cache: CachedMetadataLike
+): Chunk[] {
+	const merged: Required<ChunkOptions> = {
+		longParagraphWordThreshold: 300,
+		listShortCharThreshold: 120,
+		listGroupMin: 3,
+		listGroupMax: 7,
+		maxChunksSoft: 50,
+		...options,
+	};
 
-  // Use original markdown for cache-based parsing (positions/offsets must match original).
-  const blocks = buildBlocksFromCache(markdown, cache);
-  // Normalize only for hashing/embedding text.
-  const normalized = normalizeMarkdown(markdown);
-  const grouped = groupShortListItems(blocks, merged);
-  const splitted = splitLongParagraphs(grouped, merged);
+	// Use original markdown for cache-based parsing (positions/offsets must match original).
+	const blocks = buildBlocksFromCache(markdown, cache);
+	// Normalize only for hashing/embedding text.
+	const normalized = normalizeMarkdown(markdown);
+	const grouped = groupShortListItems(blocks, merged);
+	const splitted = splitLongParagraphs(grouped, merged);
 
-  const noteHash = toHash(normalized);
+	const noteHash = toHash(normalized);
 
-  const chunks: Chunk[] = [];
-  for (let i = 0; i < splitted.length; i++) {
-    const b = splitted[i];
-    const contentForEmbedding = buildEmbeddingText(
-      b.headingPath || [],
-      (b as any).parentItemText,
-      normalizeMarkdown(b.text)
-    );
-    const explicitBlockId = extractBlockId(b.text);
-    const chunkId = explicitBlockId || toHash(contentForEmbedding);
-    const contentHash = toHash(b.text);
-    const section = (b.headingPath || []).slice(-1)[0] || '';
- 
+	const chunks: Chunk[] = [];
+	for (let i = 0; i < splitted.length; i++) {
+		const b = splitted[i];
+		const contentForEmbedding = buildEmbeddingText(
+			b.headingPath || [],
+			(b as any).parentItemText,
+			normalizeMarkdown(b.text)
+		);
+		const explicitBlockId = extractBlockId(b.text);
+		const chunkId = explicitBlockId || toHash(contentForEmbedding);
+		const contentHash = toHash(b.text);
+		const section = (b.headingPath || []).slice(-1)[0] || '';
 
-    const meta: ChunkPayloadMeta = {
-      originalId: context.originalId,
-      chunkId,
-      noteHash,
-      contentHash,
-      contentType: 'obsidian_note',
-      chunkType: b.type as any,
-      section,
-      headingsPath: b.headingPath || [],
-      obsidian: {
-        path: context.notePath,
-        tags: context.tags || [],
-        aliases: context.aliases || []
-      },
-      createdAtTs: Date.now(),
-      updatedAtTs: Date.now(),
-    };
+		const meta: ChunkPayloadMeta = {
+			originalId: context.originalId,
+			chunkId,
+			noteHash,
+			contentHash,
+			contentType: 'obsidian_note',
+			chunkType: b.type as any,
+			section,
+			headingsPath: b.headingPath || [],
+			obsidian: {
+				path: context.notePath,
+				tags: context.tags || [],
+				aliases: context.aliases || [],
+			},
+			createdAtTs: Date.now(),
+			updatedAtTs: Date.now(),
+		};
 
-    chunks.push({
-      chunkId,
-      chunkType: b.type as any,
-      headingsPath: b.headingPath || [],
-      section,
-      contentRaw: b.text,
-      meta,
-      position: (b as any).position,
-    });
-  }
+		chunks.push({
+			chunkId,
+			chunkType: b.type as any,
+			headingsPath: b.headingPath || [],
+			section,
+			contentRaw: b.text,
+			meta,
+			position: (b as any).position,
+		});
+	}
 
-  return chunks.length > merged.maxChunksSoft ? chunks.slice(0, merged.maxChunksSoft) : chunks;
+	return chunks.length > merged.maxChunksSoft
+		? chunks.slice(0, merged.maxChunksSoft)
+		: chunks;
 }
-
-

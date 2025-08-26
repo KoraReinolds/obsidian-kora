@@ -3,408 +3,473 @@
  */
 
 import { App, TFile, Notice, Command } from 'obsidian';
-import { GramJSBridge, MessageFormatter, ChannelConfigService, type ChannelConfig } from '../telegram';
+import {
+	GramJSBridge,
+	MessageFormatter,
+	ChannelConfigService,
+	type ChannelConfig,
+} from '../telegram';
 import { FrontmatterUtils, VaultOperations, getMarkdownFiles } from '.';
 import { DuplicateTimeFixer } from '../utils';
 import { RELATED_CHUNKS_VIEW_TYPE } from '../chunking/ui/related-chunks-view';
 import { SuggesterFactory } from './suggester-modal';
-import type { KoraMcpPluginSettings as KoraPluginSettings, TelegramFolderConfig } from '../../main';
+import type {
+	KoraMcpPluginSettings as KoraPluginSettings,
+	TelegramFolderConfig,
+} from '../../main';
 
 export class PluginCommands {
-  private app: App;
-  private settings: KoraPluginSettings;
-  private gramjsBridge: GramJSBridge;
-  private messageFormatter: MessageFormatter;
-  private duplicateTimeFixer: DuplicateTimeFixer;
-  private frontmatterUtils: FrontmatterUtils;
-  private channelConfigService: ChannelConfigService;
-  private vaultOps: VaultOperations;
+	private app: App;
+	private settings: KoraPluginSettings;
+	private gramjsBridge: GramJSBridge;
+	private messageFormatter: MessageFormatter;
+	private duplicateTimeFixer: DuplicateTimeFixer;
+	private frontmatterUtils: FrontmatterUtils;
+	private channelConfigService: ChannelConfigService;
+	private vaultOps: VaultOperations;
 
-  constructor(app: App, settings: KoraPluginSettings, gramjsBridge: GramJSBridge) {
-    this.app = app;
-    this.settings = settings;
-    this.gramjsBridge = gramjsBridge;
-    this.duplicateTimeFixer = new DuplicateTimeFixer(app);
-    this.frontmatterUtils = new FrontmatterUtils(app);
-    this.channelConfigService = new ChannelConfigService(app, settings);
-    this.vaultOps = new VaultOperations(app);
-    this.messageFormatter = new MessageFormatter(
-      settings.telegram.customEmojis,
-      settings.telegram.useCustomEmojis,
-      app,
-      this.channelConfigService
-    );
-  }
+	constructor(
+		app: App,
+		settings: KoraPluginSettings,
+		gramjsBridge: GramJSBridge
+	) {
+		this.app = app;
+		this.settings = settings;
+		this.gramjsBridge = gramjsBridge;
+		this.duplicateTimeFixer = new DuplicateTimeFixer(app);
+		this.frontmatterUtils = new FrontmatterUtils(app);
+		this.channelConfigService = new ChannelConfigService(app, settings);
+		this.vaultOps = new VaultOperations(app);
+		this.messageFormatter = new MessageFormatter(
+			settings.telegram.customEmojis,
+			settings.telegram.useCustomEmojis,
+			app,
+			this.channelConfigService
+		);
+	}
 
+	/**
+	 * Get all commands
+	 */
+	getCommands(): Command[] {
+		return [
+			{
+				id: 'send-note-gramjs',
+				name: 'Send note via GramJS userbot',
+				callback: (args?: Record<string, string>) =>
+					this.sendNoteViaGramJS(args),
+			},
+			{
+				id: 'test-gramjs-connection',
+				name: 'Test GramJS connection',
+				callback: (args?: Record<string, string>) =>
+					this.testGramJSConnection(args),
+			},
+			{
+				id: 'move-to-notes',
+				name: 'Move to Notes',
+				callback: (args?: Record<string, string>) => this.moveToNotes(args),
+			},
+			{
+				id: 'find-duplicate-creation-times',
+				name: 'Find duplicate creation times',
+				callback: (args?: Record<string, string>) =>
+					this.findDuplicateCreationTimes(args),
+			},
+			{
+				id: 'fix-duplicate-creation-times',
+				name: 'Fix duplicate creation times',
+				callback: (args?: Record<string, string>) =>
+					this.fixDuplicateCreationTimes(args),
+			},
+			{
+				id: 'open-related-chunks',
+				name: 'Open Related Chunks',
+				callback: (args?: Record<string, string>) =>
+					this.openRelatedChunks(args),
+			},
+			{
+				id: 'send-note-to-channel',
+				name: 'Send note to channel',
+				callback: (args?: Record<string, string>) =>
+					this.sendNoteToChannel(args),
+			},
+			{
+				id: 'send-folder-notes-to-channels',
+				name: 'Send first level folder notes to channels',
+				callback: (args?: Record<string, string>) =>
+					this.sendFolderNotesToChannels(args),
+			},
+		];
+	}
 
-  /**
-   * Get all commands
-   */
-  getCommands(): Command[] {
-    return [
-      {
-        id: 'send-note-gramjs',
-        name: 'Send note via GramJS userbot',
-        callback: (args?: Record<string, string>) => this.sendNoteViaGramJS(args),
-      },
-      {
-        id: 'test-gramjs-connection',
-        name: 'Test GramJS connection',
-        callback: (args?: Record<string, string>) => this.testGramJSConnection(args),
-      },
-      {
-        id: 'move-to-notes',
-        name: 'Move to Notes',
-        callback: (args?: Record<string, string>) => this.moveToNotes(args),
-      },
-      {
-        id: 'find-duplicate-creation-times',
-        name: 'Find duplicate creation times',
-        callback: (args?: Record<string, string>) => this.findDuplicateCreationTimes(args),
-      },
-      {
-        id: 'fix-duplicate-creation-times',
-        name: 'Fix duplicate creation times',
-        callback: (args?: Record<string, string>) => this.fixDuplicateCreationTimes(args),
-      },
-      {
-        id: 'open-related-chunks',
-        name: 'Open Related Chunks',
-        callback: (args?: Record<string, string>) => this.openRelatedChunks(args),
-      },
-      {
-        id: 'send-note-to-channel',
-        name: 'Send note to channel',
-        callback: (args?: Record<string, string>) => this.sendNoteToChannel(args),
-      },
-      {
-        id: 'send-folder-notes-to-channels',
-        name: 'Send first level folder notes to channels',
-        callback: (args?: Record<string, string>) => this.sendFolderNotesToChannels(args),
-      },
-    ];
-  }
+	/**
+	 * Send note via GramJS userbot
+	 */
+	private async sendNoteViaGramJS(
+		args?: Record<string, string>
+	): Promise<void> {
+		const file = this.vaultOps.getActiveFile();
+		if (!file) {
+			new Notice('No active file');
+			return;
+		}
 
-  /**
-   * Send note via GramJS userbot
-   */
-  private async sendNoteViaGramJS(args?: Record<string, string>): Promise<void> {
-    const file = this.vaultOps.getActiveFile();
-    if (!file) {
-      new Notice('No active file');
-      return;
-    }
+		const content = await this.vaultOps.getFileContent(file);
+		const peer = this.settings.gramjs?.chatId;
 
-    const content = await this.vaultOps.getFileContent(file);
-    const peer = this.settings.gramjs?.chatId;
+		if (!peer) {
+			new Notice('Chat ID не настроен');
+			return;
+		}
 
-    if (!peer) {
-      new Notice('Chat ID не настроен');
-      return;
-    }
+		// Check if note is already linked to a Telegram post
+		const telegramMessageId = await this.frontmatterUtils.getFrontmatterField(
+			file,
+			'telegram_message_id'
+		);
 
-    // Check if note is already linked to a Telegram post
-    const telegramMessageId = await this.frontmatterUtils.getFrontmatterField(file, 'telegram_message_id');
+		// Format message with custom emojis support
+		const { processedText } =
+			this.messageFormatter.processCustomEmojis(content);
 
-    // Format message with custom emojis support
-    const { processedText } = this.messageFormatter.processCustomEmojis(content);
+		if (telegramMessageId) {
+			// Edit existing message
+			const success = await this.gramjsBridge.editMessage({
+				peer,
+				messageId: telegramMessageId,
+				message: processedText,
+				disableWebPagePreview: this.settings.telegram.disableWebPagePreview,
+			});
+			if (success) {
+				new Notice('Сообщение в Telegram обновлено!');
+			}
+		} else {
+			// Send new message
+			const result = await this.gramjsBridge.sendMessage({
+				peer,
+				message: processedText,
+				disableWebPagePreview: this.settings.telegram.disableWebPagePreview,
+			});
+			if (result.success && result.messageId) {
+				// Save message ID to frontmatter
+				await this.frontmatterUtils.setFrontmatterField(
+					file,
+					'telegram_message_id',
+					result.messageId
+				);
+				new Notice('Заметка отправлена через GramJS и связана с постом!');
+			}
+		}
+	}
 
-    if (telegramMessageId) {
-      // Edit existing message
-      const success = await this.gramjsBridge.editMessage({
-        peer,
-        messageId: telegramMessageId,
-        message: processedText,
-        disableWebPagePreview: this.settings.telegram.disableWebPagePreview,
-      });
-      if (success) {
-        new Notice('Сообщение в Telegram обновлено!');
-      }
-    } else {
-      // Send new message
-      const result = await this.gramjsBridge.sendMessage({
-        peer,
-        message: processedText,
-        disableWebPagePreview: this.settings.telegram.disableWebPagePreview
-      });
-      if (result.success && result.messageId) {
-        // Save message ID to frontmatter
-        await this.frontmatterUtils.setFrontmatterField(file, 'telegram_message_id', result.messageId);
-        new Notice('Заметка отправлена через GramJS и связана с постом!');
-      }
-    }
-  }
+	/**
+	 * Test GramJS connection
+	 */
+	private async testGramJSConnection(
+		args?: Record<string, string>
+	): Promise<void> {
+		await this.gramjsBridge.testConnection();
+	}
 
-  /**
-   * Test GramJS connection
-   */
-  private async testGramJSConnection(args?: Record<string, string>): Promise<void> {
-    await this.gramjsBridge.testConnection();
-  }
+	/**
+	 * Move file to Notes folder
+	 */
+	private async moveToNotes(args?: Record<string, string>): Promise<void> {
+		const file = this.vaultOps.getActiveFile();
+		if (!file) {
+			new Notice('Нет активного файла');
+			return;
+		}
 
-  /**
-   * Move file to Notes folder
-   */
-  private async moveToNotes(args?: Record<string, string>): Promise<void> {
-    const file = this.vaultOps.getActiveFile();
-    if (!file) {
-      new Notice('Нет активного файла');
-      return;
-    }
+		// Use passed argument or default value
+		const targetFolder = args?.targetFolder || 'Organize/Notes';
 
-    // Use passed argument or default value
-    const targetFolder = args?.targetFolder || 'Organize/Notes';
-    
-    await this.vaultOps.moveFileToFolder(file, targetFolder);
-  }
+		await this.vaultOps.moveFileToFolder(file, targetFolder);
+	}
 
+	/**
+	 * Find notes with duplicate creation times
+	 */
+	private async findDuplicateCreationTimes(
+		args?: Record<string, string>
+	): Promise<void> {
+		new Notice('Поиск дубликатов времени создания...');
 
-  /**
-   * Find notes with duplicate creation times
-   */
-  private async findDuplicateCreationTimes(args?: Record<string, string>): Promise<void> {
-    new Notice('Поиск дубликатов времени создания...');
+		try {
+			const duplicates =
+				await this.duplicateTimeFixer.findDuplicateCreationTimes();
+			const duplicateCount = Object.keys(duplicates).length;
 
-    try {
-      const duplicates = await this.duplicateTimeFixer.findDuplicateCreationTimes();
-      const duplicateCount = Object.keys(duplicates).length;
+			if (duplicateCount === 0) {
+				new Notice('Дубликаты времени создания не найдены!');
+				return;
+			}
 
-      if (duplicateCount === 0) {
-        new Notice('Дубликаты времени создания не найдены!');
-        return;
-      }
+			const result =
+				await this.duplicateTimeFixer.fixDuplicateCreationTimes(true); // dry run
+			const report = this.duplicateTimeFixer.generateReport(result);
 
-      const result = await this.duplicateTimeFixer.fixDuplicateCreationTimes(true); // dry run
-      const report = this.duplicateTimeFixer.generateReport(result);
+			// Создаем временный файл с отчетом
+			const reportFile = await this.app.vault.create(
+				`Duplicate_Creation_Times_Report_${Date.now()}.md`,
+				report
+			);
 
-      // Создаем временный файл с отчетом
-      const reportFile = await this.app.vault.create(
-        `Duplicate_Creation_Times_Report_${Date.now()}.md`,
-        report
-      );
+			// Открываем отчет
+			const leaf = this.app.workspace.getUnpinnedLeaf();
+			await leaf?.openFile(reportFile);
 
-      // Открываем отчет
-      const leaf = this.app.workspace.getUnpinnedLeaf();
-      await leaf?.openFile(reportFile);
+			new Notice(`Найдено ${duplicateCount} групп дубликатов. Отчет открыт.`);
+		} catch (error) {
+			new Notice(`Ошибка поиска дубликатов: ${error}`);
+		}
+	}
 
-      new Notice(`Найдено ${duplicateCount} групп дубликатов. Отчет открыт.`);
-    } catch (error) {
-      new Notice(`Ошибка поиска дубликатов: ${error}`);
-    }
-  }
+	/**
+	 * Fix notes with duplicate creation times
+	 */
+	private async fixDuplicateCreationTimes(
+		args?: Record<string, string>
+	): Promise<void> {
+		new Notice('Исправление дубликатов времени создания...');
 
-  /**
-   * Fix notes with duplicate creation times
-   */
-  private async fixDuplicateCreationTimes(args?: Record<string, string>): Promise<void> {
-    new Notice('Исправление дубликатов времени создания...');
+		try {
+			const result =
+				await this.duplicateTimeFixer.fixDuplicateCreationTimes(false);
 
-    try {
-      const result = await this.duplicateTimeFixer.fixDuplicateCreationTimes(false);
+			if (result.totalDuplicates === 0) {
+				new Notice('Дубликаты времени создания не найдены!');
+				return;
+			}
 
-      if (result.totalDuplicates === 0) {
-        new Notice('Дубликаты времени создания не найдены!');
-        return;
-      }
+			const report = this.duplicateTimeFixer.generateReport(result);
 
-      const report = this.duplicateTimeFixer.generateReport(result);
+			// Создаем файл с отчетом об исправлении
+			const reportFile = await this.app.vault.create(
+				`Fixed_Creation_Times_Report_${Date.now()}.md`,
+				report
+			);
 
-      // Создаем файл с отчетом об исправлении
-      const reportFile = await this.app.vault.create(
-        `Fixed_Creation_Times_Report_${Date.now()}.md`,
-        report
-      );
+			// Открываем отчет
+			const leaf = this.app.workspace.getUnpinnedLeaf();
+			await leaf?.openFile(reportFile);
 
-      // Открываем отчет
-      const leaf = this.app.workspace.getUnpinnedLeaf();
-      await leaf?.openFile(reportFile);
+			new Notice(
+				`Исправлено ${result.fixed} из ${result.totalDuplicates} файлов. Отчет открыт.`
+			);
+		} catch (error) {
+			new Notice(`Ошибка исправления дубликатов: ${error}`);
+		}
+	}
 
-      new Notice(`Исправлено ${result.fixed} из ${result.totalDuplicates} файлов. Отчет открыт.`);
-    } catch (error) {
-      new Notice(`Ошибка исправления дубликатов: ${error}`);
-    }
-  }
+	/**
+	 * Open Related Chunks view
+	 */
+	private async openRelatedChunks(
+		args?: Record<string, string>
+	): Promise<void> {
+		const leaf = this.app.workspace.getRightLeaf(false);
+		if (!leaf) {
+			new Notice('Unable to create right panel view');
+			return;
+		}
 
-  /**
-   * Open Related Chunks view
-   */
-  private async openRelatedChunks(args?: Record<string, string>): Promise<void> {
-    const leaf = this.app.workspace.getRightLeaf(false);
-    if (!leaf) {
-      new Notice('Unable to create right panel view');
-      return;
-    }
+		try {
+			await leaf.setViewState({ type: RELATED_CHUNKS_VIEW_TYPE, active: true });
+			this.app.workspace.revealLeaf(leaf);
+			new Notice('Related Chunks view opened');
+		} catch (error) {
+			new Notice(`Error opening Related Chunks view: ${error}`);
+		}
+	}
 
-    try {
-      await leaf.setViewState({ type: RELATED_CHUNKS_VIEW_TYPE, active: true });
-      this.app.workspace.revealLeaf(leaf);
-      new Notice('Related Chunks view opened');
-    } catch (error) {
-      new Notice(`Error opening Related Chunks view: ${error}`);
-    }
-  }
+	/**
+	 * Send current note to channel via suggester modal
+	 */
+	private async sendNoteToChannel(
+		args?: Record<string, string>
+	): Promise<void> {
+		const file = this.vaultOps.getActiveFile();
+		if (!file) {
+			new Notice('Нет активного файла');
+			return;
+		}
 
-  /**
-   * Send current note to channel via suggester modal
-   */
-  private async sendNoteToChannel(args?: Record<string, string>): Promise<void> {
-    const file = this.vaultOps.getActiveFile();
-    if (!file) {
-      new Notice('Нет активного файла');
-      return;
-    }
+		const channelSuggester = SuggesterFactory.createChannelSuggester(
+			this.app,
+			file,
+			this.settings
+		);
 
-    const channelSuggester = SuggesterFactory.createChannelSuggester(
-      this.app,
-      file,
-      this.settings
-    );
+		const channelConfig = await channelSuggester.open();
 
-    const channelConfig = await channelSuggester.open();
+		if (channelConfig) {
+			try {
+				await this.sendToSelectedChannel(file, channelConfig);
+			} catch (error) {
+				new Notice(`Ошибка отправки: ${error}`);
+			}
+		}
+	}
 
-    if (channelConfig) {
-      try {
-        await this.sendToSelectedChannel(file, channelConfig);
-      } catch (error) {
-        new Notice(`Ошибка отправки: ${error}`);
-      }
-    }
-  }
+	/**
+	 * Send file to the selected channel (reusing logic from UI Manager)
+	 */
+	private async sendToSelectedChannel(
+		file: TFile,
+		config: ChannelConfig
+	): Promise<void> {
+		const channelConfig = Object.assign({}, config);
+		const postIds = await this.frontmatterUtils.getFrontmatterField(
+			file,
+			'post_ids'
+		);
+		if (postIds && postIds[channelConfig.channelId]) {
+			channelConfig.messageId = postIds[channelConfig.channelId];
+		}
 
-  /**
-   * Send file to the selected channel (reusing logic from UI Manager)
-   */
-  private async sendToSelectedChannel(file: TFile, config: ChannelConfig): Promise<void> {
-    const channelConfig = Object.assign({}, config);
-    const postIds = await this.frontmatterUtils.getFrontmatterField(file, 'post_ids');
-    if (postIds && postIds[channelConfig.channelId]) {
-      channelConfig.messageId = postIds[channelConfig.channelId];
-    }
+		const content = await this.vaultOps.getFileContent(file);
+		const peer = channelConfig.channelId;
 
-    const content = await this.vaultOps.getFileContent(file);
-    const peer = channelConfig.channelId;
+		if (!peer) {
+			new Notice(`Channel ID не настроен для ${channelConfig.name}`);
+			return;
+		}
 
-    if (!peer) {
-      new Notice(`Channel ID не настроен для ${channelConfig.name}`);
-      return;
-    }
+		// Convert markdown to Telegram format and process custom emojis
+		const conversionResult = await this.messageFormatter.formatMarkdownNote(
+			file.basename,
+			content
+		);
+		const { processedText, entities: customEmojiEntities } =
+			this.messageFormatter.processCustomEmojis(conversionResult.text);
 
-    // Convert markdown to Telegram format and process custom emojis
-    const conversionResult = await this.messageFormatter.formatMarkdownNote(file.basename, content);
-    const { processedText, entities: customEmojiEntities } = this.messageFormatter.processCustomEmojis(conversionResult.text);
+		// Combine markdown entities with custom emoji entities
+		const combinedEntities = [
+			...(conversionResult.entities || []),
+			...customEmojiEntities,
+		].sort((a, b) => a.offset - b.offset);
 
-    // Combine markdown entities with custom emoji entities
-    const combinedEntities = [
-      ...(conversionResult.entities || []),
-      ...customEmojiEntities
-    ].sort((a, b) => a.offset - b.offset);
+		// Use buttons from conversion result if available, otherwise no buttons
+		const buttons = conversionResult.buttons;
 
-    // Use buttons from conversion result if available, otherwise no buttons
-    const buttons = conversionResult.buttons;
+		if (channelConfig.messageId) {
+			// Edit existing message
+			const success = await this.gramjsBridge.editMessage({
+				peer: channelConfig.channelId,
+				messageId: channelConfig.messageId,
+				message: processedText + Math.random().toString(),
+				entities: combinedEntities,
+				buttons,
+				disableWebPagePreview:
+					this.settings.telegram.disableWebPagePreview || true,
+			});
+			if (success) {
+				new Notice(`Сообщение в ${channelConfig.name} обновлено!`);
+			}
+		} else {
+			// Send new message
+			// buttons already defined above, no need to redefine
+			const result = await this.gramjsBridge.sendMessage({
+				peer: channelConfig.channelId,
+				message: processedText,
+				entities: combinedEntities,
+				buttons,
+				disableWebPagePreview:
+					this.settings.telegram.disableWebPagePreview || true,
+			});
+			if (result.success && result.messageId) {
+				// Always use new post_ids format
+				await this.channelConfigService.updatePostIds(
+					file,
+					channelConfig.channelId,
+					result.messageId
+				);
+				new Notice(`Заметка отправлена в ${channelConfig.name}!`);
+			}
+		}
+	}
 
-    if (channelConfig.messageId) {
-      // Edit existing message
-      const success = await this.gramjsBridge.editMessage({
-        peer: channelConfig.channelId,
-        messageId: channelConfig.messageId,
-        message: processedText + Math.random().toString(),
-        entities: combinedEntities,
-        buttons,
-        disableWebPagePreview: this.settings.telegram.disableWebPagePreview || true
-      });
-      if (success) {
-        new Notice(`Сообщение в ${channelConfig.name} обновлено!`);
-      }
-    } else {
-      // Send new message  
-      // buttons already defined above, no need to redefine
-      const result = await this.gramjsBridge.sendMessage({
-        peer: channelConfig.channelId,
-        message: processedText,
-        entities: combinedEntities,
-        buttons,
-        disableWebPagePreview: this.settings.telegram.disableWebPagePreview || true
-      });
-      if (result.success && result.messageId) {
-        // Always use new post_ids format
-        await this.channelConfigService.updatePostIds(file, channelConfig.channelId, result.messageId);
-        new Notice(`Заметка отправлена в ${channelConfig.name}!`);
-      }
-    }
-  }
+	/**
+	 * Send all notes from a selected folder to channels (first level only)
+	 */
+	private async sendFolderNotesToChannels(
+		args?: Record<string, string>
+	): Promise<void> {
+		// Create folder config suggester and open it
+		const folderConfigSuggester = SuggesterFactory.createFolderConfigSuggester(
+			this.app,
+			this.settings
+		);
 
-  /**
-   * Send all notes from a selected folder to channels (first level only)
-   */
-  private async sendFolderNotesToChannels(args?: Record<string, string>): Promise<void> {
-    // Create folder config suggester and open it
-    const folderConfigSuggester = SuggesterFactory.createFolderConfigSuggester(
-      this.app,
-      this.settings
-    );
+		const folderConfig = await folderConfigSuggester.open();
 
-    const folderConfig = await folderConfigSuggester.open();
+		if (folderConfig) {
+			try {
+				// Create channel suggester for this folder and open it
+				const channelSuggester = SuggesterFactory.createFolderChannelSuggester(
+					this.app,
+					folderConfig
+				);
 
-    if (folderConfig) {
-      try {
-        // Create channel suggester for this folder and open it
-        const channelSuggester = SuggesterFactory.createFolderChannelSuggester(
-          this.app,
-          folderConfig
-        );
+				const channelConfig = await channelSuggester.open();
 
-        const channelConfig = await channelSuggester.open();
+				if (channelConfig) {
+					await this.sendAllNotesFromFolder(folderConfig, channelConfig);
+				}
+			} catch (error) {
+				new Notice(`Ошибка отправки файлов папки: ${error}`);
+			}
+		}
+	}
 
-        if (channelConfig) {
-          await this.sendAllNotesFromFolder(folderConfig, channelConfig);
-        }
-      } catch (error) {
-        new Notice(`Ошибка отправки файлов папки: ${error}`);
-      }
-    }
-  }
+	/**
+	 * Send all notes from a folder to their configured channels (first level only)
+	 */
+	private async sendAllNotesFromFolder(
+		folderConfig: TelegramFolderConfig,
+		cannelConfig: ChannelConfig
+	): Promise<void> {
+		const folderPath = folderConfig.folder;
 
-  /**
-   * Send all notes from a folder to their configured channels (first level only)
-   */
-  private async sendAllNotesFromFolder(folderConfig: TelegramFolderConfig, cannelConfig: ChannelConfig): Promise<void> {
-    const folderPath = folderConfig.folder;
+		// Get all markdown files from the folder (first level only)
+		const folderFiles = getMarkdownFiles(this.app, {
+			folderPath: folderConfig.folder,
+		});
 
-    // Get all markdown files from the folder (first level only)
-    const folderFiles = getMarkdownFiles(this.app, {
-      folderPath: folderConfig.folder,
-    });
+		if (folderFiles.length === 0) {
+			new Notice(`В папке ${folderPath} нет markdown файлов первого уровня`);
+			return;
+		}
 
-    if (folderFiles.length === 0) {
-      new Notice(`В папке ${folderPath} нет markdown файлов первого уровня`);
-      return;
-    }
+		new Notice(
+			`Начинаю отправку ${folderFiles.length} файлов первого уровня из папки ${folderPath} в канал ${cannelConfig.name}...`
+		);
 
-    new Notice(`Начинаю отправку ${folderFiles.length} файлов первого уровня из папки ${folderPath} в канал ${cannelConfig.name}...`);
+		let successCount = 0;
+		let errorCount = 0;
+		const errors: string[] = [];
 
-    let successCount = 0;
-    let errorCount = 0;
-    const errors: string[] = [];
+		// Process files sequentially to avoid overwhelming the API
+		for (const file of folderFiles) {
+			try {
+				// Send to the selected channel
+				await this.sendToSelectedChannel(file, cannelConfig);
 
-    // Process files sequentially to avoid overwhelming the API
-    for (const file of folderFiles) {
-      try {
-        // Send to the selected channel
-        await this.sendToSelectedChannel(file, cannelConfig);
+				successCount++;
+				// Small delay between sends to be respectful to the API
+				await new Promise(resolve => setTimeout(resolve, 500));
+			} catch (error) {
+				errorCount++;
+				const errorMsg = `${file.name}: ${error}`;
+				errors.push(errorMsg);
+				console.error(`Ошибка отправки файла ${file.name}:`, error);
+			}
+		}
 
-        successCount++;
-        // Small delay between sends to be respectful to the API
-        await new Promise(resolve => setTimeout(resolve, 500));
-      } catch (error) {
-        errorCount++;
-        const errorMsg = `${file.name}: ${error}`;
-        errors.push(errorMsg);
-        console.error(`Ошибка отправки файла ${file.name}:`, error);
-      }
-    }
-
-    // Show final results
-    const resultMessage = `Готово! Успешно: ${successCount}, Ошибок: ${errorCount}`;
-    new Notice(resultMessage);
-  }
+		// Show final results
+		const resultMessage = `Готово! Успешно: ${successCount}, Ошибок: ${errorCount}`;
+		new Notice(resultMessage);
+	}
 }

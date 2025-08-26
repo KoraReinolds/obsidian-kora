@@ -31,16 +31,16 @@ modules/mcp/
 import { McpServerManager } from './modules/mcp';
 
 class KoraMcpPlugin extends Plugin {
-  private mcpServerManager: McpServerManager;
+	private mcpServerManager: McpServerManager;
 
-  async onload() {
-    this.mcpServerManager = new McpServerManager(this.app);
-    this.mcpServerManager.startServer(this.settings.port);
-  }
+	async onload() {
+		this.mcpServerManager = new McpServerManager(this.app);
+		this.mcpServerManager.startServer(this.settings.port);
+	}
 
-  onunload() {
-    this.mcpServerManager?.stopServer();
-  }
+	onunload() {
+		this.mcpServerManager?.stopServer();
+	}
 }
 ```
 
@@ -63,39 +63,41 @@ McpToolsGenerator.registerAllTools(server, KORA_URL);
 
 ```typescript
 export class FilesEndpoint extends BaseEndpoint {
-  // Метаданные
-  path = '/files-get';
-  method = 'GET';
-  description = 'Return markdown files from vault';
-  toolName = 'get_obsidian_files';
-  
-  // 🔧 СЕРВЕРНАЯ ЛОГИКА (Obsidian plugin)
-  async handler(app: App, input: any): Promise<string[]> {
-    return await getMarkdownFiles(app);
-  }
-  
-  // 🌐 КЛИЕНТСКАЯ ЛОГИКА (MCP tool)
-  async mcpTool(baseUrl: string, input: any) {
-    const res = await fetch(`${baseUrl}${this.path}`);
-    const files = await res.json();
-    return {
-      content: [
-        { type: 'text', text: `Retrieved ${files.length} files ✅` },
-        { type: 'text', text: JSON.stringify(files, null, 2) }
-      ]
-    };
-  }
+	// Метаданные
+	path = '/files-get';
+	method = 'GET';
+	description = 'Return markdown files from vault';
+	toolName = 'get_obsidian_files';
+
+	// 🔧 СЕРВЕРНАЯ ЛОГИКА (Obsidian plugin)
+	async handler(app: App, input: any): Promise<string[]> {
+		return await getMarkdownFiles(app);
+	}
+
+	// 🌐 КЛИЕНТСКАЯ ЛОГИКА (MCP tool)
+	async mcpTool(baseUrl: string, input: any) {
+		const res = await fetch(`${baseUrl}${this.path}`);
+		const files = await res.json();
+		return {
+			content: [
+				{ type: 'text', text: `Retrieved ${files.length} files ✅` },
+				{ type: 'text', text: JSON.stringify(files, null, 2) },
+			],
+		};
+	}
 }
 ```
 
 ## 🚀 Революционные преимущества
 
 ### 1. **Объединенная разработка**
+
 - **Клиент и сервер в одном файле** - редактируете API сразу с двух сторон
 - **Автосинхронизация** - изменения в эндпоинте автоматически применяются везде
 - **Единый источник правды** - один файл = один эндпоинт
 
 ### 2. **Автоматическая генерация**
+
 - **Нулевой boilerplate** - `mcp-server.ts` генерируется автоматически
 - **Типобезопасность** - TypeScript схемы синхронизированы
 - **Нет дублирования** - один код для клиента и сервера
@@ -105,21 +107,23 @@ export class FilesEndpoint extends BaseEndpoint {
 Чтобы добавить новый эндпоинт:
 
 1. Создайте файл `endpoints/my-new-endpoint.ts`:
+
 ```typescript
 export class MyNewEndpoint extends BaseEndpoint {
-  path = '/my-endpoint';
-  method = 'POST';
-  description = 'My new awesome endpoint';
-  toolName = 'my_new_tool';
-  inputSchema = MySchema;
-  
-  async handler(app: App, input: MyInput): Promise<MyOutput> {
-    // Серверная логика
-  }
+	path = '/my-endpoint';
+	method = 'POST';
+	description = 'My new awesome endpoint';
+	toolName = 'my_new_tool';
+	inputSchema = MySchema;
+
+	async handler(app: App, input: MyInput): Promise<MyOutput> {
+		// Серверная логика
+	}
 }
 ```
 
 2. Добавьте в `endpoints/index.ts`:
+
 ```typescript
 export { MyNewEndpoint } from './my-new-endpoint';
 // и в ALL_ENDPOINTS массив
@@ -128,6 +132,7 @@ export { MyNewEndpoint } from './my-new-endpoint';
 3. **ВСЁ!** 🎉 Эндпоинт автоматически доступен в HTTP API и MCP tools
 
 ### 4. **Отладка и мониторинг**
+
 - Логи показывают все зарегистрированные инструменты
 - Единая обработка ошибок
 - Консистентные HTTP статус-коды
@@ -135,13 +140,15 @@ export { MyNewEndpoint } from './my-new-endpoint';
 ## До и После
 
 ### ❌ БЫЛО (раздельно):
+
 ```
 mcp-server.ts     ← клиентская логика
-http-handler.ts   ← серверная логика  
+http-handler.ts   ← серверная логика
 config.ts         ← константы URL
 ```
 
 ### ✅ СТАЛО (объединено):
+
 ```
 endpoints/files-get.ts ← ВСЯ ЛОГИКА В ОДНОМ ФАЙЛЕ!
   ├── HTTP handler

@@ -1,13 +1,13 @@
 {
-  "permissions": {
-    "allow": [
-      "Bash(ls:*)",
-      "Bash(tsc -noEmit -skipLibCheck)",
-      "Bash(rm:*)",
-      "Bash(tsc:*)",
-      "Bash(npm run build:*)",
-      "Bash(node:*)"
-    ],
-    "deny": []
-  }
+	"permissions": {
+		"allow": [
+			"Bash(ls:*)",
+			"Bash(tsc -noEmit -skipLibCheck)",
+			"Bash(rm:*)",
+			"Bash(tsc:*)",
+			"Bash(npm run build:*)",
+			"Bash(node:*)"
+		],
+		"deny": []
+	}
 }

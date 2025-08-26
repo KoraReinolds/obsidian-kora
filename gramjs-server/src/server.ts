@@ -77,12 +77,12 @@ registerVectorHealthRoute(app);
 attachGracefulShutdown();
 
 app.listen(PORT, '127.0.0.1', () => {
-  const cfg = getConfig();
+	const cfg = getConfig();
 
-  // eslint-disable-next-line no-console
-  console.log(`GramJS server running on http://127.0.0.1:${PORT}`);
-  // eslint-disable-next-line no-console
-  console.log(`Mode: ${cfg.mode}`);
-  // eslint-disable-next-line no-console
-  console.log('Use Ctrl+C to stop');
+	// eslint-disable-next-line no-console
+	console.log(`GramJS server running on http://127.0.0.1:${PORT}`);
+	// eslint-disable-next-line no-console
+	console.log(`Mode: ${cfg.mode}`);
+	// eslint-disable-next-line no-console
+	console.log('Use Ctrl+C to stop');
 });

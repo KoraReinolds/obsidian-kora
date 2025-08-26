@@ -13,13 +13,18 @@ export class McpHttpHandler {
 		}
 	}
 
-	async handleRequest(url: string, method: string, req: any, res: any): Promise<void> {
+	async handleRequest(
+		url: string,
+		method: string,
+		req: any,
+		res: any
+	): Promise<void> {
 		// Парсим URL, чтобы отделить путь от query
 		const parsedUrl = new URL(url, 'http://localhost');
 		const path = parsedUrl.pathname;
 
 		const endpoint = this.endpoints.get(path);
-		
+
 		if (!endpoint) {
 			res.writeHead(404, { 'Content-Type': 'application/json' });
 			res.end(JSON.stringify({ error: 'Endpoint not found' }));
@@ -34,7 +39,7 @@ export class McpHttpHandler {
 
 		try {
 			let input: any = {};
-			
+
 			// Для POST запросов читаем body
 			if (method === 'POST') {
 				input = await this.readRequestBody(req);
@@ -47,17 +52,19 @@ export class McpHttpHandler {
 
 			// Вызываем handler эндпоинта
 			const result = await endpoint.handler(this.app, input);
-			
+
 			res.writeHead(200, { 'Content-Type': 'application/json' });
 			res.end(JSON.stringify(result));
 		} catch (error: any) {
 			console.error(`Error in endpoint ${path}:`, error);
-			
+
 			const statusCode = error.message === 'File not found' ? 404 : 400;
 			res.writeHead(statusCode, { 'Content-Type': 'application/json' });
-			res.end(JSON.stringify({ 
-				error: error.message || 'Internal server error' 
-			}));
+			res.end(
+				JSON.stringify({
+					error: error.message || 'Internal server error',
+				})
+			);
 		}
 	}
 
@@ -70,7 +77,10 @@ export class McpHttpHandler {
 			const key = rawKey.endsWith('[]') ? rawKey.slice(0, -2) : rawKey;
 			const isArrayKey = arrayKeys.has(key) || rawKey.endsWith('[]');
 			const splitValues = rawValue.includes(',')
-				? rawValue.split(',').map(v => v.trim()).filter(Boolean)
+				? rawValue
+						.split(',')
+						.map(v => v.trim())
+						.filter(Boolean)
 				: [rawValue];
 
 			const coerce = (k: string, v: string) => {
@@ -92,7 +102,8 @@ export class McpHttpHandler {
 						input[key] = [input[key], ...coercedValues];
 					}
 				} else {
-					input[key] = coercedValues.length === 1 ? coercedValues[0] : coercedValues;
+					input[key] =
+						coercedValues.length === 1 ? coercedValues[0] : coercedValues;
 				}
 			}
 		}
@@ -124,14 +135,13 @@ export class McpHttpHandler {
 	// Оставляем для обратной совместимости, но теперь используем новую логику
 	getEndpoints(): Record<string, any> {
 		const legacyEndpoints: Record<string, any> = {};
-		
+
 		for (const endpoint of ALL_ENDPOINTS) {
 			legacyEndpoints[endpoint.path] = async (app: App, req: any, res: any) => {
 				await this.handleRequest(endpoint.path, endpoint.method, req, res);
 			};
 		}
-		
+
 		return legacyEndpoints;
 	}
-
 }
