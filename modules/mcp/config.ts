@@ -10,7 +10,6 @@ export const MCP_ENDPOINTS = {
 	FILES: '/files',
 	FRONTMATTER: '/frontmatter',
 	GET_FRONTMATTER: '/get_frontmatter',
-	AREAS: '/areas',
 	FILE_CONTENT: '/file_content',
 	AUTOMATE_DOCS: '/automate_docs',
 } as const;

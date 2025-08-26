@@ -43,7 +43,6 @@ export interface McpEndpointHandler {
 export interface McpEndpoints {
 	'/frontmatter': McpEndpointHandler;
 	'/get_frontmatter': McpEndpointHandler;
-	'/areas': McpEndpointHandler;
 	'/files': McpEndpointHandler;
 	'/file_content': McpEndpointHandler;
 	'/automate_docs': McpEndpointHandler;
