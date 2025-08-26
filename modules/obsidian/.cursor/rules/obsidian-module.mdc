@@ -1,0 +1,101 @@
+---
+globs: modules/**
+alwaysApply: false
+---
+
+# Obsidian Module - Essential Usage Guide
+
+**USE THIS MODULE WHEN**: You need to interact with Obsidian vault, files, frontmatter, or create UI components.
+
+## Core Classes & Functions
+
+### VaultOperations
+```typescript
+import { VaultOperations } from './modules/obsidian';
+const vaultOps = new VaultOperations(app);
+
+// Essential methods:
+await vaultOps.moveFileToFolder(file, targetFolder);
+await vaultOps.getFileContent(file);
+await vaultOps.createFile(path, content);
+await vaultOps.openFile(file);
+```
+
+### FrontmatterUtils
+```typescript
+import { FrontmatterUtils } from './modules/obsidian';
+const fm = new FrontmatterUtils(app);
+
+// Single file operations:
+await fm.getFrontmatter(file);
+await fm.updateFrontmatter(file, { key: 'value' });
+await fm.setFrontmatterField(file, 'field', 'value');
+
+// Batch operations:
+await fm.updateFrontmatterForFiles(filePaths, { key: 'value' });
+await fm.getFrontmatterForFiles(filePaths);
+```
+
+### File Utilities
+```typescript
+import { getMarkdownFiles, getExistingFilesByPaths, findFileByName } from './modules/obsidian';
+
+// Get file paths (fast, lightweight):
+const fileData = await getMarkdownFiles(app, { 
+  folderPath: 'Notes/', 
+  include: ['*.md'], 
+  exclude: ['**/drafts/*'] 
+});
+
+// Get actual TFile objects for content operations:
+const realFiles = getExistingFilesByPaths(app, fileData.map(f => f.path));
+
+// Find specific file:
+const file = findFileByName(app, 'my-note');
+```
+
+### UI Components
+```typescript
+import { SuggesterFactory, TextInputSuggest } from './modules/obsidian';
+
+// Ready-to-use suggesters:
+const folderSuggester = SuggesterFactory.createFolderConfigSuggester(app, settings);
+const channelSuggester = SuggesterFactory.createChannelSuggester(app, file, settings);
+
+// Custom suggester:
+const customSuggester = SuggesterFactory.createCustomSuggester(app, {
+  placeholder: 'Choose...',
+  dataSource: { getItems: () => myData, validateItems: (items) => items.length > 0 },
+  display: { getTitle: (item) => item.name }
+});
+
+// Text input suggestions:
+class MyInputSuggest extends TextInputSuggest<MyType> {
+  getSuggestions(input: string) { /* filter logic */ }
+  renderSuggestion(item: MyType, el: HTMLElement) { /* render logic */ }
+  selectSuggestion(item: MyType) { /* selection logic */ }
+}
+```
+
+## Key Patterns
+
+1. **File Operations**: Use `getMarkdownFiles()` for paths, then `getExistingFilesByPaths()` for actual files
+2. **Frontmatter**: Create one `FrontmatterUtils` instance and reuse it
+3. **UI**: Use `SuggesterFactory` for consistent, reusable suggesters
+4. **Error Handling**: Batch operations return detailed error information per file
+
+## Common Use Cases
+
+- **File Management**: Moving, creating, reading files
+- **Metadata Operations**: Reading/updating frontmatter for single or multiple files
+- **UI Components**: Creating suggesters, modals, input fields with autocomplete
+- **File Discovery**: Finding files by name, filtering by patterns, getting area information
+
+## Important Notes
+
+- `getMarkdownFiles()` returns lightweight `MarkdownFileData` (paths + metadata)
+- `getExistingFilesByPaths()` returns actual `TFile` objects for content operations
+- All file operations are async - use `await`
+- Use glob patterns (`*`, `**`) for file filtering
+- `SuggesterFactory` reduces UI code by 80% compared to manual implementation
+
