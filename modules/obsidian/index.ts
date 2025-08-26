@@ -9,8 +9,5 @@ export { TextInputSuggest } from './suggester';
 export { ConfigurableSuggester, SuggesterFactory, type SuggesterConfig } from './suggester-modal';
 export { 
   getMarkdownFiles, 
-  findFileByName, 
-  getFilesByPaths,
-  type MarkdownFileData,
   type GetMarkdownFilesOptions
 } from './file-operations';

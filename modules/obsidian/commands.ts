@@ -4,7 +4,7 @@
 
 import { App, TFile, Notice, Command } from 'obsidian';
 import { GramJSBridge, MessageFormatter, ChannelConfigService, type ChannelConfig } from '../telegram';
-import { FrontmatterUtils, VaultOperations, getMarkdownFiles, getFilesByPaths } from '.';
+import { FrontmatterUtils, VaultOperations, getMarkdownFiles } from '.';
 import { DuplicateTimeFixer } from '../utils';
 import { RELATED_CHUNKS_VIEW_TYPE } from '../chunking/ui/related-chunks-view';
 import { SuggesterFactory } from './suggester-modal';
@@ -371,20 +371,12 @@ export class PluginCommands {
     const folderPath = folderConfig.folder;
 
     // Get all markdown files from the folder (first level only)
-    const folderFilesData = await getMarkdownFiles(this.app, {
+    const folderFiles = getMarkdownFiles(this.app, {
       folderPath: folderConfig.folder,
     });
 
-    if (folderFilesData.length === 0) {
-      new Notice(`В папке ${folderPath} нет markdown файлов первого уровня`);
-      return;
-    }
-
-    // Get real TFile objects from the paths
-    const folderFiles = getFilesByPaths(this.app, folderFilesData.map(f => f.path));
-
     if (folderFiles.length === 0) {
-      new Notice(`В папке ${folderPath} нет доступных markdown файлов первого уровня`);
+      new Notice(`В папке ${folderPath} нет markdown файлов первого уровня`);
       return;
     }
 

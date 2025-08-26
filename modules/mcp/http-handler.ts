@@ -64,7 +64,7 @@ export class McpHttpHandler {
 	private parseQuery(params: URLSearchParams): any {
 		const input: any = {};
 		const arrayKeys = new Set(['include', 'exclude']);
-		const booleanKeys = new Set(['includeContent', 'includeTitle']);
+		const booleanKeys = new Set(['']);
 
 		for (const [rawKey, rawValue] of params.entries()) {
 			const key = rawKey.endsWith('[]') ? rawKey.slice(0, -2) : rawKey;

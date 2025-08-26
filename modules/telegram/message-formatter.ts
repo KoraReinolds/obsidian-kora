@@ -9,7 +9,7 @@ import {
   type InlineButton
 } from './markdown-to-telegram-converter';
 import { App } from 'obsidian';
-import { FrontmatterUtils, findFileByName, VaultOperations } from '../obsidian';
+import { FrontmatterUtils, VaultOperations, getMarkdownFiles } from '../obsidian';
 import { ChannelConfigService } from './channel-config-service';
 
 export interface EmojiMapping {
@@ -240,7 +240,11 @@ export class MessageFormatter {
             throw new Error('App and ChannelConfigService required');
           }
 
-          const file = findFileByName(this.app, fileName);
+          // Find file by name using getMarkdownFiles with include pattern
+          const files = getMarkdownFiles(this.app, { 
+            include: [fileName] 
+          });
+          const file = files[0]; // Get first matching file
           if (!file) {
             throw new Error(`File "${fileName}" not found`);
           }
@@ -322,8 +326,11 @@ export class MessageFormatter {
     }
 
     try {
-      // Получаем файл по имени
-      const file = findFileByName(this.app, fileName);
+      // Получаем файл по имени используя getMarkdownFiles с include паттерном
+      const foundFiles = getMarkdownFiles(this.app, { 
+        include: [fileName] 
+      });
+      const file = foundFiles[0]; // Получаем первый найденный файл
       if (!file) {
         console.warn(`File "${fileName}" not found`);
         return undefined;
@@ -344,8 +351,11 @@ export class MessageFormatter {
       
       const buttonsFileName = buttonsMatch[1];
 
-      // Получаем файл кнопок
-      const buttonsFile = findFileByName(this.app, buttonsFileName);
+      // Получаем файл кнопок используя getMarkdownFiles с include паттерном
+      const buttonFiles = getMarkdownFiles(this.app, { 
+        include: [buttonsFileName] 
+      });
+      const buttonsFile = buttonFiles[0]; // Получаем первый найденный файл
       if (!buttonsFile) {
         console.warn(`Buttons file "${buttonsFileName}" not found`);
         return undefined;

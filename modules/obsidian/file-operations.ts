@@ -4,26 +4,11 @@
 
 import { App, TFile } from 'obsidian';
 
-/**
- * Type for markdown file data returned by getMarkdownFiles
- */
-export interface MarkdownFileData {
-	path: string;
-	basename: string;
-	stat: {
-		ctime: number;
-		mtime: number;
-		size: number;
-	};
-}
 
 /**
  * Options for getMarkdownFiles function
  */
 export interface GetMarkdownFilesOptions {
-	folderPath?: string;
-	includeContent?: boolean;
-	includeTitle?: boolean;
 	include?: string[];
 	exclude?: string[];
 }
@@ -64,17 +49,18 @@ function matchesInclude(path: string, pattern: string): boolean {
  * @param app The Obsidian application instance.
  * @param options Optional parameters for filtering and content inclusion.
  * @returns An array of markdown file data.
+ * 
+ * Note: Use 'include' with glob patterns instead of folderPath for folder filtering.
+ * Example: include: ['Notes/**', 'Projects/*.md'] for files in Notes folder and md files in Projects folder.
  */
-export async function getMarkdownFiles(
+export function getMarkdownFiles(
 	app: App, 
 	options?: GetMarkdownFilesOptions
-): Promise<MarkdownFileData[]> {
+): TFile[] {
 	const files = app.vault.getMarkdownFiles();
 	
-	// Filter by folder path if specified (legacy support)
-	let filteredFiles = options?.folderPath 
-		? files.filter(f => f.path.startsWith(options.folderPath!))
-		: files;
+	// Start with all files
+	let filteredFiles = files;
 
 	// Apply include filter if provided
 	if (options?.include && options.include.length > 0) {
@@ -93,39 +79,5 @@ export async function getMarkdownFiles(
 	return filteredFiles;
 }
 
-/**
- * Retrieves real TFile objects by an array of file paths, filtering out non-existent files.
- * @param app The Obsidian application instance.
- * @param paths Array of file paths to retrieve.
- * @returns Array of existing TFile objects only.
- */
-export function getFilesByPaths(app: App, paths: string[]): TFile[] {
-  const files = paths.map(path => {
-		const file = app.vault.getAbstractFileByPath(path);
-		return file instanceof TFile ? file : null;
-	});
-  return files.filter((file): file is TFile => file !== null);
-}
 
-/**
- * Find a file by its name (with or without .md extension).
- * Searches both by direct path and by basename across all markdown files.
- * @param app The Obsidian application instance.
- * @param fileName The file name to search for.
- * @returns The found TFile or null if not found.
- */
-export function findFileByName(app: App, fileName: string): TFile | null {
-	// Add .md extension if not present
-	const fullFileName = fileName.endsWith('.md') ? fileName : `${fileName}.md`;
-	
-	// Try direct path lookup first
-	const file = app.vault.getAbstractFileByPath(fullFileName);
-	if (file instanceof TFile) {
-		return file;
-	}
-	
-	// If not found by direct path, search all markdown files
-	const allFiles = app.vault.getMarkdownFiles();
-	return allFiles.find(f => f.basename === fileName || f.name === fullFileName) || null;
-}
 

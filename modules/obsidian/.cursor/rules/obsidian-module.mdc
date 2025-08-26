@@ -39,20 +39,13 @@ await fm.getFrontmatterForFiles(filePaths);
 
 ### File Utilities
 ```typescript
-import { getMarkdownFiles, getFilesByPaths, findFileByName } from './modules/obsidian';
+import { getMarkdownFiles } from './modules/obsidian';
 
-// Get file paths (fast, lightweight):
-const fileData = await getMarkdownFiles(app, { 
-  folderPath: 'Notes/', 
-  include: ['*.md'], 
+// Get TFile objects directly:
+const files = getMarkdownFiles(app, { 
+  include: ['Notes/**', '*.md'], 
   exclude: ['**/drafts/*'] 
 });
-
-// Get actual TFile objects for content operations:
-const realFiles = getFilesByPaths(app, fileData.map(f => f.path));
-
-// Find specific file:
-const file = findFileByName(app, 'my-note');
 ```
 
 ### UI Components
@@ -80,22 +73,30 @@ class MyInputSuggest extends TextInputSuggest<MyType> {
 
 ## Key Patterns
 
-1. **File Operations**: Use `getMarkdownFiles()` for paths, then `getFilesByPaths()` for actual files
-2. **Frontmatter**: Create one `FrontmatterUtils` instance and reuse it
-3. **UI**: Use `SuggesterFactory` for consistent, reusable suggesters
-4. **Error Handling**: Batch operations return detailed error information per file
+1. **UNIVERSAL FILE ACCESS**: Use ONLY `getMarkdownFiles()` for all file operations
+2. **Pattern-Based Filtering**: Use `include` and `exclude` with glob patterns for efficient filtering
+3. **Single File Lookup**: Use `include: [fileName]` and get `files[0]` for specific file search
+4. **Frontmatter**: Create one `FrontmatterUtils` instance and reuse it
+5. **UI**: Use `SuggesterFactory` for consistent, reusable suggesters
+6. **Error Handling**: Batch operations return detailed error information per file
 
 ## Common Use Cases
 
-- **File Management**: Moving, creating, reading files
+- **File Discovery**: Use `getMarkdownFiles()` with patterns for all file finding needs
+- **File Management**: Moving, creating, reading files via VaultOperations
 - **Metadata Operations**: Reading/updating frontmatter for single or multiple files
 - **UI Components**: Creating suggesters, modals, input fields with autocomplete
-- **File Discovery**: Finding files by name, filtering by patterns, getting area information
 
 ## Important Notes
 
-- `getMarkdownFiles()` returns lightweight `MarkdownFileData` (paths + metadata)
-- `getFilesByPaths()` returns actual `TFile` objects for content operations
+- **ONLY USE `getMarkdownFiles()`** - это единственный метод для получения файлов
+- `getMarkdownFiles()` возвращает реальные `TFile` объекты для операций с контентом
+- Все операции с файлами асинхронные - используйте `await`
+- Используйте glob паттерны (`*`, `**`) для фильтрации файлов
+- `SuggesterFactory` сокращает UI код на 80% по сравнению с ручной реализацией
+- **НЕ создавайте собственные методы поиска файлов** - используйте встроенные параметры `getMarkdownFiles()`
+
+
 - All file operations are async - use `await`
 - Use glob patterns (`*`, `**`) for file filtering
 - `SuggesterFactory` reduces UI code by 80% compared to manual implementation

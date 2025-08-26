@@ -21,9 +21,7 @@ export class AutomateDocsEndpoint extends BaseEndpoint<Record<string, never>, Au
 
 	async handler(app: App, _input: Record<string, never>): Promise<AutomateDoc[]> {
 		return await getMarkdownFiles(app, {
-      folderPath: 'Automate/mcp/',
-      includeContent: true,
-      includeTitle: true
+      include: ['Automate/mcp/**'],
     });
 	}
 
