@@ -15,7 +15,7 @@ modules/mcp/
 ├── endpoints/                # 🚀 ОБЪЕДИНЕННЫЕ КЛИЕНТ-СЕРВЕР ЭНДПОИНТЫ
 │   ├── index.ts             # Экспорт всех эндпоинтов
 │   ├── base.ts              # Базовый класс для эндпоинтов
-│   ├── files.ts             # /files эндпоинт (клиент + сервер)
+│   ├── files.ts             # /files-get эндпоинт (клиент + сервер)
 │   ├── frontmatter.ts       # /frontmatter эндпоинт (клиент + сервер)
 │   ├── get-frontmatter.ts   # /get_frontmatter эндпоинт (клиент + сервер)
 │   ├── file-content.ts      # /file_content эндпоинт (клиент + сервер)
@@ -59,12 +59,12 @@ McpToolsGenerator.registerAllTools(server, KORA_URL);
 
 Каждый файл в `endpoints/` содержит **ПОЛНУЮ ЛОГИКУ** эндпоинта:
 
-### Пример: `endpoints/files.ts`
+### Пример: `endpoints/files-get.ts`
 
 ```typescript
 export class FilesEndpoint extends BaseEndpoint {
   // Метаданные
-  path = '/files';
+  path = '/files-get';
   method = 'GET';
   description = 'Return markdown files from vault';
   toolName = 'get_obsidian_files';
@@ -143,7 +143,7 @@ config.ts         ← константы URL
 
 ### ✅ СТАЛО (объединено):
 ```
-endpoints/files.ts ← ВСЯ ЛОГИКА В ОДНОМ ФАЙЛЕ!
+endpoints/files-get.ts ← ВСЯ ЛОГИКА В ОДНОМ ФАЙЛЕ!
   ├── HTTP handler
   ├── MCP tool
   ├── TypeScript схемы

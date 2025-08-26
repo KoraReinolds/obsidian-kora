@@ -91,7 +91,7 @@ npm run version
 
 The plugin serves these endpoints on localhost:8123:
 
-- `GET /files` - List all markdown files
+- `GET /files-get` - List all markdown files
 - `POST /frontmatter` - Update frontmatter for files
 - `POST /get_frontmatter` - Get frontmatter for specific files
 - `POST /file_content` - Get raw file content

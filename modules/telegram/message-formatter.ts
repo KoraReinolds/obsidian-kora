@@ -9,7 +9,7 @@ import {
   type InlineButton
 } from './markdown-to-telegram-converter';
 import { App } from 'obsidian';
-import { FrontmatterUtils, findFileByName, generateTelegramPostUrl, VaultOperations } from '../obsidian';
+import { FrontmatterUtils, findFileByName, VaultOperations } from '../obsidian';
 import { ChannelConfigService } from './channel-config-service';
 
 export interface EmojiMapping {
@@ -25,7 +25,25 @@ export interface MessageEntity {
   custom_emoji_id?: string;
 }
 
-
+/**
+ * Generate Telegram post URL from channel ID and message ID.
+ * @param channelId The channel ID (numeric or username).
+ * @param messageId The message ID.
+ * @returns The Telegram post URL.
+ */
+export function generateTelegramPostUrl(channelId: string, messageId: number): string {
+	if (/^-?\d+$/.test(channelId)) {
+		let numericId = `${channelId}`;
+		if (numericId.startsWith('-100')) {
+			numericId = numericId.slice(4); // Remove '-100' prefix
+		} else if (numericId.startsWith('-')) {
+			numericId = numericId.slice(1); // Remove just '-' prefix
+		}
+		return `https://t.me/c/${numericId}/${messageId}`;
+	} else {
+		throw new Error('Unknown channel format');
+	}
+}
 
 export class MessageFormatter {
   private customEmojis: EmojiMapping[];

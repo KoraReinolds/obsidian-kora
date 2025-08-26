@@ -56,11 +56,11 @@ The `startServer()` method uses Node.js's built-in `http` module to create the s
 *   **Listening**: `server.listen(port, ...)` binds the server to the IP address `127.0.0.1` and the configured port (default is `8123`). Listening on `127.0.0.1` (localhost) ensures that the server is only accessible from your local machine, which is crucial for security.
 *   **Error Handling**: The server listens for the `error` event. If the port is already in use (`EADDRINUSE`), it notifies the user.
 
-### 3. API Endpoint (`GET /files`)
+### 3. API Endpoint (`GET /files-get`)
 
 The server currently has a single endpoint:
 
-*   **Endpoint**: `GET /files`
+*   **Endpoint**: `GET /files-get`
 *   **Functionality**: When a `GET` request is received at this URL, it uses the Obsidian API (`this.app.vault.getMarkdownFiles()`) to get a list of all markdown files in the vault.
 *   **Response**: It then formats this list into a JSON array, where each object contains the file's `path`, `basename`, and `stat` (file statistics like size and modification time). This JSON array is sent back to the client with a `200 OK` status code.
 *   **CORS**: The server includes `Access-Control-Allow-Origin: *` in the response headers. This is a CORS (Cross-Origin Resource Sharing) header that allows web pages from any origin to request resources from this server. This is important for tools like Cursor that might make requests from a browser-like environment.
@@ -75,7 +75,7 @@ Here is a conceptual example of how you might define such a tool for Cursor:
 
 1.  **Define a new tool** within Cursor's configuration. Let's call it `getObsidianFiles`.
 2.  **Specify the action** for this tool: it should make an HTTP `GET` request.
-3.  **Set the URL**: The request URL will be `http://127.0.0.1:8123/files`. You need to ensure the port matches the one configured in the Kora MCP Plugin settings in Obsidian.
+3.  **Set the URL**: The request URL will be `http://127.0.0.1:8123/files-get`. You need to ensure the port matches the one configured in the Kora MCP Plugin settings in Obsidian.
 4.  **No parameters needed** for this simple command.
 5.  **Describe the output**: The tool should expect a JSON response containing a list of file objects.
 

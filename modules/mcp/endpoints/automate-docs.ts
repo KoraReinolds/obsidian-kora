@@ -1,7 +1,6 @@
-import { z } from 'zod';
 import type { App } from 'obsidian';
 import { BaseEndpoint } from './base';
-import { getAutomateDocs } from '../../obsidian';
+import { getMarkdownFiles } from '../../obsidian';
 
 interface AutomateDoc {
 	path: string;
@@ -21,7 +20,11 @@ export class AutomateDocsEndpoint extends BaseEndpoint<Record<string, never>, Au
 	inputSchema = {} as Record<string, never>;
 
 	async handler(app: App, _input: Record<string, never>): Promise<AutomateDoc[]> {
-		return await getAutomateDocs(app);
+		return await getMarkdownFiles(app, {
+      folderPath: 'Automate/mcp/',
+      includeContent: true,
+      includeTitle: true
+    });
 	}
 
 	protected formatMcpResponse(docs: AutomateDoc[]): {

@@ -7,7 +7,7 @@ export const getMcpUrl = (port: number = MCP_CONFIG.DEFAULT_PORT) =>
 	`http://${MCP_CONFIG.BASE_URL}:${port}`;
 
 export const MCP_ENDPOINTS = {
-	FILES: '/files',
+	FILES: '/files-get',
 	FRONTMATTER: '/frontmatter',
 	GET_FRONTMATTER: '/get_frontmatter',
 	FILE_CONTENT: '/file_content',

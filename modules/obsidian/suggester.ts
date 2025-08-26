@@ -3,7 +3,7 @@ import { App, TFolder } from "obsidian";
 /**
  * Base class for input-based suggestion functionality
  */
-abstract class TextInputSuggest<T> {
+export abstract class TextInputSuggest<T> {
 	protected inputEl: HTMLInputElement;
 	protected suggestEl: HTMLElement;
 	protected app: App;

@@ -6,7 +6,6 @@
 import { App, ItemView, TFile, WorkspaceLeaf } from 'obsidian';
 import { chunkNote } from '..';
 import type { Chunk } from '..';
-import { renderChunkList } from './chunk-list';
 import { findChunkIndexForLine, startCursorPolling } from './chunk-cursor';
 import { VectorBridge } from '../../vector';
 import { createScrollableContainer } from './shared-container';
@@ -27,7 +26,7 @@ export class RelatedChunksView extends ItemView {
   private refreshTimer: number | null = null;
   private lastActiveFile: TFile | null = null;
   private saveTimer: number | null = null;
-  private lastModifyTime: number = 0;
+  private lastModifyTime = 0;
 
   constructor(leaf: WorkspaceLeaf, app: App, vectorBridge: VectorBridge) {
     // @ts-ignore ItemView expects app from super(leaf)
