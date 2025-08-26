@@ -18,6 +18,7 @@ export interface ChunkListRefs {
  */
 export interface ChunkListOptions {
 	// Placeholder for future options
+	mock?: boolean;
 }
 
 /**
@@ -29,7 +30,8 @@ export function renderChunkList(
 	_options: ChunkListOptions = {}
 ): ChunkListRefs {
 	const list = container.createEl('div');
-	list.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin-top:8px;';
+	list.style.cssText =
+		'display:flex;flex-direction:column;gap:6px;margin-top:8px;';
 	const items: HTMLElement[] = [];
 	for (const c of chunks) {
 		const item = list.createEl('div');
@@ -55,7 +57,10 @@ export function renderChunkList(
 /**
  * Highlight a specific chunk item by index.
  */
-export function setActiveChunkItem(items: HTMLElement[], activeIndex: number): void {
+export function setActiveChunkItem(
+	items: HTMLElement[],
+	activeIndex: number
+): void {
 	items.forEach((el, idx) => {
 		if (idx === activeIndex) {
 			el.style.borderColor = 'var(--interactive-accent)';

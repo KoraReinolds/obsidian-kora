@@ -355,9 +355,9 @@ export class MessageFormatter {
 			const linkInfo = parsedLinks[parsedLinks.length - 1 - index];
 			const markdownLink = `[${linkInfo.displayText}](${linkInfo.telegramUrl})`;
 			result =
-				result.substring(0, match.index!) +
+				result.substring(0, match.index) +
 				markdownLink +
-				result.substring(match.index! + match[0].length);
+				result.substring(match.index + match[0].length);
 		});
 
 		return result;

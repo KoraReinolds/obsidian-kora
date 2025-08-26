@@ -47,8 +47,12 @@ export class RelatedChunksView extends ItemView {
 
 	async onOpen(): Promise<void> {
 		// Only refresh when switching between different markdown files
-		this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.handleLeafChange()));
-		this.registerEvent(this.app.workspace.on('file-open', () => this.handleFileOpen()));
+		this.registerEvent(
+			this.app.workspace.on('active-leaf-change', () => this.handleLeafChange())
+		);
+		this.registerEvent(
+			this.app.workspace.on('file-open', () => this.handleFileOpen())
+		);
 		// Listen to file modifications with debounced save detection
 		this.registerEvent(
 			this.app.vault.on('modify', file => {
@@ -63,7 +67,9 @@ export class RelatedChunksView extends ItemView {
 
 		// Start listening to cursor changes
 		if (!this.stopPolling) {
-			this.stopPolling = startCursorPolling(this.app, line => this.onCursorChange(line));
+			this.stopPolling = startCursorPolling(this.app, line =>
+				this.onCursorChange(line)
+			);
 		}
 	}
 
@@ -92,7 +98,9 @@ export class RelatedChunksView extends ItemView {
 		}
 
 		const fileToProcess =
-			active && active instanceof TFile && active.extension === 'md' ? active : this.lastActiveFile;
+			active && active instanceof TFile && active.extension === 'md'
+				? active
+				: this.lastActiveFile;
 		if (!fileToProcess) return;
 
 		// Get chunks for the file to process
@@ -159,7 +167,8 @@ export class RelatedChunksView extends ItemView {
 			'margin-bottom:12px;padding:8px;background:var(--background-modifier-hover);border-radius:6px;';
 
 		const currentTitle = currentInfo.createEl('div', { text: 'Current:' });
-		currentTitle.style.cssText = 'font-size:11px;color:var(--text-muted);margin-bottom:4px;';
+		currentTitle.style.cssText =
+			'font-size:11px;color:var(--text-muted);margin-bottom:4px;';
 
 		const currentContent = currentInfo.createEl('div', {
 			text: this.truncateText(activeChunk.contentRaw || '', 100),
@@ -180,7 +189,8 @@ export class RelatedChunksView extends ItemView {
 			const loadingEl = wrapper.createEl('div', {
 				text: 'Finding related chunks...',
 			});
-			loadingEl.style.cssText = 'margin:12px 0;color:var(--text-muted);font-style:italic;';
+			loadingEl.style.cssText =
+				'margin:12px 0;color:var(--text-muted);font-style:italic;';
 
 			// Search for related chunks
 			const searchResults = await this.vectorBridge.searchContent({
@@ -207,7 +217,8 @@ export class RelatedChunksView extends ItemView {
 			const relatedChunks: RelatedChunk[] = searchResults.results
 				.filter(result => {
 					const resultChunkId = result.content?.chunkId;
-					const resultOriginalId = result.content?.originalId || result.content?.meta?.originalId;
+					const resultOriginalId =
+						result.content?.originalId || result.content?.meta?.originalId;
 
 					// Exclude the current chunk itself
 					if (resultChunkId === activeChunk.chunkId) {
@@ -237,7 +248,8 @@ export class RelatedChunksView extends ItemView {
 			const relatedHeader = wrapper.createEl('div', {
 				text: `Found ${relatedChunks.length} related chunks in other files:`,
 			});
-			relatedHeader.style.cssText = 'margin:12px 0 8px 0;font-size:12px;color:var(--text-muted);';
+			relatedHeader.style.cssText =
+				'margin:12px 0 8px 0;font-size:12px;color:var(--text-muted);';
 
 			this.renderRelatedChunkList(wrapper, relatedChunks);
 		} catch (error) {
@@ -259,7 +271,10 @@ export class RelatedChunksView extends ItemView {
 			if (!content || !content.chunkId) return null;
 
 			// Extract source file from metadata
-			const sourceFile = content.obsidian?.path || content.meta?.obsidian?.path || 'Unknown file';
+			const sourceFile =
+				content.obsidian?.path ||
+				content.meta?.obsidian?.path ||
+				'Unknown file';
 
 			const relatedChunk: RelatedChunk = {
 				chunkId: content.chunkId,
@@ -288,9 +303,13 @@ export class RelatedChunksView extends ItemView {
 	/**
 	 * Custom render for related chunks with weight indicators
 	 */
-	private renderRelatedChunkList(container: HTMLElement, relatedChunks: RelatedChunk[]): void {
+	private renderRelatedChunkList(
+		container: HTMLElement,
+		relatedChunks: RelatedChunk[]
+	): void {
 		const list = container.createEl('div');
-		list.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin-top:8px;';
+		list.style.cssText =
+			'display:flex;flex-direction:column;gap:6px;margin-top:8px;';
 		list.dataset['koraRelatedChunkList'] = 'true';
 
 		for (const chunk of relatedChunks) {
@@ -325,7 +344,8 @@ export class RelatedChunksView extends ItemView {
 
 			// Score container with weight indicator
 			const scoreContainer = top.createEl('span');
-			scoreContainer.style.cssText = 'display:inline-flex;align-items:center;gap:4px;';
+			scoreContainer.style.cssText =
+				'display:inline-flex;align-items:center;gap:4px;';
 
 			// Weight indicator (dots)
 			const weightIndicator = this.createWeightIndicator(chunk.score);
@@ -340,7 +360,9 @@ export class RelatedChunksView extends ItemView {
 
 			// Content preview
 			const preview = item.createEl('div', {
-				text: chunk.contentRaw.slice(0, 220) + (chunk.contentRaw.length > 220 ? '…' : ''),
+				text:
+					chunk.contentRaw.slice(0, 220) +
+					(chunk.contentRaw.length > 220 ? '…' : ''),
 			});
 			preview.style.cssText = 'font-size:12px;margin-bottom:4px;';
 
@@ -446,7 +468,8 @@ export class RelatedChunksView extends ItemView {
 			// Extract all existing originalIds from vectorized content
 			const existingOriginalIds = new Set<string>();
 			for (const item of vectorizedContent) {
-				const originalId = item.payload?.originalId || item.payload?.meta?.originalId;
+				const originalId =
+					item.payload?.originalId || item.payload?.meta?.originalId;
 				if (originalId) {
 					existingOriginalIds.add(originalId);
 				}
@@ -455,12 +478,16 @@ export class RelatedChunksView extends ItemView {
 			// Find files that are not synced
 			const unsyncedFiles: TFile[] = [];
 			// Shuffle files for random order
-			const shuffledFiles = [...organizeFiles].sort((a, b) => Math.random() - 0.5);
+			const shuffledFiles = [...organizeFiles].sort(
+				(a, b) => Math.random() - 0.5
+			);
 
 			for (const fileData of shuffledFiles) {
 				try {
 					// Get TFile object from path
-					const file = this.app.vault.getAbstractFileByPath(fileData.path) as TFile;
+					const file = this.app.vault.getAbstractFileByPath(
+						fileData.path
+					) as TFile;
 					if (!file) continue;
 
 					const cache = this.app.metadataCache.getFileCache(file);
@@ -489,12 +516,14 @@ export class RelatedChunksView extends ItemView {
 			const unsyncedHeader = wrapper.createEl('div', {
 				text: `📤 Unsynced Notes in /Organize (${unsyncedFiles.length})`,
 			});
-			unsyncedHeader.style.cssText = 'font-weight:600;margin:8px 0;color:var(--text-muted);';
+			unsyncedHeader.style.cssText =
+				'font-weight:600;margin:8px 0;color:var(--text-muted);';
 
 			const unsyncedSubheader = wrapper.createEl('div', {
 				text: 'These notes from /Organize folder are not yet indexed for vector search:',
 			});
-			unsyncedSubheader.style.cssText = 'font-size:11px;color:var(--text-muted);margin-bottom:8px;';
+			unsyncedSubheader.style.cssText =
+				'font-size:11px;color:var(--text-muted);margin-bottom:8px;';
 
 			// Limit display to first 20 unsynced files
 			const filesToShow = unsyncedFiles.slice(0, 20);

@@ -109,12 +109,18 @@ Just text.`;
 		expect(chunks.length).toBe(4);
 		expect(chunks[0].contentRaw).toBe('Normal paragraph with content.');
 		expect(chunks[1].contentRaw).toBe('Another normal paragraph.');
-		expect(chunks[2].contentRaw).toBe('Some text with [[embedded link]] in the middle.');
+		expect(chunks[2].contentRaw).toBe(
+			'Some text with [[embedded link]] in the middle.'
+		);
 		expect(chunks[3].contentRaw).toBe('Just text.');
 
 		// Ensure no pure link chunks are present
-		const hasOnlyWikilink = chunks.some(c => /^\[\[.*\]\]$/.test(c.contentRaw.trim()));
-		const hasOnlyMarkdownLink = chunks.some(c => /^\[.*\]\(.*\)$/.test(c.contentRaw.trim()));
+		const hasOnlyWikilink = chunks.some(c =>
+			/^\[\[.*\]\]$/.test(c.contentRaw.trim())
+		);
+		const hasOnlyMarkdownLink = chunks.some(c =>
+			/^\[.*\]\(.*\)$/.test(c.contentRaw.trim())
+		);
 		expect(hasOnlyWikilink).toBe(false);
 		expect(hasOnlyMarkdownLink).toBe(false);
 	});
@@ -217,11 +223,15 @@ Another paragraph.`;
 		expect(chunks.length).toBe(4);
 		expect(chunks[0].contentRaw).toBe('Normal paragraph.');
 		expect(chunks[1].contentRaw).toBe('Some text with content ^textblock');
-		expect(chunks[2].contentRaw).toBe('Just punctuation, no content ^punctblock');
+		expect(chunks[2].contentRaw).toBe(
+			'Just punctuation, no content ^punctblock'
+		);
 		expect(chunks[3].contentRaw).toBe('Another paragraph.');
 
 		// Ensure no standalone block reference chunks are present
-		const blockRefOnlyChunks = chunks.filter(c => /^\^[\w\-()]+$/.test(c.contentRaw.trim()));
+		const blockRefOnlyChunks = chunks.filter(c =>
+			/^\^[\w\-()]+$/.test(c.contentRaw.trim())
+		);
 		expect(blockRefOnlyChunks.length).toBe(0);
 	});
 
@@ -355,7 +365,11 @@ Final paragraph.`;
 		// Ensure no standalone link chunks or block references are present
 		const linkOnlyChunks = chunks.filter(c => {
 			const text = c.contentRaw.trim();
-			return /^\[\[.*\]\]$/.test(text) || /^\[.*\]\(.*\)$/.test(text) || /^\^[\w\-()]+$/.test(text);
+			return (
+				/^\[\[.*\]\]$/.test(text) ||
+				/^\[.*\]\(.*\)$/.test(text) ||
+				/^\^[\w\-()]+$/.test(text)
+			);
 		});
 		expect(linkOnlyChunks.length).toBe(0);
 	});

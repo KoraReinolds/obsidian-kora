@@ -64,7 +64,7 @@ export function getMarkdownFiles(
 	// Apply include filter if provided
 	if (options?.include && options.include.length > 0) {
 		filteredFiles = filteredFiles.filter(file =>
-			options.include!.some(pattern => matchesInclude(file.path, pattern))
+			options.include?.some(pattern => matchesInclude(file.path, pattern))
 		);
 	}
 
@@ -72,7 +72,7 @@ export function getMarkdownFiles(
 	if (options?.exclude && options.exclude.length > 0) {
 		filteredFiles = filteredFiles.filter(
 			file =>
-				!options.exclude!.some(pattern => matchesInclude(file.path, pattern))
+				!options.exclude?.some(pattern => matchesInclude(file.path, pattern))
 		);
 	}
 

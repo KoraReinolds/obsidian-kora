@@ -8,7 +8,12 @@ import { groupShortListItems } from './grouping.js';
 import { splitLongParagraphs } from './splitting.js';
 import { extractBlockId, toHash, buildEmbeddingText } from './id.js';
 import { normalizeMarkdown } from './utils.js';
-import type { Chunk, ChunkOptions, ChunkNoteContext, ChunkPayloadMeta } from './types.js';
+import type {
+	Chunk,
+	ChunkOptions,
+	ChunkNoteContext,
+	ChunkPayloadMeta,
+} from './types.js';
 import { buildBlocksFromCache } from './cache-blocks.js';
 
 /**
@@ -80,5 +85,7 @@ export function chunkNote(
 		});
 	}
 
-	return chunks.length > merged.maxChunksSoft ? chunks.slice(0, merged.maxChunksSoft) : chunks;
+	return chunks.length > merged.maxChunksSoft
+		? chunks.slice(0, merged.maxChunksSoft)
+		: chunks;
 }

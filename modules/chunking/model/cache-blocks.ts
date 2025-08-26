@@ -7,7 +7,11 @@ import type { ParsedBlock } from './parser-types.js';
 import type { CachedMetadataLike } from './cache-types.js';
 import { buildHeadingPathResolver } from './cache-types.js';
 
-function sliceByOffsets(text: string, startOffset: number, endOffset: number): string {
+function sliceByOffsets(
+	text: string,
+	startOffset: number,
+	endOffset: number
+): string {
 	return text.slice(startOffset, endOffset);
 }
 
@@ -16,7 +20,10 @@ function sliceByOffsets(text: string, startOffset: number, endOffset: number): s
 /**
  * Build ParsedBlock[] from markdown and cached metadata.
  */
-export function buildBlocksFromCache(markdown: string, cache: CachedMetadataLike): ParsedBlock[] {
+export function buildBlocksFromCache(
+	markdown: string,
+	cache: CachedMetadataLike
+): ParsedBlock[] {
 	const sections = (cache.sections || [])
 		.slice()
 		.sort((a, b) => a.position.start.offset - b.position.start.offset);
@@ -43,7 +50,10 @@ export function buildBlocksFromCache(markdown: string, cache: CachedMetadataLike
 		if (type === 'list') {
 			const parentTextByDepth: string[] = [];
 			const itemIndexByDepth: number[] = [];
-			while (listPtr < listItems.length && listItems[listPtr].position.start.offset < endOffset) {
+			while (
+				listPtr < listItems.length &&
+				listItems[listPtr].position.start.offset < endOffset
+			) {
 				const li = listItems[listPtr];
 				if (li.position.start.offset < startOffset) {
 					listPtr++;
@@ -55,8 +65,14 @@ export function buildBlocksFromCache(markdown: string, cache: CachedMetadataLike
 				const lineText = lines[line] || '';
 				const indent = lineText.match(/^(\s*)/)?.[1]?.length || 0;
 				const depth = Math.floor(indent / 2);
-				const itemRaw = sliceByOffsets(markdown, li.position.start.offset, li.position.end.offset);
-				const itemText = itemRaw.replace(/^(\s*)([-*+]\s+|\d+\.\s+)/, '').trim();
+				const itemRaw = sliceByOffsets(
+					markdown,
+					li.position.start.offset,
+					li.position.end.offset
+				);
+				const itemText = itemRaw
+					.replace(/^(\s*)([-*+]\s+|\d+\.\s+)/, '')
+					.trim();
 
 				if (itemIndexByDepth.length <= depth) {
 					itemIndexByDepth[depth] = 0;
@@ -98,9 +114,15 @@ export function buildBlocksFromCache(markdown: string, cache: CachedMetadataLike
 			continue;
 		}
 
-		if (type === 'code' || type === 'table' || type === 'blockquote' || type === 'quote') {
+		if (
+			type === 'code' ||
+			type === 'table' ||
+			type === 'blockquote' ||
+			type === 'quote'
+		) {
 			const text = sliceByOffsets(markdown, startOffset, endOffset);
-			const mappedType = type === 'blockquote' ? 'quote' : (type as ParsedBlock['type']);
+			const mappedType =
+				type === 'blockquote' ? 'quote' : (type as ParsedBlock['type']);
 			blocks.push({
 				type: mappedType,
 				text,
@@ -190,7 +212,10 @@ function shouldIgnoreBlock(block: ParsedBlock): boolean {
 	const withoutEmbeds = trimmedText.replace(/!\[\[.*?\]\]/g, ''); // Remove ![[...]]
 	const withoutWikilinks = withoutEmbeds.replace(/\[\[.*?\]\]/g, ''); // Remove [[...]]
 	const withoutMarkdownLinks = withoutWikilinks.replace(/\[.*?\]\(.*?\)/g, ''); // Remove [...](...)
-	const withoutBlockRefs = withoutMarkdownLinks.replace(/\s*\^[\w\-()]+\s*$/g, ''); // Remove block references ^blockid or ^(blockid) at end
+	const withoutBlockRefs = withoutMarkdownLinks.replace(
+		/\s*\^[\w\-()]+\s*$/g,
+		''
+	); // Remove block references ^blockid or ^(blockid) at end
 	const withoutLinks = withoutBlockRefs.trim();
 
 	// If after removing all links there's nothing substantial left, ignore the block

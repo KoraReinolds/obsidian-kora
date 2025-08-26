@@ -41,8 +41,12 @@ export class ChunkView extends ItemView {
 
 	async onOpen(): Promise<void> {
 		// Only refresh when switching between different markdown files
-		this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.handleLeafChange()));
-		this.registerEvent(this.app.workspace.on('file-open', () => this.handleFileOpen()));
+		this.registerEvent(
+			this.app.workspace.on('active-leaf-change', () => this.handleLeafChange())
+		);
+		this.registerEvent(
+			this.app.workspace.on('file-open', () => this.handleFileOpen())
+		);
 		// Listen to file modifications with debounced save detection
 		this.registerEvent(
 			this.app.vault.on('modify', file => {
@@ -58,7 +62,9 @@ export class ChunkView extends ItemView {
 		await this.renderForActiveFile();
 		// Start listening to cursor after initial render
 		if (!this.stopPolling) {
-			this.stopPolling = startCursorPolling(this.app, line => this.highlightByCursorLine(line));
+			this.stopPolling = startCursorPolling(this.app, line =>
+				this.highlightByCursorLine(line)
+			);
 		}
 	}
 
@@ -130,7 +136,9 @@ export class ChunkView extends ItemView {
 		}
 
 		const fileToProcess =
-			active && active instanceof TFile && active.extension === 'md' ? active : this.lastActiveFile;
+			active && active instanceof TFile && active.extension === 'md'
+				? active
+				: this.lastActiveFile;
 		if (!fileToProcess) return;
 
 		const content = await this.app.vault.read(fileToProcess);
@@ -166,7 +174,15 @@ export class ChunkView extends ItemView {
 			btn.disabled = true;
 			btn.textContent = 'Synchronizing...';
 			try {
-				await this.syncChunks(originalId, fileToProcess, content, fm, tags, aliases, cache as any);
+				await this.syncChunks(
+					originalId,
+					fileToProcess,
+					content,
+					fm,
+					tags,
+					aliases,
+					cache as any
+				);
 			} finally {
 				btn.disabled = false;
 				await this.renderForActiveFile();
@@ -175,11 +191,12 @@ export class ChunkView extends ItemView {
 
 		// Auto-compare and render diffs for visible chunks
 		try {
-			const { baselineByChunkId, statusByChunkId } = await loadBaselineForChunksByOriginalId(
-				this.vectorBridge,
-				originalId,
-				chunks
-			);
+			const { baselineByChunkId, statusByChunkId } =
+				await loadBaselineForChunksByOriginalId(
+					this.vectorBridge,
+					originalId,
+					chunks
+				);
 
 			// Collect all chunks to display (current + deleted)
 			const allChunksToDisplay: Array<{
@@ -201,7 +218,9 @@ export class ChunkView extends ItemView {
 			}
 
 			// Add deleted chunks (exist in baseline but not in current)
-			for (const [chunkId, previousContent] of Array.from(baselineByChunkId.entries())) {
+			for (const [chunkId, previousContent] of Array.from(
+				baselineByChunkId.entries()
+			)) {
 				if (statusByChunkId.get(chunkId) === 'deleted') {
 					allChunksToDisplay.push({
 						chunk: null,
@@ -253,7 +272,9 @@ export class ChunkView extends ItemView {
 
 			// Store refs for highlighting
 			(this as any)._currentChunks = chunks;
-			(this as any)._currentChunkItems = items.filter((_, i) => visibleItems[i].chunk !== null);
+			(this as any)._currentChunkItems = items.filter(
+				(_, i) => visibleItems[i].chunk !== null
+			);
 
 			// Check if there are any changes to sync
 			const hasChanges = Array.from(statusByChunkId.values()).some(
@@ -264,7 +285,9 @@ export class ChunkView extends ItemView {
 			const syncBtn = header.querySelector('button') as HTMLButtonElement;
 			if (syncBtn) {
 				syncBtn.disabled = !hasChanges;
-				syncBtn.textContent = hasChanges ? 'Vectorize chunks' : 'No changes to sync';
+				syncBtn.textContent = hasChanges
+					? 'Vectorize chunks'
+					: 'No changes to sync';
 				if (!hasChanges) {
 					syncBtn.style.opacity = '0.6';
 				} else {
@@ -422,7 +445,11 @@ export class ChunkView extends ItemView {
 		try {
 			// Get current state from vector DB
 			const { baselineByChunkId, statusByChunkId, qdrantIdByChunkId } =
-				await loadBaselineForChunksByOriginalId(this.vectorBridge, originalId, chunks);
+				await loadBaselineForChunksByOriginalId(
+					this.vectorBridge,
+					originalId,
+					chunks
+				);
 
 			// Collect chunks to create/update and delete
 			const chunksToVectorize: any[] = [];
@@ -481,7 +508,10 @@ export class ChunkView extends ItemView {
 		try {
 			const result = await this.vectorBridge.batchDelete(ids);
 			if (result.failed.length > 0) {
-				console.warn(`Failed to delete ${result.failed.length} chunks:`, result.failed);
+				console.warn(
+					`Failed to delete ${result.failed.length} chunks:`,
+					result.failed
+				);
 			}
 			console.log(`Successfully deleted ${result.deleted} chunks`);
 		} catch (error) {

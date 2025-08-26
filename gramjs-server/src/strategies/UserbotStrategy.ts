@@ -51,8 +51,8 @@ class UserbotStrategy extends TelegramClientStrategy {
 
 		this.client = new TelegramClient(
 			new StringSession(this.config.stringSession),
-			this.config.apiId!,
-			this.config.apiHash!,
+			this.config.apiId,
+			this.config.apiHash,
 			{ connectionRetries: 5 }
 		);
 
