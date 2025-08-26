@@ -10,6 +10,7 @@
 - **Операций с vault**: получение информации о структуре хранилища
 - **Команд**: выполнение действий с заметками и файлами
 - **Интерфейса**: создание модальных окон и универсальной системы суггестеров
+- **Саджестеров**: текстовые подсказки в полях ввода
 
 ## Экспортируемые компоненты
 
@@ -147,7 +148,43 @@ const customSuggester = SuggesterFactory.createCustomSuggester(app, {
 - **`createFolderChannelSuggester`** - для выбора канала папки
 - **`createCommandSuggester`** - для выбора команды
 
-### 5. Утилитарные функции
+### 6. TextInputSuggest
+
+Базовый класс для создания текстовых подсказок в полях ввода.
+
+```typescript
+import { TextInputSuggest } from './modules/obsidian';
+
+class CustomInputSuggest extends TextInputSuggest<MyItemType> {
+  getSuggestions(inputStr: string): MyItemType[] {
+    return this.items.filter(item => 
+      item.name.toLowerCase().includes(inputStr.toLowerCase())
+    );
+  }
+
+  renderSuggestion(item: MyItemType, el: HTMLElement): void {
+    el.createEl('div', { text: item.name });
+  }
+
+  selectSuggestion(item: MyItemType): void {
+    this.inputEl.value = item.name;
+    this.close();
+  }
+}
+
+// Использование
+const inputEl = containerEl.createEl('input', { type: 'text' });
+const suggester = new CustomInputSuggest(inputEl, app);
+```
+
+#### Особенности TextInputSuggest:
+- **Автодополнение**: Показывает подсказки при вводе
+- **Навигация клавишами**: Стрелки вверх/вниз для выбора, Enter для подтверждения
+- **Автоматическое позиционирование**: Подсказки появляются под полем ввода
+- **Стилизация**: Использует стандартные CSS-переменные Obsidian
+- **Гибкость**: Переопределите методы для кастомной логики
+
+### 7. Утилитарные функции
 
 #### `getMarkdownFiles(app: App, options?: GetMarkdownFilesOptions): Promise<MarkdownFileData[]>`
 
@@ -251,132 +288,6 @@ import { generateTelegramPostUrl } from './modules/obsidian';
 
 const url = generateTelegramPostUrl('-1001234567890', 123);
 // Возвращает: 'https://t.me/c/1234567890/123'
-```
-
-## Примеры использования
-
-### Сценарий 1: Работа с путями и реальными файлами
-
-```typescript
-import { getMarkdownFiles, getExistingFilesByPaths } from './modules/obsidian';
-
-// Получить пути файлов из папки
-const fileData = await getMarkdownFiles(app, { folderPath: 'Projects/' });
-
-// Получить реальные TFile объекты для работы
-const realFiles = getExistingFilesByPaths(app, fileData.map(f => f.path));
-
-// Теперь можно работать с реальными файлами
-for (const file of realFiles) {
-  const content = await app.vault.read(file);
-  // ... обработка содержимого
-}
-```
-
-### Сценарий 2: Обновление frontmatter для группы файлов
-
-```typescript
-import { FrontmatterUtils, getMarkdownFiles, getExistingFilesByPaths } from './modules/obsidian';
-
-const frontmatterUtils = new FrontmatterUtils(app);
-
-// Получить пути файлов
-const filesData = await getMarkdownFiles(app, { folderPath: 'Projects/' });
-
-// Получить реальные файлы
-const realFiles = getExistingFilesByPaths(app, filesData.map(f => f.path));
-
-// Обновить тег для всех файлов
-for (const file of realFiles) {
-  await frontmatterUtils.setFrontmatterField(file, 'status', 'in-progress');
-}
-```
-
-### Сценарий 3: Использование универсальной системы суггестеров
-
-```typescript
-import { SuggesterFactory } from './modules/obsidian';
-
-// Создание суггестера для выбора папки
-const folderSuggester = SuggesterFactory.createFolderConfigSuggester(app, settings);
-const selectedFolder = await folderSuggester.open();
-
-if (selectedFolder) {
-  // Создание суггестера для выбора канала в этой папке
-  const channelSuggester = SuggesterFactory.createFolderChannelSuggester(app, selectedFolder);
-  const selectedChannel = await channelSuggester.open();
-  
-  if (selectedChannel) {
-    // Отправка в выбранный канал
-    await sendToChannel(selectedChannel);
-  }
-}
-```
-
-### Сценарий 4: Создание кастомного суггестера
-
-```typescript
-import { SuggesterFactory, type SuggesterConfig } from './modules/obsidian';
-
-interface MyCustomItem {
-  id: string;
-  name: string;
-  category: string;
-  isActive: boolean;
-}
-
-const config: SuggesterConfig<MyCustomItem> = {
-  placeholder: 'Выберите активный элемент...',
-  itemType: 'custom-item',
-  dataSource: {
-    getItems: () => myDataService.getActiveItems(),
-    validateItems: (items) => {
-      if (items.length === 0) return 'Нет активных элементов';
-      return true;
-    }
-  },
-  display: {
-    getTitle: (item) => item.name,
-    getSubtitle: (item) => `Категория: ${item.category}`,
-    getStatus: (item) => item.isActive 
-      ? { text: ' • Активен', className: 'active' }
-      : { text: ' • Неактивен', className: 'inactive' },
-    cssClass: 'custom-item-suggestion'
-  },
-  validation: {
-    preOpenCheck: () => {
-      if (!myDataService.isAvailable()) return 'Сервис недоступен';
-      return true;
-    }
-  }
-};
-
-const customSuggester = SuggesterFactory.createCustomSuggester(app, config);
-const result = await customSuggester.open();
-```
-
-### Сценарий 5: Массовые операции с файлами
-
-```typescript
-import { VaultOperations, FrontmatterUtils, getMarkdownFiles, getExistingFilesByPaths } from './modules/obsidian';
-
-const vaultOps = new VaultOperations(app);
-const frontmatterUtils = new FrontmatterUtils(app);
-
-// Получить данные файлов
-const filesData = await getMarkdownFiles(app, { folderPath: 'Drafts/' });
-
-// Получить реальные файлы
-const realFiles = getExistingFilesByPaths(app, filesData.map(f => f.path));
-
-// Переместить файлы и обновить их frontmatter
-for (const file of realFiles) {
-  // Переместить в архив
-  await vaultOps.moveFileToFolder(file, 'Archive/2024');
-  
-  // Обновить статус
-  await frontmatterUtils.setFrontmatterField(file, 'archived', true);
-}
 ```
 
 ## Особенности и ограничения
