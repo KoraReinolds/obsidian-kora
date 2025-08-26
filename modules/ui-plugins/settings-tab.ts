@@ -5,7 +5,7 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import type KoraPlugin from '../../main';
 import type { UIPlugin, UIButton } from './types';
-import { FolderSuggest, SuggesterFactory } from '../obsidian/suggester-modal';
+import { FolderSuggest } from '../obsidian/suggester-modal';
 import { ConfigModal, type FieldConfig } from './config-modal';
 
 export class UIPluginSettingsTab extends PluginSettingTab {
@@ -33,9 +33,7 @@ export class UIPluginSettingsTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Добавить UI плагин')
 			.setDesc('Создать новый набор кнопок для папок')
-			.addButton(cb =>
-				cb.setButtonText('+ Плагин').onClick(() => this.addPlugin())
-			);
+			.addButton(cb => cb.setButtonText('+ Плагин').onClick(() => this.addPlugin()));
 
 		if (!this.plugin.settings.uiPlugins.plugins) {
 			this.plugin.settings.uiPlugins.plugins = [];
@@ -80,9 +78,7 @@ export class UIPluginSettingsTab extends PluginSettingTab {
 					this.saveSettings();
 				});
 			})
-			.addButton(cb =>
-				cb.setButtonText('+ Кнопка').onClick(() => this.addButton(plugin))
-			)
+			.addButton(cb => cb.setButtonText('+ Кнопка').onClick(() => this.addButton(plugin)))
 			.addButton(cb =>
 				cb
 					.setButtonText('Удалить')
@@ -100,11 +96,7 @@ export class UIPluginSettingsTab extends PluginSettingTab {
 		});
 	}
 
-	private displayButton(
-		plugin: UIPlugin,
-		button: UIButton,
-		buttonIndex: number
-	): void {
+	private displayButton(plugin: UIPlugin, button: UIButton, buttonIndex: number): void {
 		const setting = new Setting(this.containerEl);
 		setting.setClass('ui-button-setting');
 
@@ -115,10 +107,7 @@ export class UIPluginSettingsTab extends PluginSettingTab {
 
 		// Build description with command and arguments
 		let description = commandName;
-		if (
-			button.commandArguments &&
-			Object.keys(button.commandArguments).length > 0
-		) {
+		if (button.commandArguments && Object.keys(button.commandArguments).length > 0) {
 			const argsList = Object.entries(button.commandArguments)
 				.map(([key, value]) => `${key}: ${value}`)
 				.join(', ');
@@ -145,8 +134,7 @@ export class UIPluginSettingsTab extends PluginSettingTab {
 
 		// Style for compact display
 		setting.settingEl.style.marginLeft = '20px';
-		setting.settingEl.style.borderLeft =
-			'2px solid var(--background-modifier-border)';
+		setting.settingEl.style.borderLeft = '2px solid var(--background-modifier-border)';
 		setting.settingEl.style.paddingLeft = '10px';
 	}
 
@@ -171,11 +159,7 @@ export class UIPluginSettingsTab extends PluginSettingTab {
 		this.display();
 	}
 
-	private editButton(
-		plugin: UIPlugin,
-		button: UIButton,
-		buttonIndex: number
-	): void {
+	private editButton(plugin: UIPlugin, button: UIButton, buttonIndex: number): void {
 		const fields: FieldConfig[] = [
 			{
 				key: 'label',
@@ -201,8 +185,7 @@ export class UIPluginSettingsTab extends PluginSettingTab {
 				key: 'commandArguments',
 				label: 'Аргументы команды',
 				type: 'keyvalue',
-				description:
-					'Аргументы для передачи в команду в формате ключ: значение',
+				description: 'Аргументы для передачи в команду в формате ключ: значение',
 			},
 		];
 

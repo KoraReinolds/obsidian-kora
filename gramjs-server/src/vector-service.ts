@@ -6,10 +6,7 @@
  */
 
 import { QdrantClient } from '@qdrant/js-client-rest';
-import EmbeddingService, {
-	type EmbeddingConfig,
-	type EmbeddingResult,
-} from './embedding-service.js';
+import EmbeddingService, { type EmbeddingResult } from './embedding-service.js';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface VectorConfig {
@@ -64,8 +61,7 @@ class VectorService {
 
 	constructor(config: VectorConfig = {}) {
 		this.config = {
-			qdrantUrl:
-				config.qdrantUrl || process.env.QDRANT_URL || 'http://localhost:6333',
+			qdrantUrl: config.qdrantUrl || process.env.QDRANT_URL || 'http://localhost:6333',
 			collectionName: config.collectionName || 'kora_content',
 			vectorSize: config.vectorSize || 1536,
 			openaiApiKey: config.openaiApiKey || process.env.OPENAI_API_KEY || '',
@@ -104,9 +100,7 @@ class VectorService {
 			);
 
 			if (!collectionExists) {
-				console.log(
-					`[VectorService] Creating collection: ${this.config.collectionName}`
-				);
+				console.log(`[VectorService] Creating collection: ${this.config.collectionName}`);
 				await this.client.createCollection(this.config.collectionName, {
 					vectors: {
 						size: this.config.vectorSize,
@@ -153,10 +147,7 @@ class VectorService {
 				} catch (error) {
 					// Index might already exist, ignore error
 					if (!error.message?.includes('already exists')) {
-						console.warn(
-							`[VectorService] Warning creating index for ${field}:`,
-							error.message
-						);
+						console.warn(`[VectorService] Warning creating index for ${field}:`, error.message);
 					}
 				}
 			}
@@ -172,37 +163,25 @@ class VectorService {
 		await this.initialize();
 
 		try {
-			const {
-				id,
-				contentType,
-				title = '',
-				content,
-				metadata = {},
-			} = contentData;
+			const { id, contentType, title = '', content, metadata = {} } = contentData;
 
 			if (!id || !contentType || !content) {
 				throw new Error('id, contentType, and content are required');
 			}
 
-			console.log(
-				`[VectorService] Vectorizing content: ${id} (${contentType})`
-			);
+			console.log(`[VectorService] Vectorizing content: ${id} (${contentType})`);
 
 			// Check if content already exists and unchanged
 			const existingResult = await this.getContentBy('originalId', id);
 			const contentHash = this.embeddingService.generateContentHash(content);
 
-			if (
-				existingResult &&
-				existingResult.payload.contentHash === contentHash
-			) {
+			if (existingResult && existingResult.payload.contentHash === contentHash) {
 				console.log(`[VectorService] Content unchanged, skipping: ${id}`);
 				return { id, status: 'unchanged', existing: true };
 			}
 
 			// Generate embedding
-			const embeddingResult =
-				await this.embeddingService.generateEmbedding(content);
+			const embeddingResult = await this.embeddingService.generateEmbedding(content);
 
 			// Generate or reuse UUID for Qdrant
 			const qdrantId = existingResult ? existingResult.qdrantId : uuidv4();
@@ -236,9 +215,7 @@ class VectorService {
 				],
 			});
 
-			console.log(
-				`[VectorService] Successfully vectorized: ${id} (Qdrant ID: ${qdrantId})`
-			);
+			console.log(`[VectorService] Successfully vectorized: ${id} (Qdrant ID: ${qdrantId})`);
 
 			return {
 				id,
@@ -256,40 +233,28 @@ class VectorService {
 	/**
 	 * Search content by query
 	 */
-	async searchContent(
-		query: string,
-		options: SearchOptions = {}
-	): Promise<SearchResult> {
+	async searchContent(query: string, options: SearchOptions = {}): Promise<SearchResult> {
 		await this.initialize();
 
 		try {
-			const {
-				limit = 10,
-				contentTypes = [],
-				filters = {},
-				scoreThreshold = 0.0,
-			} = options;
+			const { limit = 10, contentTypes = [], filters = {}, scoreThreshold = 0.0 } = options;
 
 			console.log(`[VectorService] Searching: "${query}"`);
 
 			// Generate query embedding
-			const queryEmbedding =
-				await this.embeddingService.generateEmbedding(query);
+			const queryEmbedding = await this.embeddingService.generateEmbedding(query);
 
 			// Build filters
 			const searchFilters = this.buildFilters(contentTypes, filters);
 
 			// Search in Qdrant
-			const searchResult = await this.client.search(
-				this.config.collectionName,
-				{
-					vector: queryEmbedding.embedding,
-					limit: limit,
-					filter: searchFilters,
-					score_threshold: scoreThreshold,
-					with_payload: true,
-				}
-			);
+			const searchResult = await this.client.search(this.config.collectionName, {
+				vector: queryEmbedding.embedding,
+				limit: limit,
+				filter: searchFilters,
+				score_threshold: scoreThreshold,
+				with_payload: true,
+			});
 
 			// Format results
 			const results = searchResult.map(point => ({
@@ -297,10 +262,7 @@ class VectorService {
 				score: point.score,
 				content: point.payload,
 				// Add snippet for preview
-				snippet: this.generateSnippet(
-					(point.payload as any).content as string,
-					query
-				),
+				snippet: this.generateSnippet((point.payload as any).content as string, query),
 			}));
 
 			return {
@@ -338,22 +300,19 @@ class VectorService {
 					: null;
 			}
 
-			const searchResult = await this.client.scroll(
-				this.config.collectionName,
-				{
-					filter: {
-						must: [
-							{
-								key,
-								match: { value },
-							},
-						],
-					},
-					limit: 1,
-					with_payload: true,
-					with_vector: false,
-				}
-			);
+			const searchResult = await this.client.scroll(this.config.collectionName, {
+				filter: {
+					must: [
+						{
+							key,
+							match: { value },
+						},
+					],
+				},
+				limit: 1,
+				with_payload: true,
+				with_vector: false,
+			});
 
 			return searchResult.points.length > 0
 				? {
@@ -362,10 +321,7 @@ class VectorService {
 					}
 				: null;
 		} catch (error) {
-			console.error(
-				`[VectorService] Error getting content by ${key}=${value}:`,
-				error
-			);
+			console.error(`[VectorService] Error getting content by ${key}=${value}:`, error);
 			return null;
 		}
 	}
@@ -402,10 +358,7 @@ class VectorService {
 				payload: pt.payload,
 			}));
 		} catch (error) {
-			console.error(
-				`[VectorService] Error getting contents by ${key}=${value}:`,
-				error
-			);
+			console.error(`[VectorService] Error getting contents by ${key}=${value}:`, error);
 			return [];
 		}
 	}
@@ -447,11 +400,7 @@ class VectorService {
 			// Special case: delete by exact qdrant point IDs
 			if (key === 'qdrantId') {
 				const ids = Array.isArray(value) ? value : [value];
-				console.log(
-					'[VectorService] Deleting by qdrantId:',
-					ids.length,
-					'points'
-				);
+				console.log('[VectorService] Deleting by qdrantId:', ids.length, 'points');
 
 				await this.client.delete(this.config.collectionName, {
 					points: ids,
@@ -498,10 +447,7 @@ class VectorService {
 
 			return { deleted };
 		} catch (error) {
-			console.error(
-				`[VectorService] Error deleting by ${key}=${value}:`,
-				error
-			);
+			console.error(`[VectorService] Error deleting by ${key}=${value}:`, error);
 			throw error;
 		}
 	}
@@ -530,8 +476,7 @@ class VectorService {
 
 			const contentTypes: Record<string, number> = {};
 			scroll.points.forEach(point => {
-				const type =
-					((point.payload as any).contentType as string) || 'unknown';
+				const type = ((point.payload as any).contentType as string) || 'unknown';
 				contentTypes[type] = (contentTypes[type] || 0) + 1;
 			});
 
@@ -551,10 +496,7 @@ class VectorService {
 	/**
 	 * Build search filters
 	 */
-	buildFilters(
-		contentTypes: string[],
-		customFilters: Record<string, any>
-	): any {
+	buildFilters(contentTypes: string[], customFilters: Record<string, any>): any {
 		const conditions = [];
 
 		// Content type filter
@@ -638,11 +580,7 @@ class VectorService {
 	 */
 	async batchVectorize(
 		contentList: ContentData[],
-		onProgress?: (progress: {
-			current: number;
-			total: number;
-			result: VectorizeResult;
-		}) => void
+		onProgress?: (progress: { current: number; total: number; result: VectorizeResult }) => void
 	): Promise<VectorizeResult[]> {
 		const results: VectorizeResult[] = [];
 

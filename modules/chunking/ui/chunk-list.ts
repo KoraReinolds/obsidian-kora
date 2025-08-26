@@ -16,7 +16,9 @@ export interface ChunkListRefs {
 /**
  * Options to customize rendering and interactions for chunk list.
  */
-export interface ChunkListOptions {}
+export interface ChunkListOptions {
+	// Placeholder for future options
+}
 
 /**
  * Render the chunk list with optional per-item Compare button and diff mount.
@@ -27,8 +29,7 @@ export function renderChunkList(
 	_options: ChunkListOptions = {}
 ): ChunkListRefs {
 	const list = container.createEl('div');
-	list.style.cssText =
-		'display:flex;flex-direction:column;gap:6px;margin-top:8px;';
+	list.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin-top:8px;';
 	const items: HTMLElement[] = [];
 	for (const c of chunks) {
 		const item = list.createEl('div');
@@ -54,10 +55,7 @@ export function renderChunkList(
 /**
  * Highlight a specific chunk item by index.
  */
-export function setActiveChunkItem(
-	items: HTMLElement[],
-	activeIndex: number
-): void {
+export function setActiveChunkItem(items: HTMLElement[], activeIndex: number): void {
 	items.forEach((el, idx) => {
 		if (idx === activeIndex) {
 			el.style.borderColor = 'var(--interactive-accent)';

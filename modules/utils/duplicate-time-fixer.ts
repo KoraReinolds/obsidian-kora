@@ -1,4 +1,4 @@
-import { App, TFile, Notice } from 'obsidian';
+import { App, TFile } from 'obsidian';
 
 export interface DuplicateTimeResult {
 	duplicateGroups: { [dateCreated: string]: TFile[] };
@@ -49,9 +49,7 @@ export class DuplicateTimeFixer {
 	/**
 	 * Исправляет дубликаты времени создания, добавляя случайные секунды
 	 */
-	async fixDuplicateCreationTimes(
-		dryRun = false
-	): Promise<DuplicateTimeResult> {
+	async fixDuplicateCreationTimes(dryRun = false): Promise<DuplicateTimeResult> {
 		const duplicateGroups = await this.findDuplicateCreationTimes();
 		const result: DuplicateTimeResult = {
 			duplicateGroups,
@@ -70,14 +68,9 @@ export class DuplicateTimeFixer {
 		}
 
 		// Исправляем дубликаты
-		for (const [originalDateCreated, files] of Object.entries(
-			duplicateGroups
-		)) {
+		for (const [originalDateCreated, files] of Object.entries(duplicateGroups)) {
 			// @ts-ignore
-			const originalMoment = moment(
-				originalDateCreated,
-				'dddd, MMMM Do YYYY, h:mm:ss a'
-			);
+			const originalMoment = moment(originalDateCreated, 'dddd, MMMM Do YYYY, h:mm:ss a');
 
 			// Оставляем первый файл с оригинальным временем, остальные изменяем
 			for (let i = 1; i < files.length; i++) {
@@ -86,13 +79,9 @@ export class DuplicateTimeFixer {
 					if (!dryRun) {
 						// Генерируем новое время: оригинальное + случайное количество секунд (1-300)
 						const randomSeconds = Math.floor(Math.random() * 300) + 1;
-						const newMoment = originalMoment
-							.clone()
-							.add(randomSeconds, 'seconds');
+						const newMoment = originalMoment.clone().add(randomSeconds, 'seconds');
 						// Вернуть в исходный формат
-						const formattedDate = newMoment.format(
-							'dddd, MMMM Do YYYY, h:mm:ss a'
-						);
+						const formattedDate = newMoment.format('dddd, MMMM Do YYYY, h:mm:ss a');
 						// @ts-ignore
 						window.app.fileManager.processFrontMatter(file, frontmatter => {
 							frontmatter['date created'] = formattedDate;
@@ -114,10 +103,7 @@ export class DuplicateTimeFixer {
 	/**
 	 * Обновляет время создания файла через поле date created в frontmatter
 	 */
-	private async updateFileCreationTime(
-		file: TFile,
-		newDate: string
-	): Promise<void> {
+	private async updateFileCreationTime(file: TFile, newDate: string): Promise<void> {
 		await this.app.fileManager.processFrontMatter(file, frontmatter => {
 			// Обновляем поле date created в frontmatter
 			frontmatter['date created'] = newDate;
@@ -131,12 +117,8 @@ export class DuplicateTimeFixer {
 		const lines: string[] = [];
 
 		lines.push(`# Отчет о дубликатах времени создания`);
-		lines.push(
-			`Найдено групп дубликатов: ${Object.keys(result.duplicateGroups).length}`
-		);
-		lines.push(
-			`Общее количество файлов с дубликатами: ${result.totalDuplicates}`
-		);
+		lines.push(`Найдено групп дубликатов: ${Object.keys(result.duplicateGroups).length}`);
+		lines.push(`Общее количество файлов с дубликатами: ${result.totalDuplicates}`);
 		lines.push(`Исправлено: ${result.fixed}`);
 		lines.push(`Ошибки: ${result.errors.length}`);
 		lines.push('');
@@ -145,9 +127,7 @@ export class DuplicateTimeFixer {
 			lines.push('## Найденные дубликаты:');
 			lines.push('');
 
-			for (const [dateCreated, files] of Object.entries(
-				result.duplicateGroups
-			)) {
+			for (const [dateCreated, files] of Object.entries(result.duplicateGroups)) {
 				const date = new Date(dateCreated);
 				lines.push(`### ${date.toLocaleString()} (${dateCreated})`);
 				for (const file of files) {

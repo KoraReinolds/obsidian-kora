@@ -90,7 +90,7 @@ export class ConfigModal<T = any> extends Modal {
 				});
 				break;
 
-			case 'textarea':
+			case 'textarea': {
 				const textareaContainer = this.contentEl.createDiv();
 				textareaContainer.style.marginTop = '10px';
 				textareaContainer.style.marginBottom = '20px';
@@ -106,8 +106,9 @@ export class ConfigModal<T = any> extends Modal {
 					this.setValue(field.key, textarea.value);
 				});
 				break;
+			}
 
-			case 'number':
+			case 'number': {
 				setting.addText(text => {
 					text.setPlaceholder(field.placeholder || '0');
 					text.setValue(String(this.getValue(field.key) || 0));
@@ -118,8 +119,9 @@ export class ConfigModal<T = any> extends Modal {
 					text.inputEl.type = 'number';
 				});
 				break;
+			}
 
-			case 'toggle':
+			case 'toggle': {
 				setting.addToggle(toggle => {
 					toggle.setValue(Boolean(this.getValue(field.key)));
 					toggle.onChange(value => {
@@ -127,8 +129,9 @@ export class ConfigModal<T = any> extends Modal {
 					});
 				});
 				break;
+			}
 
-			case 'command':
+			case 'command': {
 				const currentCommandId = this.getValue(field.key) as string;
 				const commandName = currentCommandId
 					? this.getCommandName(currentCommandId)
@@ -138,9 +141,7 @@ export class ConfigModal<T = any> extends Modal {
 				setting.addButton(btn => {
 					btn.setButtonText('Выбрать команду');
 					btn.onClick(async () => {
-						const commandSuggester = SuggesterFactory.createCommandSuggester(
-							this.options.app
-						);
+						const commandSuggester = SuggesterFactory.createCommandSuggester(this.options.app);
 						const selectedCommand = await commandSuggester.open();
 						if (selectedCommand) {
 							this.setValue(field.key, selectedCommand.id);
@@ -150,10 +151,12 @@ export class ConfigModal<T = any> extends Modal {
 					});
 				});
 				break;
+			}
 
-			case 'keyvalue':
+			case 'keyvalue': {
 				this.createKeyValueField(field, setting);
 				break;
+			}
 		}
 	}
 
@@ -164,8 +167,7 @@ export class ConfigModal<T = any> extends Modal {
 
 		this.keyValueFields.set(field.key, container);
 
-		const currentValues =
-			(this.getValue(field.key) as Record<string, string>) || {};
+		const currentValues = (this.getValue(field.key) as Record<string, string>) || {};
 
 		// Add button for new key-value pair
 		setting.addButton(btn => {
@@ -213,8 +215,7 @@ export class ConfigModal<T = any> extends Modal {
 		removeBtn.style.cursor = 'pointer';
 
 		const updateValues = () => {
-			const currentValues =
-				(this.getValue(fieldKey) as Record<string, string>) || {};
+			const currentValues = (this.getValue(fieldKey) as Record<string, string>) || {};
 
 			// Remove old key if it changed
 			if (key && key !== keyInput.value) {
@@ -234,8 +235,7 @@ export class ConfigModal<T = any> extends Modal {
 		valueInput.addEventListener('input', updateValues);
 
 		removeBtn.onclick = () => {
-			const currentValues =
-				(this.getValue(fieldKey) as Record<string, string>) || {};
+			const currentValues = (this.getValue(fieldKey) as Record<string, string>) || {};
 			if (key) {
 				delete currentValues[key];
 				this.setValue(fieldKey, currentValues);

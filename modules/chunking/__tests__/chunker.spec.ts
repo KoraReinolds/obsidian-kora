@@ -25,7 +25,7 @@ describe('chunkNote', () => {
 		const texts = chunks.map(c => c.contentRaw);
 		expect(texts).toContain('Olive oil is healthy.');
 		expect(texts).toContain('Eggs are complete.');
-		const fats = chunks.find(c => c.contentRaw.includes('Olive oil'))!;
+		const fats = chunks.find(c => c.contentRaw.includes('Olive oil'));
 		expect(fats.headingsPath).toEqual(['Food', 'Fats']);
 	});
 
@@ -40,8 +40,7 @@ describe('chunkNote', () => {
 	});
 
 	it('creates separate chunks for table, but ignores code blocks', () => {
-		const md =
-			'```js\nconsole.log(1)\n```\n\n| a | b |\n|---|---|\n| 1 | 2 |\n';
+		const md = '```js\nconsole.log(1)\n```\n\n| a | b |\n|---|---|\n| 1 | 2 |\n';
 		const cache = makeCacheFromMarkdown(md);
 		const chunks = chunkNote(md, baseContext, undefined, cache);
 		expect(chunks.find(c => c.chunkType === 'code')).toBeFalsy(); // Code blocks are now ignored
@@ -59,9 +58,7 @@ describe('chunkNote', () => {
 		);
 		const group = chunks.find(c => c.chunkType === 'list_group');
 		const longItem = chunks.find(
-			c =>
-				c.chunkType === 'list_item' &&
-				c.contentRaw.startsWith('this is a considerably')
+			c => c.chunkType === 'list_item' && c.contentRaw.startsWith('this is a considerably')
 		);
 		expect(group).toBeTruthy();
 		expect(group?.contentRaw.split('\n').length).toBeGreaterThanOrEqual(3);
@@ -71,12 +68,7 @@ describe('chunkNote', () => {
 	it('splits long paragraphs by sentences with overlap', () => {
 		const md = `# Long\n${'Sentence. '.repeat(120)}`; // keep synthetic for volume
 		const cache = makeCacheFromMarkdown(md);
-		const chunks = chunkNote(
-			md,
-			baseContext,
-			{ longParagraphWordThreshold: 10 },
-			cache
-		);
+		const chunks = chunkNote(md, baseContext, { longParagraphWordThreshold: 10 }, cache);
 		const parts = chunks.filter(c => c.chunkType === 'paragraph');
 		expect(parts.length).toBeGreaterThan(1);
 		// Ensure overlap: there should be repeated substring between consecutive chunks
@@ -84,9 +76,7 @@ describe('chunkNote', () => {
 			(c, i) =>
 				i > 0 &&
 				parts[i - 1].contentRaw.split('.').slice(-2).join('.') &&
-				c.contentRaw.includes(
-					parts[i - 1].contentRaw.split('.').slice(-2).join('.')
-				)
+				c.contentRaw.includes(parts[i - 1].contentRaw.split('.').slice(-2).join('.'))
 		);
 		expect(overlapFound).toBe(true);
 	});
@@ -128,9 +118,7 @@ describe('chunkNote', () => {
 	});
 
 	it('caps at maxChunksSoft', () => {
-		const md =
-			`# Many\n` +
-			Array.from({ length: 200 }, (_, i) => `para ${i}`).join('\n\n');
+		const md = `# Many\n` + Array.from({ length: 200 }, (_, i) => `para ${i}`).join('\n\n');
 		const cache = makeCacheFromMarkdown(md);
 		const chunks = chunkNote(md, baseContext, { maxChunksSoft: 50 }, cache);
 		expect(chunks.length).toBeLessThanOrEqual(50);

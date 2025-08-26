@@ -435,7 +435,7 @@ export class PluginCommands {
 
 		// Get all markdown files from the folder (first level only)
 		const folderFiles = getMarkdownFiles(this.app, {
-			folderPath: folderConfig.folder,
+			include: [folderConfig.folder],
 		});
 
 		if (folderFiles.length === 0) {

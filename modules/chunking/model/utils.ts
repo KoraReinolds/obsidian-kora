@@ -22,7 +22,7 @@ export function normalizeMarkdown(markdown: string): string {
 	// Replace markdown links [title](url) -> title (url)
 	text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)');
 	// Remove emphasis markers while keeping text
-	text = text.replace(/[\*_]{1,3}([^\*_]+)[\*_]{1,3}/g, '$1');
+	text = text.replace(/[*_]{1,3}([^*_]+)[*_]{1,3}/g, '$1');
 	// Collapse multiple spaces/newlines
 	text = text.replace(/\s+\n/g, '\n').replace(/\n{3,}/g, '\n\n');
 	return text.trim();
