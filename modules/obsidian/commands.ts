@@ -5,9 +5,9 @@
 import { App, TFile, Notice, Command } from 'obsidian';
 import {
 	GramJSBridge,
-	MessageFormatter,
 	ChannelConfigService,
 	type ChannelConfig,
+	ObsidianTelegramFormatter,
 } from '../telegram';
 import { FrontmatterUtils, VaultOperations, getMarkdownFiles } from '.';
 import { DuplicateTimeFixer } from '../utils';
@@ -22,7 +22,7 @@ export class PluginCommands {
 	private app: App;
 	private settings: KoraPluginSettings;
 	private gramjsBridge: GramJSBridge;
-	private messageFormatter: MessageFormatter;
+	private messageFormatter: ObsidianTelegramFormatter;
 	private duplicateTimeFixer: DuplicateTimeFixer;
 	private frontmatterUtils: FrontmatterUtils;
 	private channelConfigService: ChannelConfigService;
@@ -40,10 +40,10 @@ export class PluginCommands {
 		this.frontmatterUtils = new FrontmatterUtils(app);
 		this.channelConfigService = new ChannelConfigService(app, settings);
 		this.vaultOps = new VaultOperations(app);
-		this.messageFormatter = new MessageFormatter(
+		this.messageFormatter = new ObsidianTelegramFormatter(
+			app,
 			settings.telegram.customEmojis,
 			settings.telegram.useCustomEmojis,
-			app,
 			this.channelConfigService
 		);
 	}
@@ -129,9 +129,9 @@ export class PluginCommands {
 			'telegram_message_id'
 		);
 
-		// Format message with custom emojis support
-		const { processedText } =
-			this.messageFormatter.processCustomEmojis(content);
+		// Format message using new telegram formatter
+		const telegramFormatter = this.messageFormatter.getTelegramFormatter();
+		const { processedText } = telegramFormatter.processCustomEmojis(content);
 
 		if (telegramMessageId) {
 			// Edit existing message
@@ -342,8 +342,9 @@ export class PluginCommands {
 			file.basename,
 			content
 		);
+		const telegramFormatter = this.messageFormatter.getTelegramFormatter();
 		const { processedText, entities: customEmojiEntities } =
-			this.messageFormatter.processCustomEmojis(conversionResult.text);
+			telegramFormatter.processCustomEmojis(conversionResult.text);
 
 		// Combine markdown entities with custom emoji entities
 		const combinedEntities = [

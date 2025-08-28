@@ -2,6 +2,8 @@
  * Утилиты для работы с изображениями в Telegram
  */
 
+import { TelegramValidator } from './validator';
+
 /**
  * Интерфейс информации об изображении
  */
@@ -63,26 +65,32 @@ export class ImageUtils {
 
 	/**
 	 * Проверить размер изображения (должно быть меньше 10MB для Telegram)
+	 * @deprecated Use TelegramValidator.validateImage instead
 	 */
 	static isValidTelegramImageSize(sizeInBytes?: number): boolean {
-		if (!sizeInBytes) return true; // Если размер неизвестен, пропускаем проверку
-		const maxSize = 10 * 1024 * 1024; // 10MB
-		return sizeInBytes <= maxSize;
+		if (!sizeInBytes) return true;
+		const result = TelegramValidator.validateImage({
+			url: '',
+			size: sizeInBytes,
+		});
+		return result.valid;
 	}
 
 	/**
 	 * Получить рекомендуемые форматы изображений для Telegram
+	 * @deprecated Use TelegramValidator.getSupportedImageFormats instead
 	 */
 	static getSupportedFormats(): string[] {
-		return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
+		return [...TelegramValidator.getSupportedImageFormats()];
 	}
 
 	/**
 	 * Проверить, поддерживается ли формат изображения в Telegram
+	 * @deprecated Use TelegramValidator.isSupportedImageFormat instead
 	 */
 	static isSupportedFormat(format?: string): boolean {
 		if (!format) return false;
-		return this.getSupportedFormats().includes(format.toLowerCase());
+		return TelegramValidator.isSupportedImageFormat(format);
 	}
 
 	/**
@@ -93,30 +101,25 @@ export class ImageUtils {
 		errors: string[];
 		info?: ImageInfo;
 	}> {
-		const errors: string[] = [];
-
-		// Проверяем доступность URL
+		// Get image info
 		const info = await this.getImageInfo(url);
 		if (!info) {
-			errors.push('Изображение недоступно или не является валидным');
-			return { valid: false, errors };
+			return {
+				valid: false,
+				errors: ['Изображение недоступно или не является валидным'],
+			};
 		}
 
-		// Проверяем формат
-		if (!this.isSupportedFormat(info.format)) {
-			errors.push(
-				`Формат ${info.format} не поддерживается. Используйте: ${this.getSupportedFormats().join(', ')}`
-			);
-		}
-
-		// Проверяем размер
-		if (!this.isValidTelegramImageSize(info.size)) {
-			errors.push('Размер изображения превышает 10MB');
-		}
+		// Use new validator
+		const result = TelegramValidator.validateImage({
+			url: info.url,
+			size: info.size,
+			format: info.format,
+		});
 
 		return {
-			valid: errors.length === 0,
-			errors,
+			valid: result.valid,
+			errors: result.issues,
 			info,
 		};
 	}

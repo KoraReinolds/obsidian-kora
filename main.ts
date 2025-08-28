@@ -14,7 +14,7 @@ import {
 	DEFAULT_UI_PLUGIN_SETTINGS,
 } from './modules/ui-plugins';
 import { McpServerSettingTab } from './modules/mcp/settings-tab';
-import { TelegramSettingTab } from './modules/telegram/settings-tab';
+import { TelegramSettingTab } from './modules/telegram/ui/settings-tab';
 import { VectorSettingTab } from './modules/vector/settings-tab';
 import type { EmojiMapping } from './modules/telegram';
 import type { VectorSettingsInterface } from './modules/vector';
@@ -281,7 +281,7 @@ export default class KoraPlugin extends Plugin {
 				return;
 			}
 
-			await this.gramjsBridge.updateConfig({
+			await this.gramjsBridge.updateGramJSConfig({
 				mode: this.settings.gramjs.mode || 'userbot',
 				botToken: this.settings.gramjs.botToken,
 				apiId: this.settings.gramjs.apiId,

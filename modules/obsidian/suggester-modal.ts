@@ -19,7 +19,7 @@ import { App, FuzzySuggestModal, TFile, Notice } from 'obsidian';
 import {
 	ChannelConfigService,
 	ChannelConfig,
-} from '../telegram/channel-config-service';
+} from '../telegram/utils/channel-config-service';
 import type { KoraMcpPluginSettings, TelegramFolderConfig } from '../../main';
 
 // ============================================================================

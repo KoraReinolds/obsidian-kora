@@ -3,6 +3,10 @@
  * Converts Obsidian markdown notes to Telegram-compatible format
  */
 
+import { TELEGRAM_CONSTANTS } from '../core/constants';
+import { TelegramValidator } from '../utils';
+import { InlineFormatter } from './inline-formatter';
+
 export interface ConversionOptions {
 	removeFrontmatter?: boolean;
 	removeH1Headers?: boolean;
@@ -34,13 +38,9 @@ export interface TelegramMessageEntity {
 }
 
 export class MarkdownToTelegramConverter {
-	private readonly defaultOptions: ConversionOptions = {
-		removeFrontmatter: true,
-		removeH1Headers: true,
-		maxLength: 4096, // Telegram message limit
-		preserveCodeBlocks: true,
-		preserveLinks: true,
-	};
+	private readonly defaultOptions: ConversionOptions =
+		TELEGRAM_CONSTANTS.DEFAULT_CONVERSION_OPTIONS;
+	private inlineFormatter = new InlineFormatter();
 
 	/**
 	 * Convert markdown content to Telegram format
@@ -106,8 +106,7 @@ export class MarkdownToTelegramConverter {
 	 */
 	public removeFrontmatter(content: string): string {
 		// Remove YAML frontmatter (between --- markers)
-		const frontmatterRegex = /^---\s*\n[\s\S]*?\n---\s*\n?/;
-		const result = content.replace(frontmatterRegex, '');
+		const result = content.replace(TELEGRAM_CONSTANTS.REGEX.FRONTMATTER, '');
 		return result;
 	}
 
@@ -116,8 +115,7 @@ export class MarkdownToTelegramConverter {
 	 */
 	private removeH1Headers(content: string): string {
 		// Remove # headers at the beginning of lines
-		const h1Regex = /^# .+$/gm;
-		const result = content.replace(h1Regex, '');
+		const result = content.replace(TELEGRAM_CONSTANTS.REGEX.H1_HEADERS, '');
 		return result.trim();
 	}
 
@@ -431,21 +429,25 @@ export class MarkdownToTelegramConverter {
 			return text;
 		}
 
-		// Reserve 3 characters for '...'
-		const targetLength = maxLength - 3;
+		// Reserve characters for truncation suffix
+		const targetLength =
+			maxLength - TELEGRAM_CONSTANTS.TRUNCATION_RESERVE_CHARS;
 
 		// Try to truncate at word boundary
 		const truncated = text.substring(0, targetLength);
 		const lastSpaceIndex = truncated.lastIndexOf(' ');
-		const wordBoundaryThreshold = targetLength * 0.8;
+		const wordBoundaryThreshold =
+			targetLength * TELEGRAM_CONSTANTS.WORD_BOUNDARY_THRESHOLD;
 
 		if (lastSpaceIndex > wordBoundaryThreshold) {
-			// If we found a space in the last 20% of the text, truncate there
-			const result = truncated.substring(0, lastSpaceIndex) + '...';
+			// If we found a space in the last portion of the text, truncate there
+			const result =
+				truncated.substring(0, lastSpaceIndex) +
+				TELEGRAM_CONSTANTS.TRUNCATION_SUFFIX;
 			return result;
 		} else {
 			// Otherwise just truncate at the limit
-			const result = truncated + '...';
+			const result = truncated + TELEGRAM_CONSTANTS.TRUNCATION_SUFFIX;
 			return result;
 		}
 	}
@@ -467,8 +469,12 @@ export class MarkdownToTelegramConverter {
 			const line = lines[i];
 
 			// Check if this line starts a blockquote block
-			const expandableMatch = line.match(/^>\[!\s*[^\]]*\](-?)\s*(.*)$/);
-			const regularMatch = line.match(/^>\s*(.+)$/);
+			const expandableMatch = line.match(
+				TELEGRAM_CONSTANTS.REGEX.BLOCKQUOTE_EXPANDABLE
+			);
+			const regularMatch = line.match(
+				TELEGRAM_CONSTANTS.REGEX.BLOCKQUOTE_REGULAR
+			);
 
 			if (expandableMatch) {
 				// Process expandable blockquote block
@@ -586,92 +592,30 @@ export class MarkdownToTelegramConverter {
 		text: string;
 		entities: TelegramMessageEntity[];
 	} {
-		let processedText = text;
-		const entities: TelegramMessageEntity[] = [];
+		// Use the new InlineFormatter
+		const result = this.inlineFormatter.processInlineFormatting(text);
 
-		// Use the same patterns as main processing
-		const patterns = [
-			{ regex: /\*\*(.*?)\*\*/g, type: 'bold', removedChars: 4 },
-			{ regex: /__(.*?)__/g, type: 'bold', removedChars: 4 },
-			{ regex: /(?<!\*)\*([^*]+?)\*(?!\*)/g, type: 'italic', removedChars: 2 },
-			{ regex: /(?<!_)_([^_]+?)_(?!_)/g, type: 'italic', removedChars: 2 },
-			{ regex: /`([^`]+?)`/g, type: 'code', removedChars: 2 },
-			{ regex: /~~(.*?)~~/g, type: 'strikethrough', removedChars: 4 },
-			{ regex: /\[([^\]]+?)\](?!\()/g, type: 'spoiler', removedChars: 2 },
-		];
+		// Convert InlineFormatter entities to TelegramMessageEntity format
+		const telegramEntities: TelegramMessageEntity[] = result.entities.map(
+			entity => ({
+				type: entity.type,
+				offset: entity.offset,
+				length: entity.length,
+			})
+		);
 
-		// Find all matches and sort by position
-		const matches: Array<{
-			type: string;
-			content: string;
-			start: number;
-			end: number;
-			removedChars: number;
-			match: string;
-		}> = [];
-
-		patterns.forEach(pattern => {
-			let match;
-			const regex = new RegExp(pattern.regex);
-			while ((match = regex.exec(processedText)) !== null) {
-				matches.push({
-					type: pattern.type,
-					content: match[1],
-					start: match.index,
-					end: match.index + match[0].length,
-					removedChars: pattern.removedChars,
-					match: match[0],
-				});
-			}
-		});
-
-		// Sort matches by start position
-		matches.sort((a, b) => a.start - b.start);
-
-		// Process matches in order and track offset changes
-		let offsetDelta = 0;
-		for (const match of matches) {
-			const adjustedOffset = match.start - offsetDelta;
-
-			entities.push({
-				type: match.type,
-				offset: adjustedOffset,
-				length: match.content.length,
-			});
-
-			offsetDelta += match.removedChars;
-		}
-
-		// Apply all replacements in one pass (from end to start to avoid offset issues)
-		const sortedMatches = [...matches].sort((a, b) => b.start - a.start);
-		for (const match of sortedMatches) {
-			processedText =
-				processedText.slice(0, match.start) +
-				match.content +
-				processedText.slice(match.end);
-		}
-
-		return { text: processedText, entities };
+		return {
+			text: result.text,
+			entities: telegramEntities,
+		};
 	}
 
 	/**
 	 * Check if the text is suitable for Telegram
 	 */
 	validateForTelegram(text: string): { valid: boolean; issues: string[] } {
-		const issues: string[] = [];
-
-		if (text.length > 4096) {
-			issues.push(`Text too long: ${text.length} characters (max 4096)`);
-		}
-
-		if (text.trim().length === 0) {
-			issues.push('Text is empty after conversion');
-		}
-
-		return {
-			valid: issues.length === 0,
-			issues,
-		};
+		// Import here to avoid circular dependency
+		return TelegramValidator.validateText(text);
 	}
 }
 

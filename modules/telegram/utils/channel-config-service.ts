@@ -3,12 +3,12 @@
  */
 
 import { App, TFile } from 'obsidian';
-import { FrontmatterUtils } from '../obsidian';
+import { FrontmatterUtils } from '../../obsidian';
 import type {
 	KoraMcpPluginSettings,
 	TelegramFolderConfig,
 	TelegramChannelConfig,
-} from '../../main';
+} from '../../../main';
 
 /**
  * Configuration for a Telegram channel (new format)

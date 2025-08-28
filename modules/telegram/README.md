@@ -1,12 +1,42 @@
 # Telegram Module
 
-Модуль для интеграции с Telegram, включающий конвертацию Markdown заметок в формат Telegram API.
+Модуль для интеграции с Telegram, организованный в логические подмодули для лучшей поддерживаемости.
+
+## Структура модуля
+
+```
+telegram/
+├── core/           # Базовые компоненты
+│   ├── constants.ts - Константы и настройки
+│   └── base-http-client.ts - Базовый HTTP клиент
+├── formatting/     # Форматирование сообщений
+│   ├── inline-formatter.ts - Обработка inline форматирования
+│   ├── link-parser.ts - Парсинг ссылок
+│   ├── markdown-to-telegram-converter.ts - Конвертер markdown
+│   ├── telegram-message-formatter.ts - Чистый Telegram форматтер
+│   └── obsidian-telegram-formatter.ts - Интеграция с Obsidian
+├── transport/      # Сетевое взаимодействие
+│   └── gramjs-bridge.ts - GramJS клиент
+├── utils/          # Утилиты
+│   ├── image-utils.ts - Работа с изображениями
+│   ├── channel-config-service.ts - Управление каналами
+│   └── validator.ts - Универсальная валидация
+├── ui/             # UI компоненты
+│   └── settings-tab.ts - Настройки плагина
+└── legacy/         # Совместимость
+    └── message-formatter.ts - Старый API
+```
 
 ## Основные компоненты
 
-### MarkdownToTelegramConverter
+### Core (Ядро)
 
-Основной класс для конвертации Markdown заметок в формат, совместимый с Telegram API.
+**TELEGRAM_CONSTANTS** - Централизованные константы
+**BaseHttpClient** - Базовый HTTP клиент с error handling
+
+### Formatting (Форматирование)
+
+**MarkdownToTelegramConverter** - Основной класс для конвертации Markdown заметок в формат Telegram API.
 
 #### Возможности:
 
