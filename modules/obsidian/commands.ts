@@ -8,6 +8,7 @@ import {
 	ChannelConfigService,
 	type ChannelConfig,
 	ObsidianTelegramFormatter,
+	PositionBasedSync,
 } from '../telegram';
 import { FrontmatterUtils, VaultOperations, getMarkdownFiles } from '.';
 import { DuplicateTimeFixer } from '../utils';
@@ -27,6 +28,7 @@ export class PluginCommands {
 	private frontmatterUtils: FrontmatterUtils;
 	private channelConfigService: ChannelConfigService;
 	private vaultOps: VaultOperations;
+	private positionBasedSync: PositionBasedSync;
 
 	constructor(
 		app: App,
@@ -46,6 +48,7 @@ export class PluginCommands {
 			settings.telegram.useCustomEmojis,
 			this.channelConfigService
 		);
+		this.positionBasedSync = new PositionBasedSync(app, settings, gramjsBridge);
 	}
 
 	/**
@@ -99,6 +102,18 @@ export class PluginCommands {
 				name: 'Send first level folder notes to channels',
 				callback: (args?: Record<string, string>) =>
 					this.sendFolderNotesToChannels(args),
+			},
+			{
+				id: 'sync-note-list-to-telegram',
+				name: 'Sync note list to Telegram (position-based)',
+				callback: (args?: Record<string, string>) =>
+					this.syncNoteListToTelegram(args),
+			},
+			{
+				id: 'preview-note-list-sync',
+				name: 'Preview note list sync changes',
+				callback: (args?: Record<string, string>) =>
+					this.previewNoteListSync(args),
 			},
 		];
 	}
@@ -472,5 +487,133 @@ export class PluginCommands {
 		// Show final results
 		const resultMessage = `Готово! Успешно: ${successCount}, Ошибок: ${errorCount}`;
 		new Notice(resultMessage);
+	}
+
+	/**
+	 * Sync note list to Telegram using position-based logic
+	 */
+	private async syncNoteListToTelegram(
+		args?: Record<string, string>
+	): Promise<void> {
+		const file = this.vaultOps.getActiveFile();
+		if (!file) {
+			new Notice('Нет активного файла');
+			return;
+		}
+
+		// Get channel config from frontmatter
+		const channelConfig = await this.getChannelConfigFromFrontmatter(file);
+		if (!channelConfig) {
+			new Notice(
+				'Не найдена конфигурация канала в frontmatter. Добавьте channel_id и channel_name.'
+			);
+			return;
+		}
+
+		new Notice('Начинаю синхронизацию списка заметок...');
+
+		try {
+			const result = await this.positionBasedSync.syncNoteListWithTelegram(
+				file,
+				channelConfig
+			);
+
+			if (result.success) {
+				const message = `Синхронизация завершена! Обновлено: ${result.updated}, Создано: ${result.created}`;
+				new Notice(message);
+
+				if (result.errors.length > 0) {
+					console.warn('Sync errors:', result.errors);
+					new Notice(`Есть ошибки: ${result.errors.length} (см. консоль)`);
+				}
+			} else {
+				new Notice(`Ошибка синхронизации: ${result.errors.join(', ')}`);
+			}
+		} catch (error) {
+			new Notice(`Ошибка синхронизации: ${error}`);
+		}
+	}
+
+	/**
+	 * Preview note list sync changes without executing
+	 */
+	private async previewNoteListSync(
+		args?: Record<string, string>
+	): Promise<void> {
+		const file = this.vaultOps.getActiveFile();
+		if (!file) {
+			new Notice('Нет активного файла');
+			return;
+		}
+
+		try {
+			const preview = await this.positionBasedSync.previewSyncChanges(file);
+
+			if (preview.noteItems.length === 0) {
+				new Notice('В файле не найдены списки заметок');
+				return;
+			}
+
+			// Create preview report
+			let report = `# Preview: Sync Changes for ${file.basename}\n\n`;
+			report += `**Total items found:** ${preview.noteItems.length}\n\n`;
+			report += `**Current post_ids:** [${preview.postIds.join(', ')}]\n\n`;
+			report += `## Planned Actions:\n\n`;
+
+			preview.noteItems.forEach((item, index) => {
+				const status = item.fileExists ? '✅' : '❌';
+				const action =
+					item.action === 'create'
+						? '🆕'
+						: item.action === 'update'
+							? '🔄'
+							: '⏭️';
+
+				report += `${index + 1}. ${status} ${action} **${item.fileName}** (${item.action})\n`;
+				report += `   - Display: "${item.displayText}"\n`;
+				report += `   - File exists: ${item.fileExists}\n`;
+				report += `   - Has existing post: ${item.hasExistingPost}\n\n`;
+			});
+
+			// Create temporary file with preview
+			const previewFile = await this.app.vault.create(
+				`Sync_Preview_${file.basename}_${Date.now()}.md`,
+				report
+			);
+
+			// Open preview
+			const leaf = this.app.workspace.getUnpinnedLeaf();
+			await leaf?.openFile(previewFile);
+
+			new Notice('Preview created and opened');
+		} catch (error) {
+			new Notice(`Ошибка создания preview: ${error}`);
+		}
+	}
+
+	/**
+	 * Get channel configuration from file's frontmatter
+	 */
+	private async getChannelConfigFromFrontmatter(
+		file: TFile
+	): Promise<ChannelConfig | null> {
+		try {
+			const frontmatter = await this.frontmatterUtils.getFrontmatter(file);
+
+			const channelId = frontmatter.channel_id;
+			const channelName = frontmatter.channel_name || `Channel ${channelId}`;
+
+			if (!channelId) {
+				return null;
+			}
+
+			return {
+				name: channelName,
+				channelId: channelId,
+			};
+		} catch (error) {
+			console.error('Error reading channel config from frontmatter:', error);
+			return null;
+		}
 	}
 }
