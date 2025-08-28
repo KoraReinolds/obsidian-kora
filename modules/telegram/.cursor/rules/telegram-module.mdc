@@ -1,3 +1,7 @@
+---
+alwaysApply: true
+---
+
 # Telegram Module
 
 Модуль для интеграции с Telegram, организованный в логические подмодули для лучшей поддерживаемости.
@@ -23,8 +27,6 @@ telegram/
 │   └── validator.ts - Универсальная валидация
 ├── ui/             # UI компоненты
 │   └── settings-tab.ts - Настройки плагина
-└── legacy/         # Совместимость
-    └── message-formatter.ts - Старый API
 ```
 
 ## Основные компоненты
@@ -147,5 +149,3 @@ const result = formatter.formatMarkdownNote('My Note.md', markdownContent);
 1. **Прямое использование**: `markdownToTelegramConverter.convert()`
 2. **Через MessageFormatter**: `formatter.formatMarkdownNote()`
 3. **Singleton экземпляр**: `markdownToTelegramConverter`
-
-Все изменения обратно совместимы с существующим API.

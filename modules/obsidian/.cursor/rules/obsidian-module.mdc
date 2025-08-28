@@ -1,7 +1,5 @@
 ---
-description: Obsidian module usage guide and patterns
-globs: **/modules/obsidian/**/*
-alwaysApply: false
+alwaysApply: true
 ---
 
 # Obsidian Module - Essential Usage Guide
@@ -11,6 +9,7 @@ alwaysApply: false
 ## Core Classes & Functions
 
 ### VaultOperations
+
 ```typescript
 import { VaultOperations } from './modules/obsidian';
 const vaultOps = new VaultOperations(app);
@@ -23,6 +22,7 @@ await vaultOps.openFile(file);
 ```
 
 ### FrontmatterUtils
+
 ```typescript
 import { FrontmatterUtils } from './modules/obsidian';
 const fm = new FrontmatterUtils(app);
@@ -38,36 +38,54 @@ await fm.getFrontmatterForFiles(filePaths);
 ```
 
 ### File Utilities
+
 ```typescript
 import { getMarkdownFiles } from './modules/obsidian';
 
 // Get TFile objects directly:
-const files = getMarkdownFiles(app, { 
-  include: ['Notes/**', '*.md'], 
-  exclude: ['**/drafts/*'] 
+const files = getMarkdownFiles(app, {
+	include: ['Notes/**', '*.md'],
+	exclude: ['**/drafts/*'],
 });
 ```
 
 ### UI Components
+
 ```typescript
 import { SuggesterFactory, TextInputSuggest } from './modules/obsidian';
 
 // Ready-to-use suggesters:
-const folderSuggester = SuggesterFactory.createFolderConfigSuggester(app, settings);
-const channelSuggester = SuggesterFactory.createChannelSuggester(app, file, settings);
+const folderSuggester = SuggesterFactory.createFolderConfigSuggester(
+	app,
+	settings
+);
+const channelSuggester = SuggesterFactory.createChannelSuggester(
+	app,
+	file,
+	settings
+);
 
 // Custom suggester:
 const customSuggester = SuggesterFactory.createCustomSuggester(app, {
-  placeholder: 'Choose...',
-  dataSource: { getItems: () => myData, validateItems: (items) => items.length > 0 },
-  display: { getTitle: (item) => item.name }
+	placeholder: 'Choose...',
+	dataSource: {
+		getItems: () => myData,
+		validateItems: items => items.length > 0,
+	},
+	display: { getTitle: item => item.name },
 });
 
 // Text input suggestions:
 class MyInputSuggest extends TextInputSuggest<MyType> {
-  getSuggestions(input: string) { /* filter logic */ }
-  renderSuggestion(item: MyType, el: HTMLElement) { /* render logic */ }
-  selectSuggestion(item: MyType) { /* selection logic */ }
+	getSuggestions(input: string) {
+		/* filter logic */
+	}
+	renderSuggestion(item: MyType, el: HTMLElement) {
+		/* render logic */
+	}
+	selectSuggestion(item: MyType) {
+		/* selection logic */
+	}
 }
 ```
 
@@ -96,8 +114,6 @@ class MyInputSuggest extends TextInputSuggest<MyType> {
 - `SuggesterFactory` сокращает UI код на 80% по сравнению с ручной реализацией
 - **НЕ создавайте собственные методы поиска файлов** - используйте встроенные параметры `getMarkdownFiles()`
 
-
 - All file operations are async - use `await`
 - Use glob patterns (`*`, `**`) for file filtering
 - `SuggesterFactory` reduces UI code by 80% compared to manual implementation
-
