@@ -10,7 +10,7 @@ import {
 	VaultOperations,
 } from '../../obsidian';
 import { ObsidianTelegramFormatter, LinkParser } from '../formatting';
-import { ChannelFileParser } from '../parsing';
+import { ChannelFileParser, PostFileParser } from '../parsing';
 import {
 	ChannelConfigService,
 	type ChannelConfig,
@@ -35,6 +35,7 @@ export class PositionBasedSync {
 	private vaultOps: VaultOperations;
 	private linkParser: LinkParser;
 	private channelFileParser: ChannelFileParser;
+	private postFileParser: PostFileParser;
 
 	constructor(
 		app: App,
@@ -55,6 +56,7 @@ export class PositionBasedSync {
 		this.vaultOps = new VaultOperations(app);
 		this.linkParser = new LinkParser(app);
 		this.channelFileParser = new ChannelFileParser(app);
+		this.postFileParser = new PostFileParser(app);
 	}
 
 	/**
@@ -70,9 +72,7 @@ export class PositionBasedSync {
 		};
 
 		// Parse channel file data using the new parser
-		const { channelId, postIds, links } =
-			await this.channelFileParser.parseChannelFile(listFile);
-
+		const channelId = await this.channelFileParser.getChannelId(listFile);
 		if (!channelId) {
 			new Notice(
 				'Не найдена конфигурация канала в frontmatter. Добавьте channel_id.'
@@ -80,13 +80,16 @@ export class PositionBasedSync {
 			return result;
 		}
 
+		const postIds = await this.channelFileParser.getPostIds(listFile);
+		const files = await this.channelFileParser.getFilesInChannel(listFile);
+
 		try {
 			// Process each position
-			for (let i = 0; i < links.length; i++) {
-				const { file } = links[i];
+			for (let i = 0; i < files.length; i++) {
+				const file = files[i];
 
 				if (!file) {
-					result.errors.push(`Note file not found`);
+					result.errors.push(`Note file not found at position ${i}`);
 					continue;
 				}
 
@@ -225,6 +228,12 @@ export class PositionBasedSync {
 	 * Get current post IDs array from frontmatter
 	 */
 	private async getCurrentPostIds(file: TFile): Promise<number[] | null> {
+		// Use channel parser if it's a valid channel file
+		if (await this.channelFileParser.isValidFile(file)) {
+			return await this.channelFileParser.getPostIds(file);
+		}
+
+		// Fallback to direct frontmatter access for non-channel files
 		const frontmatter = await this.frontmatterUtils.getFrontmatter(file);
 		return frontmatter.post_ids || null;
 	}
@@ -350,21 +359,13 @@ export class PositionBasedSync {
 
 		for (const file of allFiles) {
 			try {
-				// Check if file has channel-like frontmatter
-				const frontmatter = await this.frontmatterUtils.getFrontmatter(file);
-				if (!frontmatter.channel_id && !frontmatter.post_ids) {
+				// Check if file is a valid channel file using parser
+				if (!(await this.channelFileParser.isValidFile(file))) {
 					continue; // Not a channel file
 				}
 
-				// Check if file content contains a link to our target file
-				const content = await this.app.vault.read(file);
-				const links = this.linkParser.parseObsidianLinks(content);
-
-				const hasTargetLink = links.some(
-					link => link.file?.name === targetFile.name
-				);
-
-				if (hasTargetLink) {
+				// Check if channel contains our target file
+				if (await this.channelFileParser.hasFile(file, targetFile)) {
 					return file; // Found channel file that references this post
 				}
 			} catch (error) {

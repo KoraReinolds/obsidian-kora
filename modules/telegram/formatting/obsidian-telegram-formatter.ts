@@ -10,7 +10,7 @@ import {
 	getMarkdownFiles,
 } from '../../obsidian';
 import { ChannelConfigService } from '../utils/channel-config-service';
-import { ChannelFileParser } from '../parsing';
+import { ChannelFileParser, PostFileParser } from '../parsing';
 import {
 	TelegramMessageFormatter,
 	type EmojiMapping,
@@ -34,6 +34,7 @@ export class ObsidianTelegramFormatter {
 	private telegramFormatter: TelegramMessageFormatter;
 	private linkParser: LinkParser;
 	private channelFileParser: ChannelFileParser;
+	private postFileParser: PostFileParser;
 
 	constructor(
 		app: App,
@@ -52,6 +53,7 @@ export class ObsidianTelegramFormatter {
 		);
 		this.linkParser = new LinkParser(app);
 		this.channelFileParser = new ChannelFileParser(app);
+		this.postFileParser = new PostFileParser(app);
 	}
 
 	/**
@@ -167,19 +169,16 @@ export class ObsidianTelegramFormatter {
 		sourceFile?: TFile
 	): Promise<string | null> {
 		try {
-			// Get 'in' property from target file
-			const targetFrontmatter =
-				await this.frontmatterUtils.getFrontmatter(file);
-			const channelFileNames = targetFrontmatter.in;
-
-			if (!channelFileNames) {
+			// Check if target file has Telegram association and get channels
+			if (!(await this.postFileParser.hasTelegramAssociation(file))) {
 				return null; // No YAML config
 			}
 
-			// Support both single string and array
-			const channelNames = Array.isArray(channelFileNames)
-				? channelFileNames
-				: [channelFileNames];
+			// Get channels this post belongs to using parser
+			const channelNames = await this.postFileParser.getChannelsForPost(file);
+			if (channelNames.length === 0) {
+				return null; // No channels found
+			}
 
 			// Determine which channel to use based on context
 			const targetChannelName = await this.selectChannelFromContext(
@@ -255,14 +254,10 @@ export class ObsidianTelegramFormatter {
 				return sourceChannelName;
 			}
 		} else {
-			// Source is a regular post - check its 'in' property
-			const sourceFrontmatter =
-				await this.frontmatterUtils.getFrontmatter(sourceFile);
-			const sourceInChannels = sourceFrontmatter.in;
-			if (sourceInChannels) {
-				const sourceChannels = Array.isArray(sourceInChannels)
-					? sourceInChannels
-					: [sourceInChannels];
+			// Source is a regular post - check its channels using parser
+			if (await this.postFileParser.hasTelegramAssociation(sourceFile)) {
+				const sourceChannels =
+					await this.postFileParser.getChannelsForPost(sourceFile);
 
 				// Find intersection - prefer channels that both files share
 				for (const sourceChannel of sourceChannels) {

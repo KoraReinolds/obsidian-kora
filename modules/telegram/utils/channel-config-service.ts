@@ -4,6 +4,7 @@
 
 import { App, TFile } from 'obsidian';
 import { FrontmatterUtils } from '../../obsidian';
+import { getPostParser } from '../parsing';
 import type {
 	KoraMcpPluginSettings,
 	TelegramFolderConfig,
@@ -72,8 +73,19 @@ export class ChannelConfigService {
 		file?: TFile
 	): Promise<ChannelConfig> {
 		const targetFile = file || (this.app.workspace.getActiveFile() as TFile);
-		const postIds = await this.getPostIds(targetFile);
-		const messageId = postIds?.[channelConfig.channelId] || undefined;
+
+		// Use parser to get message ID if file is a valid post
+		let messageId: number | undefined;
+		const postParser = getPostParser(this.app);
+
+		if (await postParser.isValidFile(targetFile)) {
+			messageId =
+				(await postParser.getTelegramMessageId(targetFile)) || undefined;
+		} else {
+			// Fallback to legacy post_ids approach
+			const postIds = await this.getPostIds(targetFile);
+			messageId = postIds?.[channelConfig.channelId] || undefined;
+		}
 
 		return {
 			name: channelConfig.name,
