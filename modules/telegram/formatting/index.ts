@@ -10,9 +10,9 @@ export {
 export {
 	LinkParser,
 	type ParsedLink,
+	type ParsedObsidianLink,
 	type ParsedMarkdownLink,
 	type ProcessedLink,
-	type ResolvedLink,
 } from './link-parser';
 export {
 	MarkdownToTelegramConverter,

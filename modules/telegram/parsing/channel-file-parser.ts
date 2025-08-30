@@ -3,59 +3,81 @@
  */
 
 import { App, TFile } from 'obsidian';
-import { VaultOperations, FrontmatterUtils } from '../../obsidian';
-import { LinkParser, ParsedObsidianLink } from '../formatting/link-parser';
+import { FileParser, BaseFileData, ValidationResult } from './base-file-parser';
 
-export interface ChannelFileData {
+export interface ChannelFileData extends BaseFileData {
 	channelId: string | null;
 	postIds: number[];
-	links: ParsedObsidianLink[];
 }
 
-export class ChannelFileParser {
-	private app: App;
-	private vaultOps: VaultOperations;
-	private frontmatterUtils: FrontmatterUtils;
-	private linkParser: LinkParser;
-
+export class ChannelFileParser extends FileParser<ChannelFileData> {
 	constructor(app: App) {
-		this.app = app;
-		this.vaultOps = new VaultOperations(app);
-		this.frontmatterUtils = new FrontmatterUtils(app);
-		this.linkParser = new LinkParser(app);
+		super(app);
 	}
 
 	/**
 	 * Parse a channel file and return all channel data at once
+	 * @deprecated Use parse() method instead for consistent interface
 	 */
 	async parseChannelFile(file: TFile): Promise<ChannelFileData> {
-		// Get frontmatter data
-		const frontmatter = await this.frontmatterUtils.getFrontmatter(file);
-
-		// Extract channel configuration
-		const channelId = frontmatter.channel_id || null;
-		const postIds = frontmatter.post_ids || [];
-
-		// Get file content and parse links
-		const content = await this.vaultOps.getFileContent(file);
-		const links = this.linkParser.parseObsidianLinks(content);
-
-		return {
-			channelId,
-			postIds,
-			links,
-		};
+		return this.parse(file);
 	}
 
 	/**
 	 * Check if a file is a channel file (has channel_id in frontmatter)
+	 * @deprecated Use isValidFile() method instead for consistent interface
 	 */
 	async isChannelFile(file: TFile): Promise<boolean> {
-		try {
-			const frontmatter = await this.frontmatterUtils.getFrontmatter(file);
-			return Boolean(frontmatter.channel_id);
-		} catch {
-			return false;
+		return this.isValidFile(file);
+	}
+
+	protected async parseSpecific(
+		baseData: BaseFileData
+	): Promise<ChannelFileData> {
+		// Extract channel-specific data from frontmatter
+		const channelId = this.extractFrontmatterValue(
+			baseData.frontmatter,
+			'channel_id',
+			null
+		);
+		const postIds = this.extractFrontmatterValue(
+			baseData.frontmatter,
+			'post_ids',
+			[]
+		);
+
+		return {
+			...baseData,
+			channelId,
+			postIds,
+		};
+	}
+
+	protected validateSpecific(baseData: BaseFileData): ValidationResult {
+		const { errors, warnings } = this.validateFrontmatterFields(
+			baseData.frontmatter,
+			[
+				{ field: 'channel_id', required: true, expectedType: 'string' },
+				{ field: 'post_ids', required: false, expectedType: 'array' },
+			]
+		);
+
+		// Additional channel-specific validation
+		if (
+			baseData.frontmatter.channel_id &&
+			!baseData.frontmatter.channel_id.toString().trim()
+		) {
+			errors.push('channel_id cannot be empty');
 		}
+
+		return {
+			isValid: errors.length === 0,
+			errors,
+			warnings,
+		};
+	}
+
+	protected getFileType(): string {
+		return 'channel';
 	}
 }

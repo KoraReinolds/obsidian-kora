@@ -151,7 +151,7 @@ export class ObsidianTelegramFormatter {
 			throw new Error(`File "${fileName}" is not published`);
 		}
 
-		const telegramUrl = this.linkParser.generateTelegramPostUrl(
+		const telegramUrl = LinkParser.generateTelegramPostUrl(
 			publishedConfig.channelId,
 			publishedConfig.messageId
 		);
@@ -220,7 +220,7 @@ export class ObsidianTelegramFormatter {
 			}
 
 			// Generate Telegram URL
-			return this.linkParser.generateTelegramPostUrl(channelId, messageId);
+			return LinkParser.generateTelegramPostUrl(channelId, messageId);
 		} catch (error) {
 			console.warn(
 				`YAML config processing failed for ${file.basename}: ${error.message}`

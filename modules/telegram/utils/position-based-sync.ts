@@ -70,16 +70,15 @@ export class PositionBasedSync {
 		};
 
 		// Parse channel file data using the new parser
-		const channelData = await this.channelFileParser.parseChannelFile(listFile);
+		const { channelId, postIds, links } =
+			await this.channelFileParser.parseChannelFile(listFile);
 
-		if (!channelData.channelId) {
+		if (!channelId) {
 			new Notice(
 				'Не найдена конфигурация канала в frontmatter. Добавьте channel_id.'
 			);
 			return result;
 		}
-
-		const { channelId, postIds, links } = channelData;
 
 		try {
 			// Process each position
@@ -154,10 +153,6 @@ export class PositionBasedSync {
 		const { file, channelId, existingPostId, sourceChannelFile } = params;
 
 		try {
-			// Auto-set 'in' property for YAML-based channel configuration
-			if (sourceChannelFile) {
-				await this.autoSetInProperty(file, sourceChannelFile);
-			}
 			// Get note content
 			const content =
 				(await this.vaultOps.getFileContent(file)) + Math.random();
@@ -206,6 +201,10 @@ export class PositionBasedSync {
 			}
 
 			const result = await this.gramjsBridge.sendMessage(messageOptions);
+
+			if (sourceChannelFile) {
+				await this.autoSetInProperty(file, sourceChannelFile);
+			}
 
 			return {
 				success: result.success,

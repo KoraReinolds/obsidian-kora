@@ -197,7 +197,7 @@ export class LinkParser {
 	/**
 	 * Generate Telegram post URL from channel ID and message ID
 	 */
-	generateTelegramPostUrl(channelId: string, messageId: number): string {
+	static generateTelegramPostUrl(channelId: string, messageId: number): string {
 		if (TELEGRAM_CONSTANTS.REGEX.NUMERIC_CHANNEL_ID.test(channelId)) {
 			let numericId = `${channelId}`;
 			if (numericId.startsWith('-100')) {
