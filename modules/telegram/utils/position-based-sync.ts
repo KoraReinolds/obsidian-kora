@@ -178,43 +178,39 @@ export class PositionBasedSync {
 			].sort((a, b) => a.offset - b.offset);
 
 			const buttons = conversionResult.buttons;
+			const messageOptions = {
+				peer: channelId,
+				message: processedText,
+				entities: combinedEntities,
+				buttons,
+				disableWebPagePreview:
+					this.settings.telegram.disableWebPagePreview || true,
+			};
 
-			if (existingPostId) {
-				// Update existing post
+			const isUpdate = !!existingPostId;
+
+			if (isUpdate) {
 				const success = await this.gramjsBridge.editMessage({
-					peer: channelId,
-					messageId: existingPostId,
-					message: processedText,
-					entities: combinedEntities,
-					buttons,
-					disableWebPagePreview:
-						this.settings.telegram.disableWebPagePreview || true,
+					...messageOptions,
+					messageId: existingPostId!,
 				});
 
 				return {
 					success,
-					messageId: existingPostId,
+					messageId: existingPostId!,
 					wasUpdated: true,
 					error: success ? undefined : 'Failed to update message',
 				};
-			} else {
-				// Create new post
-				const result = await this.gramjsBridge.sendMessage({
-					peer: channelId,
-					message: processedText,
-					entities: combinedEntities,
-					buttons,
-					disableWebPagePreview:
-						this.settings.telegram.disableWebPagePreview || true,
-				});
-
-				return {
-					success: result.success,
-					messageId: result.messageId,
-					wasUpdated: false,
-					error: result.success ? undefined : 'Failed to send message',
-				};
 			}
+
+			const result = await this.gramjsBridge.sendMessage(messageOptions);
+
+			return {
+				success: result.success,
+				messageId: result.messageId,
+				wasUpdated: false,
+				error: result.success ? undefined : 'Failed to send message',
+			};
 		} catch (error) {
 			return {
 				success: false,
