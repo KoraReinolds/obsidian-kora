@@ -155,7 +155,9 @@ export class PositionBasedSync {
 
 		try {
 			// Auto-set 'in' property for YAML-based channel configuration
-			await this.autoSetInProperty(file);
+			if (sourceChannelFile) {
+				await this.autoSetInProperty(file, sourceChannelFile);
+			}
 			// Get note content
 			const content =
 				(await this.vaultOps.getFileContent(file)) + Math.random();
@@ -192,12 +194,12 @@ export class PositionBasedSync {
 			if (isUpdate) {
 				const success = await this.gramjsBridge.editMessage({
 					...messageOptions,
-					messageId: existingPostId!,
+					messageId: existingPostId,
 				});
 
 				return {
 					success,
-					messageId: existingPostId!,
+					messageId: existingPostId,
 					wasUpdated: true,
 					error: success ? undefined : 'Failed to update message',
 				};
@@ -235,7 +237,9 @@ export class PositionBasedSync {
 		file: TFile,
 		postIds: number[]
 	): Promise<void> {
-		await this.frontmatterUtils.setFrontmatterField(file, 'post_ids', postIds);
+		await this.frontmatterUtils.updateFrontmatterForFiles([file.path], {
+			post_ids: postIds,
+		});
 	}
 
 	/**
@@ -315,31 +319,24 @@ export class PositionBasedSync {
 	/**
 	 * Automatically set 'in' property for YAML-based channel configuration
 	 */
-	private async autoSetInProperty(file: TFile): Promise<void> {
+	private async autoSetInProperty(
+		file: TFile,
+		sourceChannelFile: TFile
+	): Promise<void> {
 		try {
-			// Check if file already has 'in' property
-			const frontmatter = await this.frontmatterUtils.getFrontmatter(file);
-			if (frontmatter.in) {
-				return; // Already has 'in' property
-			}
-
-			// Try to find the channel file that references this post
-			const channelFile = await this.findChannelFileForPost(file);
-			if (channelFile) {
-				// Set 'in' property to the channel file name (without extension)
-				const channelFileName = channelFile.basename;
-				await this.frontmatterUtils.setFrontmatterField(
-					file,
-					'in',
-					channelFileName
-				);
-				console.log(`Auto-set 'in: ${channelFileName}' for ${file.basename}`);
-			}
+			// Add source channel to 'in' array, ensuring uniqueness
+			await this.frontmatterUtils.addToArrayField(
+				file,
+				'in',
+				`[[${sourceChannelFile.basename}]]`
+			);
+			console.log(
+				`Added '${sourceChannelFile.basename}' to 'in' array for ${file.basename}`
+			);
 		} catch (error) {
 			console.warn(
-				`Failed to auto-set 'in' property for ${file.basename}: ${error.message}`
+				`Failed to add to 'in' array for ${file.basename}: ${error.message}`
 			);
-			// Don't throw - this is optional functionality
 		}
 	}
 

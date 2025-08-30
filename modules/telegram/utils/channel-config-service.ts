@@ -102,6 +102,8 @@ export class ChannelConfigService {
 		const postIds = frontmatter.post_ids || {};
 
 		postIds[channelId] = messageId;
-		await this.frontmatterUtils.setFrontmatterField(file, 'post_ids', postIds);
+		await this.frontmatterUtils.updateFrontmatterForFiles([file.path], {
+			post_ids: postIds,
+		});
 	}
 }

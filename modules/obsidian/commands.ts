@@ -152,11 +152,9 @@ export class PluginCommands {
 			});
 			if (result.success && result.messageId) {
 				// Save message ID to frontmatter
-				await this.frontmatterUtils.setFrontmatterField(
-					file,
-					'telegram_message_id',
-					result.messageId
-				);
+				await this.frontmatterUtils.updateFrontmatterForFiles([file.path], {
+					telegram_message_id: result.messageId,
+				});
 				new Notice('Заметка отправлена через GramJS и связана с постом!');
 			}
 		}

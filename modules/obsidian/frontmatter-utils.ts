@@ -1,5 +1,12 @@
 /**
  * Frontmatter utilities for working with note metadata
+ *
+ * Features:
+ * - Basic frontmatter operations (get, update)
+ * - Array field management with uniqueness enforcement
+ * - Batch operations for multiple files
+ * - Automatic type conversion for array fields
+ * - All operations use updateFrontmatterForFiles as the core method
  */
 
 import { App, TFile, TFolder } from 'obsidian';
@@ -16,16 +23,6 @@ export class FrontmatterUtils {
 	}
 
 	/**
-	 * Update frontmatter
-	 */
-	async updateFrontmatter(
-		file: TFile,
-		updates: Record<string, any>
-	): Promise<void> {
-		await this.updateFrontmatterForFiles([file.path], updates);
-	}
-
-	/**
 	 * Get specific frontmatter field
 	 */
 	async getFrontmatterField(file: TFile, field: string): Promise<any> {
@@ -34,14 +31,48 @@ export class FrontmatterUtils {
 	}
 
 	/**
-	 * Set specific frontmatter field
+	 * Add value to array field in frontmatter, ensuring uniqueness
 	 */
-	async setFrontmatterField(
+	async addToArrayField(file: TFile, field: string, value: any): Promise<void> {
+		const frontmatter = await this.getFrontmatter(file);
+		const currentArray = frontmatter[field] || [];
+
+		// Ensure it's an array
+		if (!Array.isArray(currentArray)) {
+			// If field exists but is not an array, convert it to array with existing value
+			const existingValue = currentArray;
+			await this.updateFrontmatterForFiles([file.path], {
+				[field]: [existingValue, value],
+			});
+			return;
+		}
+
+		// Add value if it's not already in the array
+		if (!currentArray.includes(value)) {
+			const newArray = [...currentArray, value];
+			await this.updateFrontmatterForFiles([file.path], {
+				[field]: newArray,
+			});
+		}
+	}
+
+	/**
+	 * Remove value from array field in frontmatter
+	 */
+	async removeFromArrayField(
 		file: TFile,
 		field: string,
 		value: any
 	): Promise<void> {
-		await this.updateFrontmatter(file, { [field]: value });
+		const frontmatter = await this.getFrontmatter(file);
+		const currentArray = frontmatter[field];
+
+		if (Array.isArray(currentArray)) {
+			const newArray = currentArray.filter(item => item !== value);
+			await this.updateFrontmatterForFiles([file.path], {
+				[field]: newArray,
+			});
+		}
 	}
 
 	/**
