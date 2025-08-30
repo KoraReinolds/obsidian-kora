@@ -55,8 +55,6 @@ export class PositionBasedSync {
 		);
 		this.vaultOps = new VaultOperations(app);
 		this.linkParser = new LinkParser(app);
-		this.channelFileParser = new ChannelFileParser(app);
-		this.postFileParser = new PostFileParser(app);
 	}
 
 	/**
@@ -71,22 +69,28 @@ export class PositionBasedSync {
 			newPostIds: [],
 		};
 
-		// Parse channel file data using the new parser
-		const channelId = await this.channelFileParser.getChannelId(listFile);
-		if (!channelId) {
+		const channel = new ChannelFileParser(this.app, listFile);
+		const channelData = await channel.parse();
+
+		if (!channelData) {
 			new Notice(
 				'Не найдена конфигурация канала в frontmatter. Добавьте channel_id.'
 			);
 			return result;
 		}
 
-		const postIds = await this.channelFileParser.getPostIds(listFile);
-		const files = await this.channelFileParser.getFilesInChannel(listFile);
+		const { channelId, links, postIds } = channelData;
+
+		links
+			.filter(link => !link.file)
+			.forEach(link => {
+				result.errors.push(`Note file not found at position ${link}`);
+			});
 
 		try {
 			// Process each position
-			for (let i = 0; i < files.length; i++) {
-				const file = files[i];
+			for (let i = 0; i < links.length; i++) {
+				const file = links[i].file;
 
 				if (!file) {
 					result.errors.push(`Note file not found at position ${i}`);
@@ -228,9 +232,10 @@ export class PositionBasedSync {
 	 * Get current post IDs array from frontmatter
 	 */
 	private async getCurrentPostIds(file: TFile): Promise<number[] | null> {
-		// Use channel parser if it's a valid channel file
-		if (await this.channelFileParser.isValidFile(file)) {
-			return await this.channelFileParser.getPostIds(file);
+		const channel = new ChannelFileParser(this.app, file);
+
+		if (channel.isValid()) {
+			return channel.getData().postIds;
 		}
 
 		// Fallback to direct frontmatter access for non-channel files
@@ -360,12 +365,14 @@ export class PositionBasedSync {
 		for (const file of allFiles) {
 			try {
 				// Check if file is a valid channel file using parser
-				if (!(await this.channelFileParser.isValidFile(file))) {
+				const channel = new ChannelFileParser(this.app, file);
+
+				if (!channel.isValid()) {
 					continue; // Not a channel file
 				}
 
 				// Check if channel contains our target file
-				if (await this.channelFileParser.hasFile(file, targetFile)) {
+				if (channel.getData().links.some(link => link.file === targetFile)) {
 					return file; // Found channel file that references this post
 				}
 			} catch (error) {

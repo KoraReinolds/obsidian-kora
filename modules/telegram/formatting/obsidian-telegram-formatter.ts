@@ -52,8 +52,6 @@ export class ObsidianTelegramFormatter {
 			useCustomEmojis
 		);
 		this.linkParser = new LinkParser(app);
-		this.channelFileParser = new ChannelFileParser(app);
-		this.postFileParser = new PostFileParser(app);
 	}
 
 	/**
@@ -170,12 +168,13 @@ export class ObsidianTelegramFormatter {
 	): Promise<string | null> {
 		try {
 			// Check if target file has Telegram association and get channels
-			if (!(await this.postFileParser.hasTelegramAssociation(file))) {
+			const post = new PostFileParser(this.app, file);
+			if (!post.isValid()) {
 				return null; // No YAML config
 			}
 
-			// Get channels this post belongs to using parser
 			const channelNames = await this.postFileParser.getChannelsForPost(file);
+			// Get channels this post belongs to using parser
 			if (channelNames.length === 0) {
 				return null; // No channels found
 			}
@@ -197,8 +196,7 @@ export class ObsidianTelegramFormatter {
 			}
 
 			// Get channel configuration using parser
-			const channelData =
-				await this.channelFileParser.parseChannelFile(channelFile);
+			const channelData = await this.channelFileParser.parse(channelFile);
 			const channelId = channelData.channelId;
 			const postIds = channelData.postIds;
 
@@ -245,7 +243,7 @@ export class ObsidianTelegramFormatter {
 
 		// Check if source file is a channel file
 		const isSourceChannel =
-			await this.channelFileParser.isChannelFile(sourceFile);
+			await this.channelFileParser.isValidFile(sourceFile);
 
 		if (isSourceChannel) {
 			// Source is a channel - prefer the same channel if available
@@ -281,8 +279,7 @@ export class ObsidianTelegramFormatter {
 		postIds: number[]
 	): Promise<number | null> {
 		// Parse channel file to get links
-		const channelData =
-			await this.channelFileParser.parseChannelFile(channelFile);
+		const channelData = await this.channelFileParser.parse(channelFile);
 
 		// Find position of target file in the list
 		const position = channelData.links.findIndex(

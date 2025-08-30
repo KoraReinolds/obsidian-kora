@@ -19,8 +19,8 @@ export interface PostFileData extends BaseFileData {
 }
 
 export class PostFileParser extends FileParser<PostFileData> {
-	constructor(app: App) {
-		super(app);
+	constructor(app: App, file: TFile) {
+		super(app, file);
 	}
 
 	protected async parseSpecific(baseData: BaseFileData): Promise<PostFileData> {
@@ -105,121 +105,21 @@ export class PostFileParser extends FileParser<PostFileData> {
 	/**
 	 * Check if the post is published to Telegram
 	 */
-	async isPublishedToTelegram(file: TFile): Promise<boolean> {
-		const postData = await this.parse(file);
+	isPublishedToTelegram(): boolean {
+		if (!this.isValid()) return false;
+		const postData = this.getData();
 		return Boolean(postData.telegramMessageId);
 	}
 
 	/**
-	 * Get all posts published to a specific channel
+	 * Check if this post belongs to a specific channel
 	 */
-	async getPostsInChannel(files: TFile[], channelId: string): Promise<TFile[]> {
-		const channelPosts: TFile[] = [];
-
-		for (const file of files) {
-			if (await this.isValidFile(file)) {
-				const postData = await this.parse(file);
-				if (
-					postData.channelId === channelId ||
-					postData.inChannels.includes(channelId)
-				) {
-					channelPosts.push(file);
-				}
-			}
-		}
-
-		return channelPosts;
-	}
-
-	/**
-	 * Find posts that need to be published (no telegram_message_id but have channel association)
-	 */
-	async getPostsNeedingPublication(files: TFile[]): Promise<TFile[]> {
-		const needsPublication: TFile[] = [];
-
-		for (const file of files) {
-			if (await this.isValidFile(file)) {
-				const postData = await this.parse(file);
-
-				// Has channel association but no telegram message ID
-				if (
-					(postData.channelId || postData.chatId) &&
-					!postData.telegramMessageId
-				) {
-					needsPublication.push(file);
-				}
-			}
-		}
-
-		return needsPublication;
-	}
-
-	/**
-	 * Get comprehensive post information in one call (optimized for cache)
-	 */
-	async getPostInfo(file: TFile): Promise<{
-		isValid: boolean;
-		hasTelegramAssociation: boolean;
-		telegramMessageId: number | null;
-		channels: string[];
-		isPublished: boolean;
-	}> {
-		if (!(await this.isValidFile(file))) {
-			return {
-				isValid: false,
-				hasTelegramAssociation: false,
-				telegramMessageId: null,
-				channels: [],
-				isPublished: false,
-			};
-		}
-
-		// Single parse call - cached internally
-		const postData = await this.parse(file);
-
-		const channels: string[] = [];
-		if (postData.channelId) channels.push(postData.channelId);
-		if (postData.chatId) channels.push(postData.chatId);
-		channels.push(...postData.inChannels);
-
-		const uniqueChannels = Array.from(new Set(channels));
-		const hasTelegramAssociation = Boolean(
-			postData.channelId ||
-				postData.chatId ||
-				postData.inChannels.length > 0 ||
-				postData.telegramMessageId
+	belongsToChannel(channelId: string): boolean {
+		if (!this.isValid()) return false;
+		const postData = this.getData();
+		return (
+			postData.channelId === channelId ||
+			postData.inChannels.includes(channelId)
 		);
-
-		return {
-			isValid: true,
-			hasTelegramAssociation,
-			telegramMessageId: postData.telegramMessageId,
-			channels: uniqueChannels,
-			isPublished: Boolean(postData.telegramMessageId),
-		};
-	}
-
-	/**
-	 * Check if file has any Telegram association (channel_id, chat_id, or 'in' array)
-	 */
-	async hasTelegramAssociation(file: TFile): Promise<boolean> {
-		const info = await this.getPostInfo(file);
-		return info.hasTelegramAssociation;
-	}
-
-	/**
-	 * Get Telegram message ID from file
-	 */
-	async getTelegramMessageId(file: TFile): Promise<number | null> {
-		const info = await this.getPostInfo(file);
-		return info.telegramMessageId;
-	}
-
-	/**
-	 * Get all channels this post belongs to
-	 */
-	async getChannelsForPost(file: TFile): Promise<string[]> {
-		const info = await this.getPostInfo(file);
-		return info.channels;
 	}
 }

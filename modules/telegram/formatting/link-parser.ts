@@ -18,6 +18,7 @@ export interface ParsedObsidianLink extends BaseParsedLink {
 	type: 'obsidian';
 	displayText: string;
 	file: TFile | null;
+	postId?: number;
 }
 
 export interface ParsedMarkdownLink extends BaseParsedLink {
