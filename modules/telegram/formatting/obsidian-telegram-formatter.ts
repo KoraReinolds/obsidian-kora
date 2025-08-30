@@ -10,6 +10,7 @@ import {
 	getMarkdownFiles,
 } from '../../obsidian';
 import { ChannelConfigService } from '../utils/channel-config-service';
+import { ChannelFileParser } from '../parsing';
 import {
 	TelegramMessageFormatter,
 	type EmojiMapping,
@@ -32,6 +33,7 @@ export class ObsidianTelegramFormatter {
 	private channelConfigService?: ChannelConfigService;
 	private telegramFormatter: TelegramMessageFormatter;
 	private linkParser: LinkParser;
+	private channelFileParser: ChannelFileParser;
 
 	constructor(
 		app: App,
@@ -49,17 +51,20 @@ export class ObsidianTelegramFormatter {
 			useCustomEmojis
 		);
 		this.linkParser = new LinkParser(app);
+		this.channelFileParser = new ChannelFileParser(app);
 	}
 
 	/**
 	 * Format markdown note for Telegram with Obsidian integration
 	 */
-	async formatMarkdownNote(
-		fileName: string,
-		markdownContent: string,
-		sourceFile?: TFile, // Контекст источника для резолвинга ссылок
-		options?: ConversionOptions
-	): Promise<ConversionResult> {
+	async formatMarkdownNote(params: {
+		fileName: string;
+		markdownContent: string;
+		sourceFile?: TFile; // Контекст источника для резолвинга ссылок
+		options?: ConversionOptions;
+	}): Promise<ConversionResult> {
+		const { fileName, markdownContent, sourceFile, options } = params;
+
 		// Process Obsidian links with context
 		const processedLinks = await this.processObsidianLinks(
 			markdownContent,
@@ -90,10 +95,6 @@ export class ObsidianTelegramFormatter {
 		content: string,
 		sourceFile?: TFile
 	): Promise<ProcessedLink[]> {
-		if (!this.linkParser.hasObsidianLinks(content)) {
-			return [];
-		}
-
 		const parsedLinks = this.linkParser.parseObsidianLinks(content);
 		const results: ProcessedLink[] = [];
 
@@ -196,11 +197,11 @@ export class ObsidianTelegramFormatter {
 				throw new Error(`Channel file "${targetChannelName}" not found`);
 			}
 
-			// Get channel configuration
-			const channelFrontmatter =
-				await this.frontmatterUtils.getFrontmatter(channelFile);
-			const channelId = channelFrontmatter.channel_id;
-			const postIds = channelFrontmatter.post_ids || [];
+			// Get channel configuration using parser
+			const channelData =
+				await this.channelFileParser.parseChannelFile(channelFile);
+			const channelId = channelData.channelId;
+			const postIds = channelData.postIds;
 
 			if (!channelId) {
 				throw new Error(`Channel ID not found in "${targetChannelName}"`);
@@ -244,11 +245,8 @@ export class ObsidianTelegramFormatter {
 		}
 
 		// Check if source file is a channel file
-		const sourceFrontmatter =
-			await this.frontmatterUtils.getFrontmatter(sourceFile);
-		const isSourceChannel = !!(
-			sourceFrontmatter.channel_id || sourceFrontmatter.post_ids
-		);
+		const isSourceChannel =
+			await this.channelFileParser.isChannelFile(sourceFile);
 
 		if (isSourceChannel) {
 			// Source is a channel - prefer the same channel if available
@@ -258,6 +256,8 @@ export class ObsidianTelegramFormatter {
 			}
 		} else {
 			// Source is a regular post - check its 'in' property
+			const sourceFrontmatter =
+				await this.frontmatterUtils.getFrontmatter(sourceFile);
 			const sourceInChannels = sourceFrontmatter.in;
 			if (sourceInChannels) {
 				const sourceChannels = Array.isArray(sourceInChannels)
@@ -285,13 +285,12 @@ export class ObsidianTelegramFormatter {
 		channelFile: TFile,
 		postIds: number[]
 	): Promise<number | null> {
-		// Read channel content to find post position
-		const channelContent =
-			await this.vaultOperations.getFileContent(channelFile);
-		const parsedLinks = this.linkParser.parseObsidianLinks(channelContent);
+		// Parse channel file to get links
+		const channelData =
+			await this.channelFileParser.parseChannelFile(channelFile);
 
 		// Find position of target file in the list
-		const position = parsedLinks.findIndex(
+		const position = channelData.links.findIndex(
 			link => link.file?.name === targetFile.name
 		);
 

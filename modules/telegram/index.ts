@@ -18,6 +18,9 @@ export * from './utils';
 // UI components
 export * from './ui';
 
+// Parsing components
+export * from './parsing';
+
 // Backward compatibility exports (using new components)
 export { ObsidianTelegramFormatter as MessageFormatter } from './formatting/obsidian-telegram-formatter';
 import { LinkParser } from './formatting/link-parser';

@@ -223,37 +223,6 @@ export class LinkParser {
 	}
 
 	/**
-	 * Check if content contains links of specified type
-	 */
-	hasLinks(
-		content: string,
-		type: 'obsidian' | 'markdown' | 'any' = 'any'
-	): boolean {
-		switch (type) {
-			case 'obsidian':
-				return TELEGRAM_CONSTANTS.REGEX.OBSIDIAN_LINKS.test(content);
-			case 'markdown':
-				return TELEGRAM_CONSTANTS.REGEX.MARKDOWN_LINKS.test(content);
-			case 'any':
-				return (
-					this.hasLinks(content, 'obsidian') ||
-					this.hasLinks(content, 'markdown')
-				);
-		}
-	}
-
-	/**
-	 * Backward compatibility methods
-	 */
-	hasObsidianLinks(content: string): boolean {
-		return this.hasLinks(content, 'obsidian');
-	}
-
-	hasMarkdownLinks(content: string): boolean {
-		return this.hasLinks(content, 'markdown');
-	}
-
-	/**
 	 * Count links with detailed breakdown
 	 */
 	countLinks(content: string): {

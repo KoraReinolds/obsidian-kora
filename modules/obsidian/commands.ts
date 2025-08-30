@@ -2,11 +2,10 @@
  * Command definitions for the Kora MCP plugin
  */
 
-import { App, TFile, Notice, Command } from 'obsidian';
+import { App, Notice, Command } from 'obsidian';
 import {
 	GramJSBridge,
 	ChannelConfigService,
-	type ChannelConfig,
 	ObsidianTelegramFormatter,
 	PositionBasedSync,
 } from '../telegram';
@@ -306,81 +305,9 @@ export class PluginCommands {
 
 		if (channelConfig) {
 			try {
-				await this.sendToSelectedChannel(file, channelConfig);
+				// await this.sendToSelectedChannel(file, channelConfig);
 			} catch (error) {
 				new Notice(`Ошибка отправки: ${error}`);
-			}
-		}
-	}
-
-	/**
-	 * Send file to the selected channel (reusing logic from UI Manager)
-	 */
-	private async sendToSelectedChannel(
-		file: TFile,
-		config: ChannelConfig
-	): Promise<void> {
-		const channelConfig = Object.assign({}, config);
-
-		const content = await this.vaultOps.getFileContent(file);
-		const peer = channelConfig.channelId;
-
-		if (!peer) {
-			new Notice(`Channel ID не настроен для ${channelConfig.name}`);
-			return;
-		}
-
-		// Convert markdown to Telegram format and process custom emojis
-		const conversionResult = await this.messageFormatter.formatMarkdownNote(
-			file.basename,
-			content
-		);
-		const telegramFormatter = this.messageFormatter.getTelegramFormatter();
-		const { processedText, entities: customEmojiEntities } =
-			telegramFormatter.processCustomEmojis(conversionResult.text);
-
-		// Combine markdown entities with custom emoji entities
-		const combinedEntities = [
-			...(conversionResult.entities || []),
-			...customEmojiEntities,
-		].sort((a, b) => a.offset - b.offset);
-
-		// Use buttons from conversion result if available, otherwise no buttons
-		const buttons = conversionResult.buttons;
-
-		if (channelConfig.messageId) {
-			// Edit existing message
-			const success = await this.gramjsBridge.editMessage({
-				peer: channelConfig.channelId,
-				messageId: channelConfig.messageId,
-				message: processedText + Math.random().toString(),
-				entities: combinedEntities,
-				buttons,
-				disableWebPagePreview:
-					this.settings.telegram.disableWebPagePreview || true,
-			});
-			if (success) {
-				new Notice(`Сообщение в ${channelConfig.name} обновлено!`);
-			}
-		} else {
-			// Send new message
-			// buttons already defined above, no need to redefine
-			const result = await this.gramjsBridge.sendMessage({
-				peer: channelConfig.channelId,
-				message: processedText,
-				entities: combinedEntities,
-				buttons,
-				disableWebPagePreview:
-					this.settings.telegram.disableWebPagePreview || true,
-			});
-			if (result.success && result.messageId) {
-				// Always use new post_ids format
-				await this.channelConfigService.updatePostIds(
-					file,
-					channelConfig.channelId,
-					result.messageId
-				);
-				new Notice(`Заметка отправлена в ${channelConfig.name}!`);
 			}
 		}
 	}

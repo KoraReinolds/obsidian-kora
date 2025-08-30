@@ -10,6 +10,7 @@ import {
 	VaultOperations,
 } from '../../obsidian';
 import { ObsidianTelegramFormatter, LinkParser } from '../formatting';
+import { ChannelFileParser } from '../parsing';
 import {
 	ChannelConfigService,
 	type ChannelConfig,
@@ -33,6 +34,7 @@ export class PositionBasedSync {
 	private messageFormatter: ObsidianTelegramFormatter;
 	private vaultOps: VaultOperations;
 	private linkParser: LinkParser;
+	private channelFileParser: ChannelFileParser;
 
 	constructor(
 		app: App,
@@ -52,6 +54,7 @@ export class PositionBasedSync {
 		);
 		this.vaultOps = new VaultOperations(app);
 		this.linkParser = new LinkParser(app);
+		this.channelFileParser = new ChannelFileParser(app);
 	}
 
 	/**
@@ -66,24 +69,19 @@ export class PositionBasedSync {
 			newPostIds: [],
 		};
 
-		const frontmatter = await this.frontmatterUtils.getFrontmatter(listFile);
+		// Parse channel file data using the new parser
+		const channelData = await this.channelFileParser.parseChannelFile(listFile);
 
-		if (!frontmatter.channel_id || !frontmatter.post_ids) {
+		if (!channelData.channelId) {
 			new Notice(
 				'Не найдена конфигурация канала в frontmatter. Добавьте channel_id.'
 			);
 			return result;
 		}
 
-		const { channel_id: channelId, post_ids: postIds } = frontmatter;
+		const { channelId, postIds, links } = channelData;
 
 		try {
-			// Parse links from list file
-			const content = await this.vaultOps.getFileContent(listFile);
-
-			// Resolve note files
-			const links = this.linkParser.parseObsidianLinks(content);
-
 			// Process each position
 			for (let i = 0; i < links.length; i++) {
 				const { file } = links[i];
@@ -95,12 +93,12 @@ export class PositionBasedSync {
 
 				try {
 					const existingPostId = postIds[i];
-					const syncResult = await this.syncNoteAtPosition(
+					const syncResult = await this.syncNoteAtPosition({
 						file,
 						channelId,
 						existingPostId,
-						listFile
-					);
+						sourceChannelFile: listFile,
+					});
 
 					if (syncResult.success && syncResult.messageId) {
 						// Update post ID at this position
@@ -142,29 +140,32 @@ export class PositionBasedSync {
 	/**
 	 * Sync a single note at a specific position
 	 */
-	private async syncNoteAtPosition(
-		file: TFile,
-		channelId: string,
-		existingPostId?: number,
-		sourceChannelFile?: TFile
-	): Promise<{
+	private async syncNoteAtPosition(params: {
+		file: TFile;
+		channelId: string;
+		existingPostId?: number;
+		sourceChannelFile?: TFile;
+	}): Promise<{
 		success: boolean;
 		messageId?: number;
 		wasUpdated: boolean;
 		error?: string;
 	}> {
+		const { file, channelId, existingPostId, sourceChannelFile } = params;
+
 		try {
 			// Auto-set 'in' property for YAML-based channel configuration
 			await this.autoSetInProperty(file);
 			// Get note content
-			const content = await this.vaultOps.getFileContent(file);
+			const content =
+				(await this.vaultOps.getFileContent(file)) + Math.random();
 
 			// Format message for Telegram with source context
-			const conversionResult = await this.messageFormatter.formatMarkdownNote(
-				file.basename,
-				content,
-				sourceChannelFile // Pass channel file as context for link resolution
-			);
+			const conversionResult = await this.messageFormatter.formatMarkdownNote({
+				fileName: file.basename,
+				markdownContent: content,
+				sourceFile: sourceChannelFile,
+			});
 
 			const telegramFormatter = this.messageFormatter.getTelegramFormatter();
 			const { processedText, entities: customEmojiEntities } =
@@ -277,12 +278,12 @@ export class PositionBasedSync {
 				}
 
 				const existingPostId = postIds[position];
-				const syncResult = await this.syncNoteAtPosition(
+				const syncResult = await this.syncNoteAtPosition({
 					file,
-					channelConfig.channelId,
+					channelId: channelConfig.channelId,
 					existingPostId,
-					listFile
-				);
+					sourceChannelFile: listFile,
+				});
 
 				if (syncResult.success && syncResult.messageId) {
 					postIds[position] = syncResult.messageId;
