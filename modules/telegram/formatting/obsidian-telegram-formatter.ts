@@ -3,7 +3,7 @@
  * Handles vault operations, frontmatter, and file-based operations
  */
 
-import { App } from 'obsidian';
+import { App, TFile } from 'obsidian';
 import {
 	FrontmatterUtils,
 	VaultOperations,
@@ -31,6 +31,7 @@ export class ObsidianTelegramFormatter {
 	private vaultOperations: VaultOperations;
 	private channelConfigService?: ChannelConfigService;
 	private telegramFormatter: TelegramMessageFormatter;
+	private linkParser: LinkParser;
 
 	constructor(
 		app: App,
@@ -43,9 +44,11 @@ export class ObsidianTelegramFormatter {
 		this.vaultOperations = new VaultOperations(app);
 		this.channelConfigService = channelConfigService;
 		this.telegramFormatter = new TelegramMessageFormatter(
+			app,
 			customEmojis,
 			useCustomEmojis
 		);
+		this.linkParser = new LinkParser(app);
 	}
 
 	/**
@@ -54,10 +57,14 @@ export class ObsidianTelegramFormatter {
 	async formatMarkdownNote(
 		fileName: string,
 		markdownContent: string,
+		sourceFile?: TFile, // Контекст источника для резолвинга ссылок
 		options?: ConversionOptions
 	): Promise<ConversionResult> {
-		// Process Obsidian links
-		const processedLinks = await this.processObsidianLinks(markdownContent);
+		// Process Obsidian links with context
+		const processedLinks = await this.processObsidianLinks(
+			markdownContent,
+			sourceFile
+		);
 
 		// Convert with processed links
 		const conversionResult =
@@ -80,20 +87,22 @@ export class ObsidianTelegramFormatter {
 	 * Process all Obsidian links in content
 	 */
 	private async processObsidianLinks(
-		content: string
+		content: string,
+		sourceFile?: TFile
 	): Promise<ProcessedLink[]> {
-		if (!LinkParser.hasObsidianLinks(content) || !this.channelConfigService) {
+		if (!this.linkParser.hasObsidianLinks(content)) {
 			return [];
 		}
 
-		const parsedLinks = LinkParser.parseObsidianLinks(content);
+		const parsedLinks = this.linkParser.parseObsidianLinks(content);
 		const results: ProcessedLink[] = [];
 
 		for (const link of parsedLinks) {
 			try {
 				const processedLink = await this.processSingleObsidianLink(
-					link.fileName,
-					link.displayText
+					link.file,
+					link.displayText,
+					sourceFile
 				);
 				results.push(processedLink);
 			} catch (error) {
@@ -111,24 +120,28 @@ export class ObsidianTelegramFormatter {
 	 * Process single Obsidian link
 	 */
 	private async processSingleObsidianLink(
-		fileName: string,
-		displayText: string
+		file: TFile | null,
+		displayText: string,
+		sourceFile?: TFile
 	): Promise<ProcessedLink> {
-		if (!this.channelConfigService) {
-			throw new Error('ChannelConfigService required for link processing');
-		}
-
-		// Find file by name
-		const files = getMarkdownFiles(this.app, {
-			include: [fileName],
-		});
-		const file = files[0];
-
 		if (!file) {
-			throw new Error(`File "${fileName}" not found`);
+			throw new Error(`File not found`);
+		}
+		const fileName = file.name;
+
+		// Try YAML-based configuration first with context
+		const yamlResult = await this.processLinkWithYamlConfig(file, sourceFile);
+		if (yamlResult) {
+			return { fileName, displayText, telegramUrl: yamlResult };
 		}
 
-		// Get published channel config
+		// Fallback to settings-based configuration
+		if (!this.channelConfigService) {
+			throw new Error(
+				'File is not published and no ChannelConfigService available'
+			);
+		}
+
 		const channelConfigs =
 			await this.channelConfigService.getChannelConfigsForFile(file);
 		const publishedConfig = channelConfigs.find(config => config.messageId);
@@ -137,13 +150,156 @@ export class ObsidianTelegramFormatter {
 			throw new Error(`File "${fileName}" is not published`);
 		}
 
-		// Generate Telegram URL
-		const telegramUrl = LinkParser.generateTelegramPostUrl(
+		const telegramUrl = this.linkParser.generateTelegramPostUrl(
 			publishedConfig.channelId,
 			publishedConfig.messageId
 		);
 
 		return { fileName, displayText, telegramUrl };
+	}
+
+	/**
+	 * Process link using YAML-based configuration with context awareness
+	 */
+	private async processLinkWithYamlConfig(
+		file: TFile,
+		sourceFile?: TFile
+	): Promise<string | null> {
+		try {
+			// Get 'in' property from target file
+			const targetFrontmatter =
+				await this.frontmatterUtils.getFrontmatter(file);
+			const channelFileNames = targetFrontmatter.in;
+
+			if (!channelFileNames) {
+				return null; // No YAML config
+			}
+
+			// Support both single string and array
+			const channelNames = Array.isArray(channelFileNames)
+				? channelFileNames
+				: [channelFileNames];
+
+			// Determine which channel to use based on context
+			const targetChannelName = await this.selectChannelFromContext(
+				channelNames,
+				sourceFile
+			);
+
+			// Find channel file
+			const channelFiles = getMarkdownFiles(this.app, {
+				include: [targetChannelName],
+			});
+			const channelFile = channelFiles[0];
+
+			if (!channelFile) {
+				throw new Error(`Channel file "${targetChannelName}" not found`);
+			}
+
+			// Get channel configuration
+			const channelFrontmatter =
+				await this.frontmatterUtils.getFrontmatter(channelFile);
+			const channelId = channelFrontmatter.channel_id;
+			const postIds = channelFrontmatter.post_ids || [];
+
+			if (!channelId) {
+				throw new Error(`Channel ID not found in "${targetChannelName}"`);
+			}
+
+			// Find message ID for this file
+			const messageId = await this.findMessageIdInChannel(
+				file,
+				channelFile,
+				postIds
+			);
+			if (!messageId) {
+				throw new Error(
+					`Message ID not found for "${file.basename}" in channel "${targetChannelName}"`
+				);
+			}
+
+			// Generate Telegram URL
+			return this.linkParser.generateTelegramPostUrl(channelId, messageId);
+		} catch (error) {
+			console.warn(
+				`YAML config processing failed for ${file.basename}: ${error.message}`
+			);
+			return null; // Fallback to settings-based config
+		}
+	}
+
+	/**
+	 * Select appropriate channel based on context
+	 */
+	private async selectChannelFromContext(
+		availableChannels: string[],
+		sourceFile?: TFile
+	): Promise<string> {
+		if (availableChannels.length === 1) {
+			return availableChannels[0]; // Only one option
+		}
+
+		if (!sourceFile) {
+			return availableChannels[0]; // Default to first
+		}
+
+		// Check if source file is a channel file
+		const sourceFrontmatter =
+			await this.frontmatterUtils.getFrontmatter(sourceFile);
+		const isSourceChannel = !!(
+			sourceFrontmatter.channel_id || sourceFrontmatter.post_ids
+		);
+
+		if (isSourceChannel) {
+			// Source is a channel - prefer the same channel if available
+			const sourceChannelName = sourceFile.basename;
+			if (availableChannels.includes(sourceChannelName)) {
+				return sourceChannelName;
+			}
+		} else {
+			// Source is a regular post - check its 'in' property
+			const sourceInChannels = sourceFrontmatter.in;
+			if (sourceInChannels) {
+				const sourceChannels = Array.isArray(sourceInChannels)
+					? sourceInChannels
+					: [sourceInChannels];
+
+				// Find intersection - prefer channels that both files share
+				for (const sourceChannel of sourceChannels) {
+					if (availableChannels.includes(sourceChannel)) {
+						return sourceChannel;
+					}
+				}
+			}
+		}
+
+		// Fallback to first available channel
+		return availableChannels[0];
+	}
+
+	/**
+	 * Find message ID for a file in channel's post_ids
+	 */
+	private async findMessageIdInChannel(
+		targetFile: TFile,
+		channelFile: TFile,
+		postIds: number[]
+	): Promise<number | null> {
+		// Read channel content to find post position
+		const channelContent =
+			await this.vaultOperations.getFileContent(channelFile);
+		const parsedLinks = this.linkParser.parseObsidianLinks(channelContent);
+
+		// Find position of target file in the list
+		const position = parsedLinks.findIndex(
+			link => link.file?.name === targetFile.name
+		);
+
+		if (position === -1 || position >= postIds.length) {
+			return null;
+		}
+
+		return postIds[position];
 	}
 
 	/**
@@ -175,7 +331,7 @@ export class ObsidianTelegramFormatter {
 
 			// Parse buttons filename from field
 			const buttonsFileName =
-				LinkParser.parseButtonsFromFrontmatter(buttonsField);
+				this.linkParser.parseButtonsFromFrontmatter(buttonsField);
 			if (!buttonsFileName) {
 				return undefined;
 			}
@@ -215,7 +371,7 @@ export class ObsidianTelegramFormatter {
 			.filter(line => line.trim());
 
 		const buttonRows: InlineButton[][] = [];
-		const buttonLineData = LinkParser.parseButtonLines(lines);
+		const buttonLineData = this.linkParser.parseButtonLines(lines);
 
 		for (const rowData of buttonLineData) {
 			try {
@@ -223,7 +379,7 @@ export class ObsidianTelegramFormatter {
 
 				for (const buttonData of rowData) {
 					const processedLink = await this.processSingleObsidianLink(
-						buttonData.fileName,
+						buttonData.file,
 						buttonData.text
 					);
 

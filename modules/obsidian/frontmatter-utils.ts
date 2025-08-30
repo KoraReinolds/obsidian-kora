@@ -54,7 +54,11 @@ export class FrontmatterUtils {
 		filePaths: string[],
 		frontmatter: Record<string, any>
 	) {
-		const results = [];
+		const results: {
+			file: string;
+			status: 'success' | 'error';
+			message?: string;
+		}[] = [];
 		for (const filePath of filePaths) {
 			const file = this.app.vault.getAbstractFileByPath(filePath);
 			if (file instanceof TFile) {
@@ -90,7 +94,11 @@ export class FrontmatterUtils {
 	 * @returns A promise that resolves with an array of objects, each containing the file path and its frontmatter.
 	 */
 	async getFrontmatterForFiles(filePaths: string[]): Promise<any[]> {
-		const results = [];
+		const results: {
+			file: string;
+			frontmatter: Record<string, any> | null;
+			error?: string;
+		}[] = [];
 		for (const filePath of filePaths) {
 			const file = this.app.vault.getAbstractFileByPath(filePath);
 			if (file instanceof TFile) {

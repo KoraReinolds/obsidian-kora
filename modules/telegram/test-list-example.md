@@ -1,7 +1,7 @@
 ---
-post_ids: []
-channel_id: "@your_channel_username"
-channel_name: "My Test Channel"
+post_ids: [123, 456, 789]
+channel_id: '@your_channel_username'
+channel_name: 'My Test Channel'
 ---
 
 # Example Note List for Position-Based Sync
@@ -24,7 +24,7 @@ This is a test file to demonstrate the position-based sync functionality with ch
 ## Expected behavior:
 
 - Position 0: [[Пост 1]] → post_ids[0]
-- Position 1: [[Пост 2]] → post_ids[1]  
+- Position 1: [[Пост 2]] → post_ids[1]
 - Position 2: [[Пост 3]] → post_ids[2]
 
 If you reorder the list, the posts in Telegram will be updated to match the new order.
@@ -33,8 +33,8 @@ If you reorder the list, the posts in Telegram will be updated to match the new 
 
 ```yaml
 ---
-post_ids: []                          # Array of message IDs (auto-updated)
-channel_id: "@your_channel_username"  # Telegram channel ID or username
-channel_name: "My Test Channel"       # Display name for the channel (optional)
+post_ids: [] # Array of message IDs (auto-updated)
+channel_id: '@your_channel_username' # Telegram channel ID or username
+channel_name: 'My Test Channel' # Display name for the channel (optional)
 ---
 ```

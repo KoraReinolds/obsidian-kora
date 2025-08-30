@@ -12,5 +12,4 @@ export {
 	type ValidationResult,
 	type ValidationOptions,
 } from './validator';
-export { NoteListParser, type NoteLinkItem } from './note-list-parser';
 export { PositionBasedSync, type SyncResult } from './position-based-sync';

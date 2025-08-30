@@ -2,12 +2,18 @@
  * Position-Based Sync - synchronizes Telegram posts with note list order
  */
 
-import { App, TFile } from 'obsidian';
-import { NoteListParser } from './note-list-parser';
+import { App, Notice, TFile } from 'obsidian';
 import { GramJSBridge } from '../transport/gramjs-bridge';
-import { FrontmatterUtils } from '../../obsidian';
-import { ObsidianTelegramFormatter } from '../formatting';
-import type { ChannelConfig } from './channel-config-service';
+import {
+	FrontmatterUtils,
+	getMarkdownFiles,
+	VaultOperations,
+} from '../../obsidian';
+import { ObsidianTelegramFormatter, LinkParser } from '../formatting';
+import {
+	ChannelConfigService,
+	type ChannelConfig,
+} from './channel-config-service';
 import type { KoraMcpPluginSettings } from '../../../main';
 
 export interface SyncResult {
@@ -22,9 +28,11 @@ export class PositionBasedSync {
 	private app: App;
 	private settings: KoraMcpPluginSettings;
 	private gramjsBridge: GramJSBridge;
-	private noteListParser: NoteListParser;
 	private frontmatterUtils: FrontmatterUtils;
+	private channelConfigService: ChannelConfigService;
 	private messageFormatter: ObsidianTelegramFormatter;
+	private vaultOps: VaultOperations;
+	private linkParser: LinkParser;
 
 	constructor(
 		app: App,
@@ -34,23 +42,22 @@ export class PositionBasedSync {
 		this.app = app;
 		this.settings = settings;
 		this.gramjsBridge = gramjsBridge;
-		this.noteListParser = new NoteListParser(app);
 		this.frontmatterUtils = new FrontmatterUtils(app);
+		this.channelConfigService = new ChannelConfigService(app, settings);
 		this.messageFormatter = new ObsidianTelegramFormatter(
 			app,
 			settings.telegram.customEmojis,
 			settings.telegram.useCustomEmojis,
-			undefined // channelConfigService not needed for formatting
+			this.channelConfigService
 		);
+		this.vaultOps = new VaultOperations(app);
+		this.linkParser = new LinkParser(app);
 	}
 
 	/**
 	 * Sync note list with Telegram posts in positional order
 	 */
-	async syncNoteListWithTelegram(
-		listFile: TFile,
-		channelConfig: ChannelConfig
-	): Promise<SyncResult> {
+	async syncNoteListWithTelegram(listFile: TFile): Promise<SyncResult> {
 		const result: SyncResult = {
 			success: true,
 			updated: 0,
@@ -59,30 +66,30 @@ export class PositionBasedSync {
 			newPostIds: [],
 		};
 
-		try {
-			// Parse note list from file
-			const noteItems =
-				await this.noteListParser.parseNoteListFromFile(listFile);
+		const frontmatter = await this.frontmatterUtils.getFrontmatter(listFile);
 
-			if (noteItems.length === 0) {
-				result.errors.push('No note links found in the list');
-				result.success = false;
-				return result;
-			}
+		if (!frontmatter.channel_id || !frontmatter.post_ids) {
+			new Notice(
+				'Не найдена конфигурация канала в frontmatter. Добавьте channel_id.'
+			);
+			return result;
+		}
+
+		const { channel_id: channelId, post_ids: postIds } = frontmatter;
+
+		try {
+			// Parse links from list file
+			const content = await this.vaultOps.getFileContent(listFile);
 
 			// Resolve note files
-			const resolvedItems =
-				await this.noteListParser.resolveNoteFiles(noteItems);
-
-			// Get current post IDs array from frontmatter
-			const postIds = (await this.getCurrentPostIds(listFile)) || [];
+			const links = this.linkParser.parseObsidianLinks(content);
 
 			// Process each position
-			for (let i = 0; i < resolvedItems.length; i++) {
-				const { noteItem, file } = resolvedItems[i];
+			for (let i = 0; i < links.length; i++) {
+				const { file } = links[i];
 
 				if (!file) {
-					result.errors.push(`Note file not found: ${noteItem.fileName}`);
+					result.errors.push(`Note file not found`);
 					continue;
 				}
 
@@ -90,9 +97,9 @@ export class PositionBasedSync {
 					const existingPostId = postIds[i];
 					const syncResult = await this.syncNoteAtPosition(
 						file,
-						channelConfig,
-						i,
-						existingPostId
+						channelId,
+						existingPostId,
+						listFile
 					);
 
 					if (syncResult.success && syncResult.messageId) {
@@ -137,9 +144,9 @@ export class PositionBasedSync {
 	 */
 	private async syncNoteAtPosition(
 		file: TFile,
-		channelConfig: ChannelConfig,
-		position: number,
-		existingPostId?: number
+		channelId: string,
+		existingPostId?: number,
+		sourceChannelFile?: TFile
 	): Promise<{
 		success: boolean;
 		messageId?: number;
@@ -147,13 +154,16 @@ export class PositionBasedSync {
 		error?: string;
 	}> {
 		try {
+			// Auto-set 'in' property for YAML-based channel configuration
+			await this.autoSetInProperty(file);
 			// Get note content
-			const content = await this.app.vault.read(file);
+			const content = await this.vaultOps.getFileContent(file);
 
-			// Format message for Telegram
+			// Format message for Telegram with source context
 			const conversionResult = await this.messageFormatter.formatMarkdownNote(
 				file.basename,
-				content
+				content,
+				sourceChannelFile // Pass channel file as context for link resolution
 			);
 
 			const telegramFormatter = this.messageFormatter.getTelegramFormatter();
@@ -171,7 +181,7 @@ export class PositionBasedSync {
 			if (existingPostId) {
 				// Update existing post
 				const success = await this.gramjsBridge.editMessage({
-					peer: channelConfig.channelId,
+					peer: channelId,
 					messageId: existingPostId,
 					message: processedText,
 					entities: combinedEntities,
@@ -189,7 +199,7 @@ export class PositionBasedSync {
 			} else {
 				// Create new post
 				const result = await this.gramjsBridge.sendMessage({
-					peer: channelConfig.channelId,
+					peer: channelId,
 					message: processedText,
 					entities: combinedEntities,
 					buttons,
@@ -248,22 +258,20 @@ export class PositionBasedSync {
 		};
 
 		try {
-			const noteItems =
-				await this.noteListParser.parseNoteListFromFile(listFile);
-			const resolvedItems =
-				await this.noteListParser.resolveNoteFiles(noteItems);
+			const content = await this.app.vault.read(listFile);
+			const links = this.linkParser.parseObsidianLinks(content);
 			const postIds = (await this.getCurrentPostIds(listFile)) || [];
 
 			for (const position of positions) {
-				if (position >= resolvedItems.length) {
+				if (position >= links.length) {
 					result.errors.push(`Position ${position} is out of range`);
 					continue;
 				}
 
-				const { noteItem, file } = resolvedItems[position];
+				const { file } = links[position];
 				if (!file) {
 					result.errors.push(
-						`Note file not found at position ${position}: ${noteItem.fileName}`
+						`Note file not found at position ${position} for ${listFile.name}`
 					);
 					continue;
 				}
@@ -271,9 +279,9 @@ export class PositionBasedSync {
 				const existingPostId = postIds[position];
 				const syncResult = await this.syncNoteAtPosition(
 					file,
-					channelConfig,
-					position,
-					existingPostId
+					channelConfig.channelId,
+					existingPostId,
+					listFile
 				);
 
 				if (syncResult.success && syncResult.messageId) {
@@ -308,35 +316,70 @@ export class PositionBasedSync {
 	}
 
 	/**
-	 * Preview sync changes without executing
+	 * Automatically set 'in' property for YAML-based channel configuration
 	 */
-	async previewSyncChanges(listFile: TFile): Promise<{
-		noteItems: Array<{
-			position: number;
-			fileName: string;
-			displayText: string;
-			fileExists: boolean;
-			hasExistingPost: boolean;
-			action: 'create' | 'update' | 'skip';
-		}>;
-		postIds: number[];
-	}> {
-		const noteItems = await this.noteListParser.parseNoteListFromFile(listFile);
-		const resolvedItems = await this.noteListParser.resolveNoteFiles(noteItems);
-		const postIds = (await this.getCurrentPostIds(listFile)) || [];
+	private async autoSetInProperty(file: TFile): Promise<void> {
+		try {
+			// Check if file already has 'in' property
+			const frontmatter = await this.frontmatterUtils.getFrontmatter(file);
+			if (frontmatter.in) {
+				return; // Already has 'in' property
+			}
 
-		const preview = resolvedItems.map(({ noteItem, file }, index) => ({
-			position: index,
-			fileName: noteItem.fileName,
-			displayText: noteItem.displayText,
-			fileExists: !!file,
-			hasExistingPost: !!postIds[index],
-			action: (!file ? 'skip' : postIds[index] ? 'update' : 'create') as
-				| 'create'
-				| 'update'
-				| 'skip',
-		}));
+			// Try to find the channel file that references this post
+			const channelFile = await this.findChannelFileForPost(file);
+			if (channelFile) {
+				// Set 'in' property to the channel file name (without extension)
+				const channelFileName = channelFile.basename;
+				await this.frontmatterUtils.setFrontmatterField(
+					file,
+					'in',
+					channelFileName
+				);
+				console.log(`Auto-set 'in: ${channelFileName}' for ${file.basename}`);
+			}
+		} catch (error) {
+			console.warn(
+				`Failed to auto-set 'in' property for ${file.basename}: ${error.message}`
+			);
+			// Don't throw - this is optional functionality
+		}
+	}
 
-		return { noteItems: preview, postIds };
+	/**
+	 * Find channel file that contains a link to the given post
+	 */
+	private async findChannelFileForPost(
+		targetFile: TFile
+	): Promise<TFile | null> {
+		// Get all markdown files that could be channel files
+		const allFiles = getMarkdownFiles(this.app, {});
+
+		for (const file of allFiles) {
+			try {
+				// Check if file has channel-like frontmatter
+				const frontmatter = await this.frontmatterUtils.getFrontmatter(file);
+				if (!frontmatter.channel_id && !frontmatter.post_ids) {
+					continue; // Not a channel file
+				}
+
+				// Check if file content contains a link to our target file
+				const content = await this.app.vault.read(file);
+				const links = this.linkParser.parseObsidianLinks(content);
+
+				const hasTargetLink = links.some(
+					link => link.file?.name === targetFile.name
+				);
+
+				if (hasTargetLink) {
+					return file; // Found channel file that references this post
+				}
+			} catch (error) {
+				// Skip files that can't be processed
+				continue;
+			}
+		}
+
+		return null; // No channel file found
 	}
 }

@@ -12,6 +12,7 @@ export {
 	type ParsedLink,
 	type ParsedMarkdownLink,
 	type ProcessedLink,
+	type ResolvedLink,
 } from './link-parser';
 export {
 	MarkdownToTelegramConverter,

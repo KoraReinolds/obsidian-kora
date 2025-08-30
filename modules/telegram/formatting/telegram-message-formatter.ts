@@ -11,6 +11,7 @@ import {
 } from './markdown-to-telegram-converter';
 import { LinkParser, type ProcessedLink } from './link-parser';
 import { TelegramValidator } from '../utils';
+import { App } from 'obsidian';
 
 export interface EmojiMapping {
 	standard: string; // Standard emoji (e.g., "📝")
@@ -39,11 +40,17 @@ export class TelegramMessageFormatter {
 	private customEmojis: EmojiMapping[];
 	private useCustomEmojis: boolean;
 	private markdownConverter: MarkdownToTelegramConverter;
+	private linkParser: LinkParser;
 
-	constructor(customEmojis: EmojiMapping[] = [], useCustomEmojis = false) {
+	constructor(
+		app: App,
+		customEmojis: EmojiMapping[] = [],
+		useCustomEmojis = false
+	) {
 		this.customEmojis = customEmojis;
 		this.useCustomEmojis = useCustomEmojis;
 		this.markdownConverter = new MarkdownToTelegramConverter();
+		this.linkParser = new LinkParser(app);
 	}
 
 	/**
@@ -132,7 +139,7 @@ export class TelegramMessageFormatter {
 			this.markdownConverter.removeFrontmatter(markdownContent);
 
 		// Replace Obsidian links with Telegram URLs
-		const processedContent = LinkParser.replaceObsidianLinksWithMarkdown(
+		const processedContent = this.linkParser.replaceObsidianLinksWithMarkdown(
 			contentWithoutFrontmatter,
 			processedLinks
 		);

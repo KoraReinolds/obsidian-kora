@@ -13,6 +13,7 @@ import type {
 /**
  * Configuration for a Telegram channel (new format)
  */
+// TODO: remove this interface
 export interface ChannelConfig {
 	name: string;
 	channelId: string;
