@@ -26,11 +26,11 @@ export function chunkNote(
 	cache: CachedMetadataLike
 ): Chunk[] {
 	const merged: Required<ChunkOptions> = {
-		longParagraphWordThreshold: 300,
-		listShortCharThreshold: 120,
-		listGroupMin: 3,
-		listGroupMax: 7,
-		maxChunksSoft: 50,
+		longParagraphWordThreshold: Number.MAX_SAFE_INTEGER, // Отключаем автоматическое разделение абзацев
+		listShortCharThreshold: Number.MAX_SAFE_INTEGER, // Отключаем группировку коротких элементов списка
+		listGroupMin: Number.MAX_SAFE_INTEGER, // Отключаем группировку списков
+		listGroupMax: Number.MAX_SAFE_INTEGER, // Отключаем группировку списков
+		maxChunksSoft: Number.MAX_SAFE_INTEGER, // Убираем ограничение на количество чанков
 		...options,
 	};
 

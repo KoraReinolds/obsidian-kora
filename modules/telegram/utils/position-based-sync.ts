@@ -4,17 +4,14 @@
 
 import { App, Notice, TFile } from 'obsidian';
 import { GramJSBridge } from '../transport/gramjs-bridge';
+import { FrontmatterUtils, VaultOperations } from '../../obsidian';
 import {
-	FrontmatterUtils,
-	getMarkdownFiles,
-	VaultOperations,
-} from '../../obsidian';
-import { ObsidianTelegramFormatter, LinkParser } from '../formatting';
+	ObsidianTelegramFormatter,
+	LinkParser,
+	ParsedObsidianLink,
+} from '../formatting';
 import { ChannelFileParser, PostFileParser } from '../parsing';
-import {
-	ChannelConfigService,
-	type ChannelConfig,
-} from './channel-config-service';
+import { ChannelConfigService } from './channel-config-service';
 import type { KoraMcpPluginSettings } from '../../../main';
 
 export interface SyncResult {
@@ -81,29 +78,20 @@ export class PositionBasedSync {
 
 		const { channelId, links, postIds } = channelData;
 
-		links
-			.filter(link => !link.file)
-			.forEach(link => {
-				result.errors.push(`Note file not found at position ${link}`);
-			});
-
 		try {
 			// Process each position
 			for (let i = 0; i < links.length; i++) {
-				const file = links[i].file;
+				const link = links[i];
 
-				if (!file) {
-					result.errors.push(`Note file not found at position ${i}`);
+				if (!link.file) {
+					result.errors.push(`File not found at position ${i}`);
 					continue;
 				}
 
 				try {
-					const existingPostId = postIds[i];
 					const syncResult = await this.syncNoteAtPosition({
-						file,
 						channelId,
-						existingPostId,
-						sourceChannelFile: listFile,
+						link,
 					});
 
 					if (syncResult.success && syncResult.messageId) {
@@ -122,14 +110,14 @@ export class PositionBasedSync {
 						}
 					} else {
 						result.errors.push(
-							`Failed to sync ${file.basename}: ${syncResult.error}`
+							`Failed to sync ${link.file.basename}: ${syncResult.error}`
 						);
 					}
 
 					// Small delay between operations
 					await new Promise(resolve => setTimeout(resolve, 500));
 				} catch (error) {
-					result.errors.push(`Error syncing ${file.basename}: ${error}`);
+					result.errors.push(`Error syncing ${link.file.basename}: ${error}`);
 				}
 			}
 
@@ -147,19 +135,21 @@ export class PositionBasedSync {
 	 * Sync a single note at a specific position
 	 */
 	private async syncNoteAtPosition(params: {
-		file: TFile;
 		channelId: string;
-		existingPostId?: number;
-		sourceChannelFile?: TFile;
+		link: ParsedObsidianLink;
 	}): Promise<{
 		success: boolean;
 		messageId?: number;
 		wasUpdated: boolean;
 		error?: string;
 	}> {
-		const { file, channelId, existingPostId, sourceChannelFile } = params;
+		const { link, channelId } = params;
+		const file = link.file;
+		const existingPostId = link.postId;
 
 		try {
+			if (!file) throw new Error('File not found');
+
 			// Get note content
 			const content =
 				(await this.vaultOps.getFileContent(file)) + Math.random();
@@ -168,7 +158,6 @@ export class PositionBasedSync {
 			const conversionResult = await this.messageFormatter.formatMarkdownNote({
 				fileName: file.basename,
 				markdownContent: content,
-				sourceFile: sourceChannelFile,
 			});
 
 			const telegramFormatter = this.messageFormatter.getTelegramFormatter();
@@ -209,10 +198,6 @@ export class PositionBasedSync {
 
 			const result = await this.gramjsBridge.sendMessage(messageOptions);
 
-			if (sourceChannelFile) {
-				await this.autoSetInProperty(file, sourceChannelFile);
-			}
-
 			return {
 				success: result.success,
 				messageId: result.messageId,
@@ -229,21 +214,6 @@ export class PositionBasedSync {
 	}
 
 	/**
-	 * Get current post IDs array from frontmatter
-	 */
-	private async getCurrentPostIds(file: TFile): Promise<number[] | null> {
-		const channel = new ChannelFileParser(this.app, file);
-
-		if (channel.isValid()) {
-			return channel.getData().postIds;
-		}
-
-		// Fallback to direct frontmatter access for non-channel files
-		const frontmatter = await this.frontmatterUtils.getFrontmatter(file);
-		return frontmatter.post_ids || null;
-	}
-
-	/**
 	 * Update post IDs array in frontmatter
 	 */
 	private async updatePostIdsArray(
@@ -253,134 +223,5 @@ export class PositionBasedSync {
 		await this.frontmatterUtils.updateFrontmatterForFiles([file.path], {
 			post_ids: postIds,
 		});
-	}
-
-	/**
-	 * Sync only specific positions in the list
-	 */
-	async syncSpecificPositions(
-		listFile: TFile,
-		channelConfig: ChannelConfig,
-		positions: number[]
-	): Promise<SyncResult> {
-		const result: SyncResult = {
-			success: true,
-			updated: 0,
-			created: 0,
-			errors: [],
-			newPostIds: [],
-		};
-
-		try {
-			const content = await this.app.vault.read(listFile);
-			const links = this.linkParser.parseObsidianLinks(content);
-			const postIds = (await this.getCurrentPostIds(listFile)) || [];
-
-			for (const position of positions) {
-				if (position >= links.length) {
-					result.errors.push(`Position ${position} is out of range`);
-					continue;
-				}
-
-				const { file } = links[position];
-				if (!file) {
-					result.errors.push(
-						`Note file not found at position ${position} for ${listFile.name}`
-					);
-					continue;
-				}
-
-				const existingPostId = postIds[position];
-				const syncResult = await this.syncNoteAtPosition({
-					file,
-					channelId: channelConfig.channelId,
-					existingPostId,
-					sourceChannelFile: listFile,
-				});
-
-				if (syncResult.success && syncResult.messageId) {
-					postIds[position] = syncResult.messageId;
-
-					if (syncResult.wasUpdated) {
-						result.updated++;
-					} else {
-						result.created++;
-					}
-
-					if (!syncResult.wasUpdated) {
-						result.newPostIds.push(syncResult.messageId);
-					}
-				} else {
-					result.errors.push(
-						`Failed to sync position ${position}: ${syncResult.error}`
-					);
-				}
-
-				await new Promise(resolve => setTimeout(resolve, 500));
-			}
-
-			// Update frontmatter
-			await this.updatePostIdsArray(listFile, postIds);
-		} catch (error) {
-			result.success = false;
-			result.errors.push(`Sync failed: ${error}`);
-		}
-
-		return result;
-	}
-
-	/**
-	 * Automatically set 'in' property for YAML-based channel configuration
-	 */
-	private async autoSetInProperty(
-		file: TFile,
-		sourceChannelFile: TFile
-	): Promise<void> {
-		try {
-			// Add source channel to 'in' array, ensuring uniqueness
-			await this.frontmatterUtils.addToArrayField(
-				file,
-				'in',
-				`[[${sourceChannelFile.basename}]]`
-			);
-			console.log(
-				`Added '${sourceChannelFile.basename}' to 'in' array for ${file.basename}`
-			);
-		} catch (error) {
-			console.warn(
-				`Failed to add to 'in' array for ${file.basename}: ${error.message}`
-			);
-		}
-	}
-
-	/**
-	 * Find channel file that contains a link to the given post
-	 */
-	private async findChannelFileForPost(
-		targetFile: TFile
-	): Promise<TFile | null> {
-		// Get all markdown files that could be channel files
-		const allFiles = getMarkdownFiles(this.app, {});
-
-		for (const file of allFiles) {
-			try {
-				// Check if file is a valid channel file using parser
-				const channel = new ChannelFileParser(this.app, file);
-
-				if (!channel.isValid()) {
-					continue; // Not a channel file
-				}
-
-				// Check if channel contains our target file
-				if (channel.getData().links.some(link => link.file === targetFile)) {
-					return file; // Found channel file that references this post
-				}
-			} catch (error) {
-				// Skip files that can't be processed
-				continue;
-			}
-		}
-
-		return null; // No channel file found
 	}
 }

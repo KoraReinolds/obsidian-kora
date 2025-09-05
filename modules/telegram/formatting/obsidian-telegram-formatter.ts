@@ -60,16 +60,12 @@ export class ObsidianTelegramFormatter {
 	async formatMarkdownNote(params: {
 		fileName: string;
 		markdownContent: string;
-		sourceFile?: TFile; // Контекст источника для резолвинга ссылок
 		options?: ConversionOptions;
 	}): Promise<ConversionResult> {
-		const { fileName, markdownContent, sourceFile, options } = params;
+		const { fileName, markdownContent, options } = params;
 
 		// Process Obsidian links with context
-		const processedLinks = await this.processObsidianLinks(
-			markdownContent,
-			sourceFile
-		);
+		const processedLinks = await this.processObsidianLinks(markdownContent);
 
 		// Convert with processed links
 		const conversionResult =
@@ -92,8 +88,7 @@ export class ObsidianTelegramFormatter {
 	 * Process all Obsidian links in content
 	 */
 	private async processObsidianLinks(
-		content: string,
-		sourceFile?: TFile
+		content: string
 	): Promise<ProcessedLink[]> {
 		const parsedLinks = this.linkParser.parseObsidianLinks(content);
 		const results: ProcessedLink[] = [];
@@ -102,8 +97,7 @@ export class ObsidianTelegramFormatter {
 			try {
 				const processedLink = await this.processSingleObsidianLink(
 					link.file,
-					link.displayText,
-					sourceFile
+					link.displayText
 				);
 				results.push(processedLink);
 			} catch (error) {
@@ -122,8 +116,7 @@ export class ObsidianTelegramFormatter {
 	 */
 	private async processSingleObsidianLink(
 		file: TFile | null,
-		displayText: string,
-		sourceFile?: TFile
+		displayText: string
 	): Promise<ProcessedLink> {
 		if (!file) {
 			throw new Error(`File not found`);
@@ -131,93 +124,90 @@ export class ObsidianTelegramFormatter {
 		const fileName = file.name;
 
 		// Try YAML-based configuration first with context
-		const yamlResult = await this.processLinkWithYamlConfig(file, sourceFile);
-		if (yamlResult) {
-			return { fileName, displayText, telegramUrl: yamlResult };
+		const telegramUrl = await this.getTgLinkForFile(file);
+
+		if (telegramUrl) {
+			return { fileName, displayText, telegramUrl };
 		}
 
-		// Fallback to settings-based configuration
-		if (!this.channelConfigService) {
-			throw new Error(
-				'File is not published and no ChannelConfigService available'
-			);
-		}
-
-		const channelConfigs =
-			await this.channelConfigService.getChannelConfigsForFile(file);
-		const publishedConfig = channelConfigs.find(config => config.messageId);
-
-		if (!publishedConfig?.messageId) {
-			throw new Error(`File "${fileName}" is not published`);
-		}
-
-		const telegramUrl = LinkParser.generateTelegramPostUrl(
-			publishedConfig.channelId,
-			publishedConfig.messageId
-		);
-
-		return { fileName, displayText, telegramUrl };
+		throw new Error(`Telegram URL not found for "${file.basename}"`);
 	}
 
 	/**
 	 * Process link using YAML-based configuration with context awareness
 	 */
-	private async processLinkWithYamlConfig(
-		file: TFile,
-		sourceFile?: TFile
-	): Promise<string | null> {
+	private async getTgLinkForFile(file: TFile): Promise<string | null> {
 		try {
 			// Check if target file has Telegram association and get channels
 			const post = new PostFileParser(this.app, file);
-			if (!post.isValid()) {
-				return null; // No YAML config
-			}
+			const postData = await post.parse();
 
-			const channelNames = await this.postFileParser.getChannelsForPost(file);
-			// Get channels this post belongs to using parser
-			if (channelNames.length === 0) {
-				return null; // No channels found
-			}
+			if (!postData) return null;
 
-			// Determine which channel to use based on context
-			const targetChannelName = await this.selectChannelFromContext(
-				channelNames,
-				sourceFile
-			);
+			const channels = postData.channels;
 
-			// Find channel file
-			const channelFiles = getMarkdownFiles(this.app, {
-				include: [targetChannelName],
-			});
-			const channelFile = channelFiles[0];
+			const channelId = Object.values(channels)[0];
 
-			if (!channelFile) {
-				throw new Error(`Channel file "${targetChannelName}" not found`);
-			}
+			// const channelNames = await this.postFileParser.getChannelsForPost(file);
+			// // Get channels this post belongs to using parser
+			// if (channelNames.length === 0) {
+			// 	return null; // No channels found
+			// }
 
-			// Get channel configuration using parser
-			const channelData = await this.channelFileParser.parse(channelFile);
-			const channelId = channelData.channelId;
-			const postIds = channelData.postIds;
+			// // Determine which channel to use based on context
+			// const targetChannelName = await this.selectChannelFromContext(
+			// 	channelNames,
+			// 	sourceFile
+			// );
+
+			// // Find channel file
+			// const channelFiles = getMarkdownFiles(this.app, {
+			// 	include: [targetChannelName],
+			// });
+			// const channelFile = channelFiles[0];
+
+			// if (!channelFile) {
+			// 	throw new Error(`Channel file "${targetChannelName}" not found`);
+			// }
+
+			// // Get channel configuration using parser
+			// const channelData = await this.channelFileParser.parse(channelFile);
+			// const channelId = channelData.channelId;
+			// const postIds = channelData.postIds;
 
 			if (!channelId) {
-				throw new Error(`Channel ID not found in "${targetChannelName}"`);
+				throw new Error(`Channel ID not found"`);
 			}
 
-			// Find message ID for this file
-			const messageId = await this.findMessageIdInChannel(
-				file,
-				channelFile,
-				postIds
-			);
+			// // Find message ID for this file
+			// const messageId = await this.findMessageIdInChannel(
+			// 	file,
+			// 	channelFile,
+			// 	postIds
+			// );
+			// if (!messageId) {
+			// 	throw new Error(
+			// 		`Message ID not found for "${file.basename}" in channel "${targetChannelName}"`
+			// 	);
+			// }
+			//
+			const channel = ChannelFileParser.channelMap[channelId];
+
+			const messageId = channel.links.find(
+				link => link.file?.name === file.name
+			)?.postId;
+
 			if (!messageId) {
 				throw new Error(
-					`Message ID not found for "${file.basename}" in channel "${targetChannelName}"`
+					`Message ID not found for "${file.basename}" in channel "${channelId}"`
 				);
 			}
 
 			// Generate Telegram URL
-			return LinkParser.generateTelegramPostUrl(channelId, messageId);
+			return LinkParser.generateTelegramPostUrl(
+				channelId.toString(),
+				messageId
+			);
 		} catch (error) {
 			console.warn(
 				`YAML config processing failed for ${file.basename}: ${error.message}`
@@ -226,72 +216,72 @@ export class ObsidianTelegramFormatter {
 		}
 	}
 
-	/**
-	 * Select appropriate channel based on context
-	 */
-	private async selectChannelFromContext(
-		availableChannels: string[],
-		sourceFile?: TFile
-	): Promise<string> {
-		if (availableChannels.length === 1) {
-			return availableChannels[0]; // Only one option
-		}
+	// /**
+	//  * Select appropriate channel based on context
+	//  */
+	// private async selectChannelFromContext(
+	// 	availableChannels: string[],
+	// 	sourceFile?: TFile
+	// ): Promise<string> {
+	// 	if (availableChannels.length === 1) {
+	// 		return availableChannels[0]; // Only one option
+	// 	}
 
-		if (!sourceFile) {
-			return availableChannels[0]; // Default to first
-		}
+	// 	if (!sourceFile) {
+	// 		return availableChannels[0]; // Default to first
+	// 	}
 
-		// Check if source file is a channel file
-		const isSourceChannel =
-			await this.channelFileParser.isValidFile(sourceFile);
+	// 	// Check if source file is a channel file
+	// 	const isSourceChannel =
+	// 		await this.channelFileParser.isValidFile(sourceFile);
 
-		if (isSourceChannel) {
-			// Source is a channel - prefer the same channel if available
-			const sourceChannelName = sourceFile.basename;
-			if (availableChannels.includes(sourceChannelName)) {
-				return sourceChannelName;
-			}
-		} else {
-			// Source is a regular post - check its channels using parser
-			if (await this.postFileParser.hasTelegramAssociation(sourceFile)) {
-				const sourceChannels =
-					await this.postFileParser.getChannelsForPost(sourceFile);
+	// 	if (isSourceChannel) {
+	// 		// Source is a channel - prefer the same channel if available
+	// 		const sourceChannelName = sourceFile.basename;
+	// 		if (availableChannels.includes(sourceChannelName)) {
+	// 			return sourceChannelName;
+	// 		}
+	// 	} else {
+	// 		// Source is a regular post - check its channels using parser
+	// 		if (await this.postFileParser.hasTelegramAssociation(sourceFile)) {
+	// 			const sourceChannels =
+	// 				await this.postFileParser.getChannelsForPost(sourceFile);
 
-				// Find intersection - prefer channels that both files share
-				for (const sourceChannel of sourceChannels) {
-					if (availableChannels.includes(sourceChannel)) {
-						return sourceChannel;
-					}
-				}
-			}
-		}
+	// 			// Find intersection - prefer channels that both files share
+	// 			for (const sourceChannel of sourceChannels) {
+	// 				if (availableChannels.includes(sourceChannel)) {
+	// 					return sourceChannel;
+	// 				}
+	// 			}
+	// 		}
+	// 	}
 
-		// Fallback to first available channel
-		return availableChannels[0];
-	}
+	// 	// Fallback to first available channel
+	// 	return availableChannels[0];
+	// }
 
-	/**
-	 * Find message ID for a file in channel's post_ids
-	 */
-	private async findMessageIdInChannel(
-		targetFile: TFile,
-		channelFile: TFile,
-		postIds: number[]
-	): Promise<number | null> {
-		// Parse channel file to get links
-		const channelData = await this.channelFileParser.parse(channelFile);
+	// /**
+	//  * Find message ID for a file in channel's post_ids
+	//  */
+	// private async findMessageIdInChannel(
+	// 	targetFile: TFile,
+	// 	channelFile: TFile,
+	// 	postIds: number[]
+	// ): Promise<number | null> {
+	// 	// Parse channel file to get links
+	// 	const channelData = await this.channelFileParser.parse(channelFile);
 
-		// Find position of target file in the list
-		const position = channelData.links.findIndex(
-			link => link.file?.name === targetFile.name
-		);
+	// 	// Find position of target file in the list
+	// 	const position = channelData.links.findIndex(
+	// 		link => link.file?.name === targetFile.name
+	// 	);
 
-		if (position === -1 || position >= postIds.length) {
-			return null;
-		}
+	// 	if (position === -1 || position >= postIds.length) {
+	// 		return null;
+	// 	}
 
-		return postIds[position];
-	}
+	// 	return postIds[position];
+	// }
 
 	/**
 	 * Get buttons from frontmatter

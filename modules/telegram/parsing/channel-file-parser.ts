@@ -11,6 +11,8 @@ export interface ChannelFileData extends BaseFileData {
 }
 
 export class ChannelFileParser extends FileParser<ChannelFileData> {
+	static channelMap: Record<string, ChannelFileData> = {};
+
 	constructor(app: App, file: TFile) {
 		super(app, file);
 	}
@@ -34,11 +36,15 @@ export class ChannelFileParser extends FileParser<ChannelFileData> {
 			link.postId = postIds[index];
 		});
 
-		return {
+		const data = {
 			...baseData,
 			channelId,
 			postIds,
 		};
+
+		ChannelFileParser.channelMap[channelId] = data;
+
+		return data;
 	}
 
 	protected validateSpecific(baseData: BaseFileData): ValidationResult {
@@ -68,57 +74,4 @@ export class ChannelFileParser extends FileParser<ChannelFileData> {
 	protected getFileType(): string {
 		return 'channel';
 	}
-
-	// /**
-	//  * Get comprehensive channel information in one call
-	//  */
-	// getChannelInfo(): {
-	// 	isValid: boolean;
-	// 	channelId: string;
-	// 	postIds: number[];
-	// 	files: TFile[];
-	// 	linkCount: number;
-	// } {
-	// 	const channelData = this.getData();
-	// 	const files = channelData.links
-	// 		.map(link => link.file)
-	// 		.filter(Boolean) as TFile[];
-
-	// 	return {
-	// 		isValid: true,
-	// 		channelId: channelData.channelId,
-	// 		postIds: channelData.postIds,
-	// 		files,
-	// 		linkCount: channelData.links.length,
-	// 	};
-	// }
-
-	// /**
-	//  * Check if channel has a specific file
-	//  */
-	// hasFile(targetFile: TFile): boolean {
-	// 	const info = this.getChannelInfo();
-	// 	return info.files.some(file => file.name === targetFile.name);
-	// }
-
-	/**
-	 * Get position of file in channel (for position-based sync)
-	 */
-	getFilePosition(targetFile: TFile): number | null {
-		if (!this.isValid()) return null;
-
-		const channelData = this.getData();
-		const position = channelData.links.findIndex(
-			link => link.file?.name === targetFile.name
-		);
-		return position >= 0 ? position : null;
-	}
-
-	// /**
-	//  * Get message ID for file at specific position
-	//  */
-	// getMessageIdAtPosition(position: number): number | null {
-	// 	const info = this.getChannelInfo();
-	// 	return position < info.postIds.length ? info.postIds[position] : null;
-	// }
 }

@@ -84,10 +84,10 @@ export interface ChunkNoteContext {
 
 /**
  * Tuning parameters controlling the size and grouping behavior of chunks.
- * - longParagraphWordThreshold: Split paragraphs exceeding this word count (default ~300)
- * - listShortCharThreshold: Char length under which list items are considered short (default ~120)
- * - listGroupMin/listGroupMax: Min/Max items to merge into one list_group (defaults 3..7)
- * - maxChunksSoft: Soft cap on returned chunks for UI/perf (default 50)
+ * - longParagraphWordThreshold: Split paragraphs exceeding this word count (default: disabled for "1 paragraph - 1 thought" concept)
+ * - listShortCharThreshold: Char length under which list items are considered short (default: disabled for "1 paragraph - 1 thought" concept)
+ * - listGroupMin/listGroupMax: Min/Max items to merge into one list_group (default: disabled for "1 paragraph - 1 thought" concept)
+ * - maxChunksSoft: Soft cap on returned chunks for UI/perf (default: unlimited for "1 paragraph - 1 thought" concept)
  */
 export interface ChunkOptions {
 	longParagraphWordThreshold?: number;

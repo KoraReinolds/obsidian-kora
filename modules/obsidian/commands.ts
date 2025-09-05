@@ -12,7 +12,6 @@ import {
 import { FrontmatterUtils, VaultOperations } from '.';
 import { DuplicateTimeFixer } from '../utils';
 import { RELATED_CHUNKS_VIEW_TYPE } from '../chunking/ui/related-chunks-view';
-import { SuggesterFactory } from './suggester-modal';
 import type { KoraMcpPluginSettings as KoraPluginSettings } from '../../main';
 
 export class PluginCommands {
@@ -53,12 +52,6 @@ export class PluginCommands {
 	getCommands(): Command[] {
 		return [
 			{
-				id: 'send-note-gramjs',
-				name: 'Send note via GramJS userbot',
-				callback: (args?: Record<string, string>) =>
-					this.sendNoteViaGramJS(args),
-			},
-			{
 				id: 'test-gramjs-connection',
 				name: 'Test GramJS connection',
 				callback: (args?: Record<string, string>) =>
@@ -88,76 +81,12 @@ export class PluginCommands {
 					this.openRelatedChunks(args),
 			},
 			{
-				id: 'send-note-to-channel',
-				name: 'Send note to channel',
-				callback: (args?: Record<string, string>) =>
-					this.sendNoteToChannel(args),
-			},
-			{
 				id: 'sync-note-list-to-telegram',
 				name: 'Sync note list to Telegram (position-based)',
 				callback: (args?: Record<string, string>) =>
 					this.syncNoteListToTelegram(args),
 			},
 		];
-	}
-
-	/**
-	 * Send note via GramJS userbot
-	 */
-	private async sendNoteViaGramJS(
-		args?: Record<string, string>
-	): Promise<void> {
-		const file = this.vaultOps.getActiveFile();
-		if (!file) {
-			new Notice('No active file');
-			return;
-		}
-
-		const content = await this.vaultOps.getFileContent(file);
-		const peer = this.settings.gramjs?.chatId;
-
-		if (!peer) {
-			new Notice('Chat ID не настроен');
-			return;
-		}
-
-		// Check if note is already linked to a Telegram post
-		const telegramMessageId = await this.frontmatterUtils.getFrontmatterField(
-			file,
-			'telegram_message_id'
-		);
-
-		// Format message using new telegram formatter
-		const telegramFormatter = this.messageFormatter.getTelegramFormatter();
-		const { processedText } = telegramFormatter.processCustomEmojis(content);
-
-		if (telegramMessageId) {
-			// Edit existing message
-			const success = await this.gramjsBridge.editMessage({
-				peer,
-				messageId: telegramMessageId,
-				message: processedText,
-				disableWebPagePreview: this.settings.telegram.disableWebPagePreview,
-			});
-			if (success) {
-				new Notice('Сообщение в Telegram обновлено!');
-			}
-		} else {
-			// Send new message
-			const result = await this.gramjsBridge.sendMessage({
-				peer,
-				message: processedText,
-				disableWebPagePreview: this.settings.telegram.disableWebPagePreview,
-			});
-			if (result.success && result.messageId) {
-				// Save message ID to frontmatter
-				await this.frontmatterUtils.updateFrontmatterForFiles([file.path], {
-					telegram_message_id: result.messageId,
-				});
-				new Notice('Заметка отправлена через GramJS и связана с постом!');
-			}
-		}
 	}
 
 	/**
@@ -278,35 +207,6 @@ export class PluginCommands {
 			new Notice('Related Chunks view opened');
 		} catch (error) {
 			new Notice(`Error opening Related Chunks view: ${error}`);
-		}
-	}
-
-	/**
-	 * Send current note to channel via suggester modal
-	 */
-	private async sendNoteToChannel(
-		args?: Record<string, string>
-	): Promise<void> {
-		const file = this.vaultOps.getActiveFile();
-		if (!file) {
-			new Notice('Нет активного файла');
-			return;
-		}
-
-		const channelSuggester = SuggesterFactory.createChannelSuggester(
-			this.app,
-			file,
-			this.settings
-		);
-
-		const channelConfig = await channelSuggester.open();
-
-		if (channelConfig) {
-			try {
-				// await this.sendToSelectedChannel(file, channelConfig);
-			} catch (error) {
-				new Notice(`Ошибка отправки: ${error}`);
-			}
 		}
 	}
 
