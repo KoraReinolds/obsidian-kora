@@ -11,8 +11,8 @@ export * from './telegram';
 // Vector search
 export * from './vector';
 
-// UI components
-export * from './ui';
+// UI components (deprecated - using ui-plugins instead)
+// export * from './ui';
 
 // UI Plugins system
 export * from './ui-plugins';
@@ -25,3 +25,6 @@ export * from './mcp';
 
 // Chunking system (re-export for compatibility)
 export { chunkNote } from './chunking';
+
+// Daily notes functionality
+export * from './daily-notes';
