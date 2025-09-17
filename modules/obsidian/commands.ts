@@ -58,9 +58,9 @@ export class PluginCommands {
 					this.testGramJSConnection(args),
 			},
 			{
-				id: 'move-to-notes',
-				name: 'Move to Notes',
-				callback: (args?: Record<string, string>) => this.moveToNotes(args),
+				id: 'move-to',
+				name: 'Move to',
+				callback: (args?: Record<string, string>) => this.moveTo(args),
 			},
 			{
 				id: 'find-duplicate-creation-times',
@@ -101,7 +101,7 @@ export class PluginCommands {
 	/**
 	 * Move file to Notes folder
 	 */
-	private async moveToNotes(args?: Record<string, string>): Promise<void> {
+	private async moveTo(args?: Record<string, string>): Promise<void> {
 		const file = this.vaultOps.getActiveFile();
 		if (!file) {
 			new Notice('Нет активного файла');
@@ -109,7 +109,7 @@ export class PluginCommands {
 		}
 
 		// Use passed argument or default value
-		const targetFolder = args?.targetFolder || 'Organize/Notes';
+		const targetFolder = args?.target || 'Organize/Notes';
 
 		await this.vaultOps.moveFileToFolder(file, targetFolder);
 	}

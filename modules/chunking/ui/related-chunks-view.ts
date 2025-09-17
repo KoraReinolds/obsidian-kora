@@ -447,7 +447,11 @@ export class RelatedChunksView extends ItemView {
 			// Get markdown files from /Organize, excluding /Organize/Output
 			const organizeFiles = await getMarkdownFiles(this.app, {
 				include: ['Organize/**'],
-				exclude: ['Organize/Output/**', 'Organize/Input/**'],
+				exclude: [
+					'Organize/Output/**',
+					'Organize/Input/**',
+					'Organize/Maps/**',
+				],
 			});
 
 			// Get all unique originalIds from vector database
