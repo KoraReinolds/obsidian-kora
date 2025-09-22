@@ -187,6 +187,21 @@ export default class KoraPlugin extends Plugin {
 			},
 		});
 
+		// Добавляем команду применения шаблона к текущей заметке
+		this.addCommand({
+			id: 'apply-template-to-current-note',
+			name: 'Apply Template to Current Note',
+			callback: async () => {
+				const activeFile = this.app.workspace.getActiveFile();
+				if (!activeFile) {
+					console.log('No active file');
+					return;
+				}
+
+				await this.uiPluginManager.applyTemplateToFile(activeFile);
+			},
+		});
+
 		this.registerEvent(
 			this.app.workspace.on(
 				'active-leaf-change',
@@ -210,6 +225,13 @@ export default class KoraPlugin extends Plugin {
 
 		// Показываем note UI для всех markdown файлов
 		this.uiManager.injectUI(leaf);
+
+		// Применяем шаблон если настроен для этого файла
+		if (this.uiPluginManager.shouldApplyTemplate(file)) {
+			setTimeout(async () => {
+				await this.uiPluginManager.applyTemplateToFile(file);
+			}, 100); // Небольшая задержка для корректной обработки
+		}
 
 		// // Вставляем daily content для дневных заметок
 		// this.dailyContentInjector.injectDailyContent(leaf);

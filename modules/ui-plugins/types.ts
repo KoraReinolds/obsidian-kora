@@ -18,6 +18,7 @@ export interface UIPlugin {
 	enabled: boolean;
 	folderPatterns: string[];
 	buttons: UIButton[];
+	templateFile?: string; // Path to template file
 }
 
 export interface UIPluginContext {

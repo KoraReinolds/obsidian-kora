@@ -7,13 +7,16 @@ import type KoraPlugin from '../../main';
 import type { UIPlugin, UIButton } from './types';
 import { FolderSuggest } from '../obsidian/suggester-modal';
 import { ConfigModal, type FieldConfig } from './config-modal';
+import { TemplateProcessor } from './template-processor';
 
 export class UIPluginSettingsTab extends PluginSettingTab {
 	private plugin: KoraPlugin;
+	private templateProcessor: TemplateProcessor;
 
 	constructor(app: App, plugin: KoraPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
+		this.templateProcessor = new TemplateProcessor(app);
 		// @ts-ignore
 		this.id = 'kora-ui-plugins-settings';
 		// @ts-ignore
@@ -93,6 +96,39 @@ export class UIPluginSettingsTab extends PluginSettingTab {
 						this.display();
 					})
 			);
+
+		// Template file selection
+		const templateSetting = new Setting(this.containerEl);
+		templateSetting
+			.setName('Файл шаблона')
+			.setDesc(
+				'Шаблон будет автоматически применяться при открытии заметок в указанных папках'
+			)
+			.addDropdown(dropdown => {
+				dropdown.addOption('', 'Не выбран');
+
+				// Add available templates
+				this.templateProcessor.getAvailableTemplates().then(templates => {
+					templates.forEach(template => {
+						dropdown.addOption(template.path, template.basename);
+					});
+
+					// Set current value
+					if (plugin.templateFile) {
+						dropdown.setValue(plugin.templateFile);
+					}
+				});
+
+				dropdown.onChange(value => {
+					plugin.templateFile = value || undefined;
+					this.saveSettings();
+				});
+			});
+
+		templateSetting.settingEl.style.marginLeft = '20px';
+		templateSetting.settingEl.style.borderLeft =
+			'2px solid var(--background-modifier-border)';
+		templateSetting.settingEl.style.paddingLeft = '10px';
 
 		// Display buttons
 		plugin.buttons.forEach((button, buttonIndex) => {

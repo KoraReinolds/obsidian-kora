@@ -4,14 +4,17 @@
 
 import { TFile, App } from 'obsidian';
 import type { UIPlugin, UIButton, UIPluginSettings } from './types';
+import { TemplateProcessor } from './template-processor';
 
 export class UIPluginManager {
 	private app: App;
 	private settings: UIPluginSettings;
+	private templateProcessor: TemplateProcessor;
 
 	constructor(app: App, settings: UIPluginSettings) {
 		this.app = app;
 		this.settings = settings;
+		this.templateProcessor = new TemplateProcessor(app);
 	}
 
 	/**
@@ -112,6 +115,7 @@ export class UIPluginManager {
 			enabled: true,
 			folderPatterns: [],
 			buttons: [],
+			templateFile: undefined,
 		};
 	}
 
@@ -159,5 +163,38 @@ export class UIPluginManager {
 		if (index >= 0) {
 			this.settings.plugins[index] = updatedPlugin;
 		}
+	}
+
+	/**
+	 * Apply template to file if plugin has one configured
+	 */
+	async applyTemplateToFile(file: TFile): Promise<void> {
+		const matchingPlugins = this.getPluginsForFile(file);
+
+		for (const plugin of matchingPlugins) {
+			if (plugin.templateFile) {
+				try {
+					await this.templateProcessor.applyTemplateToFile(
+						file,
+						plugin.templateFile
+					);
+					// Only apply the first matching template
+					break;
+				} catch (error) {
+					console.error(
+						`Failed to apply template from plugin ${plugin.name}:`,
+						error
+					);
+				}
+			}
+		}
+	}
+
+	/**
+	 * Check if file should have template applied
+	 */
+	shouldApplyTemplate(file: TFile): boolean {
+		const matchingPlugins = this.getPluginsForFile(file);
+		return matchingPlugins.some(plugin => plugin.templateFile);
 	}
 }

@@ -7,6 +7,7 @@ export { UIPluginRenderer } from './ui-plugin-renderer';
 export { UIPluginSettingsTab } from './settings-tab';
 export { UIManager } from './ui-manager';
 export { NoteUISystem } from './note-ui-system';
+export { TemplateProcessor } from './template-processor';
 export type {
 	UIPlugin,
 	UIButton,
