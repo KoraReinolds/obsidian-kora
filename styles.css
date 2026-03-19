@@ -267,9 +267,6 @@ Core UI tokens shared between Obsidian host and Vue core layer.
   .m-0 {
     margin: calc(var(--spacing) * 0);
   }
-  .mb-1 {
-    margin-bottom: calc(var(--spacing) * 1);
-  }
   .mb-1\.5 {
     margin-bottom: calc(var(--spacing) * 1.5);
   }
@@ -287,9 +284,6 @@ Core UI tokens shared between Obsidian host and Vue core layer.
   }
   .inline {
     display: inline;
-  }
-  .inline-flex {
-    display: inline-flex;
   }
   .table {
     display: table;
@@ -377,9 +371,6 @@ Core UI tokens shared between Obsidian host and Vue core layer.
   .rounded-lg {
     border-radius: var(--radius-lg);
   }
-  .rounded-md {
-    border-radius: var(--radius-md);
-  }
   .border {
     border-style: var(--tw-border-style);
     border-width: 1px;
@@ -444,10 +435,6 @@ Core UI tokens shared between Obsidian host and Vue core layer.
   .text-xs {
     font-size: var(--text-xs);
     line-height: var(--tw-leading, var(--text-xs--line-height));
-  }
-  .font-medium {
-    --tw-font-weight: var(--font-weight-medium);
-    font-weight: var(--font-weight-medium);
   }
   .font-semibold {
     --tw-font-weight: var(--font-weight-semibold);

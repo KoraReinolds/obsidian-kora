@@ -19,7 +19,6 @@
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"test:coverage": "vitest run --coverage",
-		"styles:smoke": "node scripts/tw-smoke-test.mjs",
 		"test:telegram": "vitest run modules/telegram/__tests__",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
 		"prepare": "husky"

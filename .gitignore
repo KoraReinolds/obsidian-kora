@@ -30,3 +30,7 @@ build
 
 .env
 /gramjs-server/dist
+
+# Local/runtime data (sessions, caches — не в репозиторий)
+gramjs-server/data/
+data/

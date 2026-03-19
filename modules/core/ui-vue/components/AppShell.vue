@@ -12,13 +12,6 @@ defineProps<{
 	<section
 		class="flex h-full min-h-0 flex-col gap-3 overflow-hidden pb-2 text-[var(--ui-text)]"
 	>
-		<!-- Smoke-test: утилиты Tailwind (см. tailwind.css). Убрать после проверки. -->
-		<div
-			class="mb-1 inline-flex items-center gap-2 rounded-md border border-dashed border-[var(--background-modifier-border)] px-2 py-1 text-xs font-medium"
-			aria-hidden="true"
-		>
-			<span>Tailwind smoke OK</span>
-		</div>
 		<h3 class="m-0">{{ title }}</h3>
 		<div class="flex flex-wrap items-center gap-2">
 			<slot name="toolbar" />

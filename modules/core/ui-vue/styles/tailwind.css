@@ -18,13 +18,6 @@
 @source '../../../../modules/**/*.ts';
 @source '../../../../main.ts';
 
-/*
- * Страховка при сбое glob: smoke-полоска + типичные arbitrary с CSS vars Obsidian.
- */
-@source inline(
-	'mb-1 inline-flex items-center gap-2 rounded-md border border-dashed border-[var(--background-modifier-border)] px-2 py-1 text-xs font-medium text-[var(--ui-text)]'
-);
-
 @theme {
 	--color-ui-bg: var(--ui-bg);
 	--color-ui-bg-secondary: var(--ui-bg-secondary);
