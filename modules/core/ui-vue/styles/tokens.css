@@ -1,0 +1,20 @@
+/**
+ * @description Дублирует CSS-переменные темы для PostCSS entry (`tailwind.css` импортирует этот файл).
+ * Классы `.tw-hidden` / `.tw-flex` — локальные алиасы, не утилиты Tailwind.
+ */
+:root {
+	--ui-bg: var(--background-primary);
+	--ui-bg-secondary: var(--background-secondary);
+	--ui-text: var(--text-normal);
+	--ui-text-muted: var(--text-muted);
+	--ui-border: var(--background-modifier-border);
+	--ui-accent: var(--interactive-accent);
+}
+
+.tw-hidden {
+	display: none;
+}
+
+.tw-flex {
+	display: flex;
+}

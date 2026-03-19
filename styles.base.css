@@ -1,0 +1,22 @@
+/*
+Core UI tokens shared between Obsidian host and Vue core layer.
+Ручные мини-классы `.tw-hidden` / `.tw-flex` в токенах — не Tailwind; префикс `tw-`
+только в имени, чтобы не пересекаться с глобальными стилями. См. `tailwind.css`.
+*/
+
+:root {
+	--ui-bg: var(--background-primary);
+	--ui-bg-secondary: var(--background-secondary);
+	--ui-text: var(--text-normal);
+	--ui-text-muted: var(--text-muted);
+	--ui-border: var(--background-modifier-border);
+	--ui-accent: var(--interactive-accent);
+}
+
+.tw-hidden {
+	display: none;
+}
+
+.tw-flex {
+	display: flex;
+}
