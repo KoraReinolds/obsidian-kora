@@ -4,7 +4,13 @@ import {
 	RELATED_CHUNKS_VIEW_TYPE,
 	RelatedChunksView,
 } from './modules/chunking/ui/related-chunks-view';
-import { GramJSBridge } from './modules/telegram';
+import {
+	ARCHIVE_VIEW_TYPE,
+	ArchiveBridge,
+	ArchiveSettingTab,
+	ArchiveView,
+	GramJSBridge,
+} from './modules/telegram';
 import { UIManager } from './modules/ui-plugins';
 import { VectorBridge } from './modules/vector';
 import { McpServerManager } from './modules/mcp';
@@ -41,6 +47,20 @@ export interface TelegramSettings {
 	folderConfigs: TelegramFolderConfig[];
 }
 
+/**
+ * @description Настройки MVP архива Telegram в плагине: включение UI, путь БД на сервере,
+ * адрес userbot-сервера, peer и лимиты по умолчанию (см. {@link ArchiveSettingTab}).
+ */
+export interface ArchiveSettings {
+	enableArchive: boolean;
+	serverHost: string;
+	serverPort: number;
+	databasePath: string;
+	defaultPeer: string;
+	defaultSyncLimit: number;
+	recentMessagesLimit: number;
+}
+
 export interface KoraMcpPluginSettings {
 	port: number;
 	telegram: TelegramSettings;
@@ -52,6 +72,7 @@ export interface KoraMcpPluginSettings {
 		botToken?: string;
 		chatId?: string;
 	};
+	archiveSettings: ArchiveSettings;
 	vectorSettings: VectorSettingsInterface;
 	uiPlugins: UIPluginSettings;
 }
@@ -94,6 +115,15 @@ const DEFAULT_SETTINGS: KoraMcpPluginSettings = {
 		stringSession: '',
 		chatId: '',
 	},
+	archiveSettings: {
+		enableArchive: true,
+		serverHost: '127.0.0.1',
+		serverPort: 8125,
+		databasePath: 'data/telegram-archive.sqlite',
+		defaultPeer: '',
+		defaultSyncLimit: 200,
+		recentMessagesLimit: 50,
+	},
 	vectorSettings: defaultVectorSettings,
 	uiPlugins: DEFAULT_UI_PLUGIN_SETTINGS,
 };
@@ -102,6 +132,7 @@ export default class KoraPlugin extends Plugin {
 	settings: KoraMcpPluginSettings;
 	private mcpServerManager: McpServerManager;
 	private gramjsBridge: GramJSBridge;
+	private archiveBridge: ArchiveBridge;
 	private vectorBridge: VectorBridge;
 	private pluginCommands: PluginCommands;
 	private uiManager: UIManager;
@@ -114,6 +145,7 @@ export default class KoraPlugin extends Plugin {
 
 		this.addSettingTab(new McpServerSettingTab(this.app, this));
 		this.addSettingTab(new TelegramSettingTab(this.app, this));
+		this.addSettingTab(new ArchiveSettingTab(this.app, this));
 		this.addSettingTab(new VectorSettingTab(this.app, this));
 
 		// Initialize UI Plugin Manager
@@ -128,6 +160,12 @@ export default class KoraPlugin extends Plugin {
 
 		// Инициализируем GramJS bridge
 		this.gramjsBridge = new GramJSBridge();
+
+		// Инициализируем Archive bridge
+		this.archiveBridge = new ArchiveBridge({
+			host: this.settings.archiveSettings.serverHost,
+			port: this.settings.archiveSettings.serverPort,
+		});
 
 		// Инициализируем Vector bridge
 		this.vectorBridge = new VectorBridge();
@@ -165,11 +203,18 @@ export default class KoraPlugin extends Plugin {
 			RELATED_CHUNKS_VIEW_TYPE,
 			leaf => new RelatedChunksView(leaf, this.app, this.vectorBridge)
 		);
+		this.registerView(
+			ARCHIVE_VIEW_TYPE,
+			leaf => new ArchiveView(leaf, this, this.archiveBridge)
+		);
 		this.addRibbonIcon('blocks', 'Open Chunks', () => {
 			this.activateChunkView();
 		});
 		this.addRibbonIcon('git-branch', 'Open Related Chunks', () => {
 			this.activateRelatedChunksView();
+		});
+		this.addRibbonIcon('database', 'Открыть архив Telegram', () => {
+			this.activateArchiveView();
 		});
 
 		// Регистрируем команды
@@ -264,11 +309,33 @@ export default class KoraPlugin extends Plugin {
 			data.uiPlugins = DEFAULT_UI_PLUGIN_SETTINGS;
 		}
 
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
+		if (!data.archiveSettings) {
+			data.archiveSettings = DEFAULT_SETTINGS.archiveSettings;
+		}
+
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, data, {
+			telegram: Object.assign({}, DEFAULT_SETTINGS.telegram, data.telegram),
+			gramjs: Object.assign({}, DEFAULT_SETTINGS.gramjs, data.gramjs),
+			archiveSettings: Object.assign(
+				{},
+				DEFAULT_SETTINGS.archiveSettings,
+				data.archiveSettings
+			),
+			vectorSettings: Object.assign(
+				{},
+				DEFAULT_SETTINGS.vectorSettings,
+				data.vectorSettings
+			),
+			uiPlugins: Object.assign({}, DEFAULT_SETTINGS.uiPlugins, data.uiPlugins),
+		});
 	}
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+		this.archiveBridge?.updateConfig({
+			host: this.settings.archiveSettings.serverHost,
+			port: this.settings.archiveSettings.serverPort,
+		});
 		// Синхронизируем настройки с GramJS сервером
 		await this.syncGramJSConfig();
 	}
@@ -281,6 +348,15 @@ export default class KoraPlugin extends Plugin {
 			return;
 		}
 
+		const configPayload = {
+			mode: this.settings.gramjs.mode || 'userbot',
+			botToken: this.settings.gramjs.botToken,
+			apiId: this.settings.gramjs.apiId,
+			apiHash: this.settings.gramjs.apiHash,
+			stringSession: this.settings.gramjs.stringSession,
+			archiveDatabasePath: this.settings.archiveSettings.databasePath,
+		};
+
 		try {
 			const isRunning = await this.gramjsBridge.isServerRunning();
 			if (!isRunning) {
@@ -290,18 +366,45 @@ export default class KoraPlugin extends Plugin {
 				return;
 			}
 
-			await this.gramjsBridge.updateGramJSConfig({
-				mode: this.settings.gramjs.mode || 'userbot',
-				botToken: this.settings.gramjs.botToken,
-				apiId: this.settings.gramjs.apiId,
-				apiHash: this.settings.gramjs.apiHash,
-				stringSession: this.settings.gramjs.stringSession,
-			});
+			await this.gramjsBridge.updateGramJSConfig(configPayload);
 
 			console.log('[syncGramJSConfig] Configuration synced with GramJS server');
 		} catch (error) {
 			console.error(
 				'[syncGramJSConfig] Failed to sync with GramJS server:',
+				error
+			);
+		}
+
+		try {
+			const archiveServerConfig = this.archiveBridge?.getConfig();
+			const gramJsServerConfig = this.gramjsBridge?.getConfig();
+			const archiveServerIsPrimary =
+				archiveServerConfig?.host === gramJsServerConfig?.host &&
+				archiveServerConfig?.port === gramJsServerConfig?.port;
+
+			if (archiveServerIsPrimary) {
+				return;
+			}
+
+			const isArchiveServerRunning =
+				await this.archiveBridge.isServerReachable();
+			if (!isArchiveServerRunning) {
+				console.log(
+					'[syncGramJSConfig] Archive server not running, skipping archive sync'
+				);
+				return;
+			}
+
+			await this.archiveBridge.updateArchiveServerConfig({
+				archiveDatabasePath: this.settings.archiveSettings.databasePath,
+			});
+			console.log(
+				'[syncGramJSConfig] Configuration synced with archive server'
+			);
+		} catch (error) {
+			console.error(
+				'[syncGramJSConfig] Failed to sync with archive server:',
 				error
 			);
 		}
@@ -312,5 +415,25 @@ export default class KoraPlugin extends Plugin {
 	 */
 	getGramJSBridge() {
 		return this.gramjsBridge;
+	}
+
+	/**
+	 * @description Экземпляр {@link ArchiveBridge} для настроек архива и view.
+	 * @returns {ArchiveBridge} HTTP-мост к эндпоинтам архива gramjs-server.
+	 */
+	getArchiveBridge() {
+		return this.archiveBridge;
+	}
+
+	/**
+	 * @async
+	 * @description Открывает или активирует правую панель с {@link ArchiveView}.
+	 * @returns {Promise<void>}
+	 */
+	async activateArchiveView() {
+		const leaf = this.app.workspace.getRightLeaf(false);
+		if (!leaf) return;
+		await leaf.setViewState({ type: ARCHIVE_VIEW_TYPE, active: true });
+		this.app.workspace.revealLeaf(leaf);
 	}
 }

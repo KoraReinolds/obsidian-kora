@@ -6,17 +6,18 @@
 	"main": "dist/server.js",
 	"scripts": {
 		"build": "tsc",
-		"dev": "concurrently \"tsc --watch\" \"nodemon dist/server.js\" --names \"tsc,server\" --prefix-colors \"cyan,magenta\"",
-		"dev:userbot": "concurrently \"tsc --watch\" \"nodemon dist/server.js -- --port=8125 --mode=userbot\" --names \"tsc,userbot\" --prefix-colors \"cyan,green\"",
-		"dev:dual": "concurrently \"tsc --watch\" \"nodemon dist/server.js -- --port=8124 --mode=bot\" \"nodemon dist/server.js -- --port=8125 --mode=userbot\" --names \"tsc,bot,userbot\" --prefix-colors \"cyan,magenta,green\"",
+		"dev": "concurrently \"tsc --watch\" \"nodemon dist/gramjs-server/src/server.js\" --names \"tsc,server\" --prefix-colors \"cyan,magenta\"",
+		"dev:userbot": "concurrently \"tsc --watch\" \"nodemon dist/gramjs-server/src/server.js -- --port=8125 --mode=userbot\" --names \"tsc,userbot\" --prefix-colors \"cyan,green\"",
+		"dev:dual": "concurrently \"tsc --watch\" \"nodemon dist/gramjs-server/src/server.js -- --port=8124 --mode=bot\" \"nodemon dist/gramjs-server/src/server.js -- --port=8125 --mode=userbot\" --names \"tsc,bot,userbot\" --prefix-colors \"cyan,magenta,green\"",
 		"watch": "tsc --watch",
-		"start": "node dist/server.js",
-		"start:userbot": "node dist/server.js --port=8125 --mode=userbot",
-		"start:dual": "concurrently \"node dist/server.js --port=8124 --mode=bot\" \"node dist/server.js --port=8125 --mode=userbot\" --names \"bot,userbot\" --prefix-colors \"magenta,green\"",
-		"auth": "node dist/gramjs-auth.js"
+		"start": "node dist/gramjs-server/src/server.js",
+		"start:userbot": "node dist/gramjs-server/src/server.js --port=8125 --mode=userbot",
+		"start:dual": "concurrently \"node dist/gramjs-server/src/server.js --port=8124 --mode=bot\" \"node dist/gramjs-server/src/server.js --port=8125 --mode=userbot\" --names \"bot,userbot\" --prefix-colors \"magenta,green\"",
+		"auth": "node dist/gramjs-server/src/gramjs-auth.js"
 	},
 	"dependencies": {
 		"@qdrant/js-client-rest": "^1.15.0",
+		"better-sqlite3": "^12.8.0",
 		"cors": "^2.8.5",
 		"dotenv": "^17.2.0",
 		"express": "^4.18.2",

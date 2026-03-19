@@ -14,6 +14,7 @@ export interface ServerConfig {
 	stringSession: string | undefined;
 	botToken: string | undefined;
 	mode: TelegramMode;
+	archiveDatabasePath: string | undefined;
 }
 
 let configState: ServerConfig = {
@@ -23,6 +24,7 @@ let configState: ServerConfig = {
 	apiHash: process.env.TELEGRAM_API_HASH,
 	stringSession: process.env.TELEGRAM_SESSION,
 	botToken: process.env.TELEGRAM_BOT_TOKEN,
+	archiveDatabasePath: process.env.ARCHIVE_DB_PATH,
 	// Initialize with a safe default; actual mode is resolved dynamically in getConfig
 	mode: 'bot',
 };

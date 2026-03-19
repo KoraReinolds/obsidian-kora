@@ -44,6 +44,11 @@ import { registerVectorHealthRoute } from './routes/vector_health.js';
 import { registerSendMessageRoute } from './routes/send-message.js';
 import { registerEditMessageRoute } from './routes/edit-message.js';
 import { registerSendFileRoute } from './routes/send-file.js';
+import { registerArchiveSyncRoutes } from './routes/archive-sync.js';
+import { registerArchiveChatRoutes } from './routes/archive-chats.js';
+import { registerArchiveMessageRoutes } from './routes/archive-messages.js';
+import { registerArchiveSyncStateRoutes } from './routes/archive-sync-state.js';
+import { registerArchiveSingleMessageRoutes } from './routes/archive-message.js';
 
 // Services
 import { getConfig } from './services/config-service.js';
@@ -72,6 +77,13 @@ registerSearchRoute(app);
 registerContentRoutes(app);
 registerVectorStatsRoute(app);
 registerVectorHealthRoute(app);
+
+// Archive routes
+registerArchiveSyncRoutes(app);
+registerArchiveChatRoutes(app);
+registerArchiveMessageRoutes(app);
+registerArchiveSyncStateRoutes(app);
+registerArchiveSingleMessageRoutes(app);
 
 // Graceful shutdown
 attachGracefulShutdown();

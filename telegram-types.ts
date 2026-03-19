@@ -1,12 +1,11 @@
 /**
- * Shared Telegram Types for GramJS Bridge and Server
+ * @module telegram-types
+ * @description Общие типы Telegram для моста GramJS и сервера.
+ * Единый источник правды для типов, используемых плагином Obsidian и gramjs-server.
  *
- * This is the single source of truth for all Telegram-related types
- * used across both the Obsidian plugin and the GramJS server.
- *
- * Import from this file using relative paths:
- * - From modules/: '../../../telegram-types'
- * - From gramjs-server/src/: '../../telegram-types'
+ * Импорт относительными путями:
+ * - из `modules/`: `../../../telegram-types`
+ * - из `gramjs-server/src/`: `../../telegram-types`
  */
 
 // Base interfaces for messages and entities
@@ -62,6 +61,30 @@ export interface GetMessagesRequest {
 	startDate?: string;
 	endDate?: string;
 	limit?: number;
+}
+
+/**
+ * @description Тело запроса `POST /archive/sync`: peer и параметры одного прогона синхронизации.
+ * @property {string} peer - Username, ссылка t.me или числовой id чата (как в GramJS).
+ * @property {number} [limit] - Сколько сообщений забрать за проход (bootstrap / окно).
+ * @property {boolean} [forceFull] - При true можно сбросить курсор (если сервер это поддерживает).
+ */
+export interface ArchiveSyncRequest {
+	peer: string;
+	limit?: number;
+	forceFull?: boolean;
+}
+
+/**
+ * @description Запрос страницы архивных сообщений для одного чата (`GET /archive/messages`).
+ * @property {string} chatId - Стабильный id чата в архиве (как в SQLite).
+ * @property {number} [limit] - Размер страницы.
+ * @property {number} [offset] - Смещение для пагинации.
+ */
+export interface GetArchivedMessagesRequest {
+	chatId: string;
+	limit?: number;
+	offset?: number;
 }
 
 // Response interfaces
@@ -169,13 +192,129 @@ export interface MessagesResponse {
 	};
 }
 
-// Configuration interfaces
+/**
+ * @description Метаданные архивного чата для списка в UI / API.
+ * @property {string} chatId - Ключ чата в архиве.
+ * @property {string} title - Отображаемое имя.
+ * @property {string | null} [username] - @username, если есть.
+ */
+export interface ArchiveChat {
+	chatId: string;
+	title: string;
+	username?: string | null;
+	type: 'channel' | 'group' | 'chat' | 'unknown';
+	lastSyncedAt?: string | null;
+	messageCount: number;
+	extra?: Record<string, unknown> | null;
+}
+
+/**
+ * @description Нормализованная запись сообщения в SQLite-архиве.
+ * @property {string} messagePk - Стабильный первичный ключ строки в БД.
+ * @property {string} contentHash - Хэш содержимого для дедупликации / смены текста.
+ */
+export interface ArchiveMessage {
+	messagePk: string;
+	chatId: string;
+	messageId: number;
+	senderId?: string | null;
+	timestampUtc: string;
+	editTimestampUtc?: string | null;
+	replyToMessageId?: number | null;
+	threadId?: string | null;
+	textRaw?: string | null;
+	textNormalized?: string | null;
+	reactions?: Record<string, unknown> | null;
+	entities?: Record<string, unknown> | null;
+	forward?: Record<string, unknown> | null;
+	service?: Record<string, unknown> | null;
+	contentHash: string;
+}
+
+/**
+ * @description Курсор и статус последней синхронизации по чату.
+ */
+export interface ArchiveSyncState {
+	chatId: string;
+	lastMessageId?: number | null;
+	lastSyncStartedAt?: string | null;
+	lastSyncFinishedAt?: string | null;
+	status: 'idle' | 'running' | 'success' | 'error';
+	errorText?: string | null;
+}
+
+/**
+ * @description Итог одного прогона `sync` для ответа клиенту.
+ */
+export interface ArchiveSyncResult {
+	chatId: string;
+	peer: string;
+	inserted: number;
+	updated: number;
+	skipped: number;
+	totalProcessed: number;
+	lastMessageId?: number | null;
+	mode: string;
+}
+
+/**
+ * @description Ответ `POST /archive/sync`.
+ */
+export interface ArchiveSyncResponse {
+	success: boolean;
+	result?: ArchiveSyncResult;
+	error?: string;
+}
+
+/**
+ * @description Ответ `GET /archive/chats`.
+ */
+export interface ArchiveChatsResponse {
+	success: boolean;
+	chats: ArchiveChat[];
+	total: number;
+}
+
+/**
+ * @description Ответ `GET /archive/messages` с пагинацией.
+ */
+export interface ArchiveMessagesResponse {
+	success: boolean;
+	chatId: string;
+	messages: ArchiveMessage[];
+	total: number;
+	offset: number;
+	limit: number;
+}
+
+/**
+ * @description Ответ `GET /archive/message/:id`.
+ */
+export interface ArchiveMessageResponse {
+	success: boolean;
+	message?: ArchiveMessage | null;
+}
+
+/**
+ * @description Ответ `GET /archive/sync_state` (один чат или список).
+ */
+export interface ArchiveSyncStateResponse {
+	success: boolean;
+	state?: ArchiveSyncState | null;
+	states?: ArchiveSyncState[];
+}
+
+/**
+ * @description Конфигурация GramJS на сервере.
+ * @property {string} [archiveDatabasePath] — путь к файлу SQLite-архива на хосте gramjs-server.
+ */
 export interface GramJSConfig {
 	mode?: 'bot' | 'userbot';
 	botToken?: string;
 	apiId?: number;
 	apiHash?: string;
 	stringSession?: string;
+	archiveDatabasePath?: string;
 }
 
 export interface ConfigResponse {

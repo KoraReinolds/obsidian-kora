@@ -4,6 +4,7 @@
 
 import { App, Notice, Command } from 'obsidian';
 import {
+	ARCHIVE_VIEW_TYPE,
 	GramJSBridge,
 	ChannelConfigService,
 	ObsidianTelegramFormatter,
@@ -50,7 +51,7 @@ export class PluginCommands {
 	 * Get all commands
 	 */
 	getCommands(): Command[] {
-		return [
+		const commands: Command[] = [
 			{
 				id: 'test-gramjs-connection',
 				name: 'Test GramJS connection',
@@ -87,6 +88,17 @@ export class PluginCommands {
 					this.syncNoteListToTelegram(args),
 			},
 		];
+
+		if (this.settings.archiveSettings.enableArchive) {
+			commands.push({
+				id: 'open-telegram-archive',
+				name: 'Открыть архив Telegram',
+				callback: (args?: Record<string, string>) =>
+					this.openTelegramArchive(args),
+			});
+		}
+
+		return commands;
 	}
 
 	/**
@@ -243,5 +255,23 @@ export class PluginCommands {
 		} catch (error) {
 			new Notice(`Ошибка синхронизации: ${error}`);
 		}
+	}
+
+	/**
+	 * @async
+	 * @description Открывает {@link ARCHIVE_VIEW_TYPE} в правой панели.
+	 * @returns {Promise<void>}
+	 */
+	private async openTelegramArchive(
+		args?: Record<string, string>
+	): Promise<void> {
+		const leaf = this.app.workspace.getRightLeaf(false);
+		if (!leaf) {
+			new Notice('Не удалось создать панель архива');
+			return;
+		}
+
+		await leaf.setViewState({ type: ARCHIVE_VIEW_TYPE, active: true });
+		this.app.workspace.revealLeaf(leaf);
 	}
 }

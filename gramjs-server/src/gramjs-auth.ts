@@ -6,7 +6,7 @@
  */
 
 import { TelegramClient } from 'telegram';
-import { StringSession } from 'telegram/sessions';
+import { StringSession } from 'telegram/sessions/index.js';
 import { createInterface } from 'readline';
 import type { Interface } from 'readline';
 

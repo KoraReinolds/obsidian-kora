@@ -11,12 +11,22 @@ import {
 } from '../services/config-service.js';
 import StrategyFactory from '../strategies/StrategyFactory.js';
 import { disconnectStrategy } from '../services/strategy-service.js';
+import { resetArchiveServices } from '../services/archive-service-singleton.js';
 
 export function registerConfigRoutes(app: Express): void {
 	app.post('/config', async (req: Request, res: Response) => {
 		try {
-			const prevMode = getConfig().mode;
-			const { mode, botToken, apiId, apiHash, stringSession } = req.body || {};
+			const previousConfig = getConfig();
+			const prevMode = previousConfig.mode;
+			const prevArchiveDatabasePath = previousConfig.archiveDatabasePath;
+			const {
+				mode,
+				botToken,
+				apiId,
+				apiHash,
+				stringSession,
+				archiveDatabasePath,
+			} = req.body || {};
 
 			const parsed = updateConfig({
 				mode: mode ?? prevMode,
@@ -25,10 +35,15 @@ export function registerConfigRoutes(app: Express): void {
 					typeof apiId === 'number' ? apiId : apiId ? Number(apiId) : undefined,
 				apiHash,
 				stringSession,
+				archiveDatabasePath,
 			});
 
 			if (prevMode !== parsed.mode) {
 				await disconnectStrategy();
+			}
+
+			if (prevArchiveDatabasePath !== parsed.archiveDatabasePath) {
+				resetArchiveServices();
 			}
 
 			const validation = getConfigValidation(parsed.mode);
@@ -42,6 +57,7 @@ export function registerConfigRoutes(app: Express): void {
 					hasApiHash: !!parsed.apiHash,
 					hasBotToken: !!parsed.botToken,
 					hasStringSession: !!parsed.stringSession,
+					archiveDatabasePath: parsed.archiveDatabasePath || null,
 				},
 				validation,
 				strategyInfo: StrategyFactory.getStrategyInfo(parsed.mode),
