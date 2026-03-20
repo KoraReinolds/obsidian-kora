@@ -10,4 +10,5 @@ import type { Component, InjectionKey } from 'vue';
 /**
  * @description Компонент отрисовки Lucide-иконки через host (например {@link setIcon} в Obsidian).
  */
-export const HOST_LUCIDE_ICON: InjectionKey<Component> = Symbol('koraHostLucideIcon');
+export const HOST_LUCIDE_ICON: InjectionKey<Component> =
+	Symbol('koraHostLucideIcon');
