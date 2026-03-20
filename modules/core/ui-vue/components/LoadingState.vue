@@ -4,9 +4,17 @@
  */
 defineProps<{
 	text?: string;
+	inline?: boolean;
 }>();
 </script>
 
 <template>
-	<div class="text-xs text-[var(--text-muted)]" v-text="text || 'Загрузка…'"></div>
+	<div
+		:class="[
+			inline
+				? 'text-xs text-[var(--text-muted)]'
+				: 'rounded-lg border border-dashed border-[var(--background-modifier-border)] p-2.5 text-xs text-[var(--text-muted)]',
+		]"
+		v-text="text || 'Загрузка…'"
+	></div>
 </template>

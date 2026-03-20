@@ -17,23 +17,38 @@ withDefaults(
 		loading?: boolean;
 		/** Компактный размер для плотных списков. */
 		size?: 'sm' | 'md';
+		active?: boolean;
+		shape?: 'square' | 'pill';
 	}>(),
-	{ variant: 'muted', loading: false, size: 'md' }
+	{
+		variant: 'muted',
+		loading: false,
+		size: 'md',
+		active: false,
+		shape: 'square',
+	}
 );
 </script>
 
 <template>
 	<button
 		type="button"
-		class="inline-flex shrink-0 items-center justify-center rounded-lg border border-solid transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+		class="inline-flex shrink-0 items-center justify-center border border-solid transition-colors disabled:cursor-not-allowed disabled:opacity-40"
 		:class="[
-			size === 'sm' ? 'h-8 w-8' : 'h-9 w-9',
+			shape === 'square'
+				? size === 'sm'
+					? 'h-8 w-8 rounded-lg'
+					: 'h-9 w-9 rounded-lg'
+				: size === 'sm'
+					? 'h-8 min-w-8 rounded-full px-2'
+					: 'h-9 min-w-9 rounded-full px-2.5',
 			{
 				'mod-cta border-transparent': variant === 'accent',
 				'border-[var(--background-modifier-border)] bg-[var(--background-primary)] text-[var(--text-muted)] hover:bg-[var(--background-modifier-hover)]':
 					variant === 'muted',
 				'border-[var(--background-modifier-border)] bg-[var(--background-primary)] text-[var(--text-muted)] hover:border-[var(--text-error)] hover:text-[var(--text-error)]':
 					variant === 'danger',
+				'ring-1 ring-[var(--interactive-accent)]/30': active,
 			},
 		]"
 		:disabled="disabled || loading"

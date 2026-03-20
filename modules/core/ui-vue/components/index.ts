@@ -13,3 +13,5 @@ export { default as LoadingState } from './LoadingState.vue';
 export { default as UiHostIcon } from './UiHostIcon.vue';
 export { default as IconButton } from './IconButton.vue';
 export { default as IconTextField } from './IconTextField.vue';
+export { default as DiffPreview } from './DiffPreview.vue';
+export { default as SectionHeader } from './SectionHeader.vue';

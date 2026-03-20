@@ -14,8 +14,10 @@ const props = withDefaults(
 		placeholder?: string;
 		/** Если true — Enter эмитит `enter` (синк peer и т.п.). */
 		submitOnEnter?: boolean;
+		clearable?: boolean;
+		disabled?: boolean;
 	}>(),
-	{ submitOnEnter: false }
+	{ submitOnEnter: false, clearable: false, disabled: false }
 );
 
 const model = defineModel<string>({ required: true });
@@ -36,6 +38,14 @@ const onEnterKey = (event: KeyboardEvent): void => {
 	}
 	event.preventDefault();
 	emit('enter');
+};
+
+/**
+ * @description Очищает текущее значение модели.
+ * @returns {void}
+ */
+const clearModel = (): void => {
+	model.value = '';
 };
 </script>
 
@@ -59,7 +69,17 @@ const onEnterKey = (event: KeyboardEvent): void => {
 			type="text"
 			class="kora-icon-text-field__input min-w-0 flex-1 appearance-none border-0 bg-transparent py-0 pl-0 pr-2 text-sm leading-5 text-[var(--text-normal)] !shadow-none !ring-0 outline-none placeholder:text-[var(--text-muted)] focus:outline-none focus-visible:!ring-0"
 			:placeholder="placeholder"
+			:disabled="disabled"
 			@keydown.enter="onEnterKey"
+		/>
+		<button
+			v-if="clearable && model"
+			type="button"
+			class="mr-1 inline-flex h-6 w-6 items-center justify-center rounded text-xs text-[var(--text-muted)] hover:bg-[var(--background-modifier-hover)]"
+			aria-label="Очистить"
+			title="Очистить"
+			@click="clearModel"
+			v-text="'×'"
 		/>
 	</div>
 </template>

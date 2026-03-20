@@ -10,3 +10,5 @@ export * from './model/parser-types.js';
 export * from './model/cache-blocks.js';
 export * from './model/cache-types.js';
 export * from './model/obsidian-cache.js';
+export * from './ports/chunk-transport-port';
+export * from './adapters/obsidian-chunk-transport-adapter';

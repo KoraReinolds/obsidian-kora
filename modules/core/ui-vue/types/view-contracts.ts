@@ -8,7 +8,12 @@
 /**
  * @description Тип сообщения для экранного status banner.
  */
-export type TScreenMessageKind = 'neutral' | 'success' | 'error';
+export type TScreenMessageKind =
+	| 'neutral'
+	| 'success'
+	| 'error'
+	| 'warning'
+	| 'info';
 
 /**
  * @description Сообщение, которое отображается в верхней части экрана.
