@@ -16,6 +16,7 @@
 		"lint:fix": "eslint . --ext .ts,.js --fix",
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
+		"precommit": "lint-staged",
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"test:coverage": "vitest run --coverage",
@@ -65,6 +66,13 @@
 		"uuid": "^11.1.0",
 		"vue": "^3.5.30",
 		"zod": "^3.25.67"
+	},
+	"lint-staged": {
+		"*.{ts,js,mjs,cjs}": [
+			"prettier --write",
+			"eslint --fix --max-warnings=0"
+		],
+		"*.{vue,json,md,css}": "prettier --write"
 	},
 	"vitest": {
 		"include": [
