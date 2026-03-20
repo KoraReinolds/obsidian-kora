@@ -13,6 +13,7 @@ import {
 	ArchiveScreen,
 	createArchiveBridgeAdapter,
 } from '../../features/telegram/archive';
+import ObsidianLucideIcon from '../../hosts/obsidian/ui-vue/ObsidianLucideIcon.vue';
 import { mountVueInObsidian, unmountVueInObsidian } from '../../hosts/obsidian';
 
 export const ARCHIVE_VIEW_TYPE = 'kora-telegram-archive';
@@ -48,13 +49,18 @@ export class ArchiveView extends ItemView {
 		container.empty();
 		container.style.height = '100%';
 
-		this.vueApp = mountVueInObsidian(container, ArchiveScreen, {
-			transport: createArchiveBridgeAdapter(this.archiveBridge),
-			defaultPeer: this.plugin.settings.archiveSettings.defaultPeer || '',
-			defaultSyncLimit: this.plugin.settings.archiveSettings.defaultSyncLimit,
-			recentMessagesLimit:
-				this.plugin.settings.archiveSettings.recentMessagesLimit,
-		});
+		this.vueApp = mountVueInObsidian(
+			container,
+			ArchiveScreen,
+			{
+				transport: createArchiveBridgeAdapter(this.archiveBridge),
+				defaultPeer: this.plugin.settings.archiveSettings.defaultPeer || '',
+				defaultSyncLimit: this.plugin.settings.archiveSettings.defaultSyncLimit,
+				recentMessagesLimit:
+					this.plugin.settings.archiveSettings.recentMessagesLimit,
+			},
+			{ hostLucideIcon: ObsidianLucideIcon }
+		);
 	}
 
 	/**

@@ -54,6 +54,7 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 	const isRefreshing = ref(false);
 	const isLoadingMessages = ref(false);
 	const isSyncing = ref(false);
+	const isDeletingChatId = ref<string | null>(null);
 	const screen = useScreenMessage();
 	const search = useFilterQuery(chats, chat =>
 		[chat.title, chat.username, chat.chatId].filter(Boolean).join(' ')
@@ -218,6 +219,48 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 	};
 
 	/**
+	 * @async
+	 * @description Удаляет чат и всю историю из локального SQLite-архива (gramjs-server), без изменений в Telegram.
+	 * @param {string} chatId - Идентификатор чата в архиве.
+	 * @returns {Promise<void>}
+	 */
+	const handleDeleteChat = async (chatId: string): Promise<void> => {
+		const trimmed = chatId.trim();
+		if (!trimmed) {
+			return;
+		}
+
+		const confirmed = window.confirm(
+			'Удалить этот чат из локального архива вместе со всеми сообщениями? Действие не затрагивает Telegram.'
+		);
+		if (!confirmed) {
+			return;
+		}
+
+		isDeletingChatId.value = trimmed;
+		try {
+			const { deleted } = await options.transport.deleteArchiveChat(trimmed);
+			if (!deleted) {
+				screen.setMessage(
+					'neutral',
+					'Чат не найден в архиве (возможно, уже удалён).'
+				);
+			} else {
+				screen.setMessage('success', 'Чат удалён из локального архива.');
+			}
+			await loadChats();
+			await loadSelectedChatMessages();
+		} catch (error) {
+			screen.setMessage(
+				'error',
+				`Не удалось удалить чат: ${(error as Error).message}`
+			);
+		} finally {
+			isDeletingChatId.value = null;
+		}
+	};
+
+	/**
 	 * @description Форматирует дату для human-readable UI.
 	 * @param {string | null | undefined} value - ISO дата.
 	 * @returns {string} Локализованная строка даты.
@@ -240,11 +283,13 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 		isRefreshing,
 		isLoadingMessages,
 		isSyncing,
+		isDeletingChatId,
 		screenMessage: screen.message,
 		selectedChat,
 		refreshData,
 		handleSync,
 		handleChatSelection,
+		handleDeleteChat,
 		formatDate,
 	};
 }

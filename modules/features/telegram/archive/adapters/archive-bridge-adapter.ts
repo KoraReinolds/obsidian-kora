@@ -19,5 +19,6 @@ export function createArchiveBridgeAdapter(
 		getArchivedChats: bridge.getArchivedChats.bind(bridge),
 		getArchivedMessages: bridge.getArchivedMessages.bind(bridge),
 		syncArchive: bridge.syncArchive.bind(bridge),
+		deleteArchiveChat: bridge.deleteArchivedChat.bind(bridge),
 	};
 }

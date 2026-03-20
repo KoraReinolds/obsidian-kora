@@ -31,4 +31,28 @@ export function registerArchiveChatRoutes(app: Express): void {
 			res.status(500).json({ error: error.message });
 		}
 	});
+
+	app.delete('/archive/chat/:chatId', (req: Request, res: Response) => {
+		try {
+			const raw = req.params.chatId;
+			const chatId = raw ? decodeURIComponent(raw).trim() : '';
+			if (!chatId) {
+				res.status(400).json({
+					success: false,
+					error: 'chatId is required',
+				});
+				return;
+			}
+
+			const { deleted } = getArchiveRepository().deleteChat(chatId);
+			res.json({
+				success: true,
+				deleted,
+				chatId,
+			});
+		} catch (error: any) {
+			console.error('[archive/chat DELETE] Error:', error);
+			res.status(500).json({ success: false, error: error.message });
+		}
+	});
 }

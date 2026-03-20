@@ -13,7 +13,7 @@ defineProps<{
 		class="flex h-full min-h-0 flex-col gap-3 overflow-hidden pb-2 text-[var(--ui-text)]"
 	>
 		<h3 class="m-0">{{ title }}</h3>
-		<div class="flex flex-wrap items-center gap-2">
+		<div class="flex w-full min-w-0 flex-wrap items-center gap-2">
 			<slot name="toolbar" />
 		</div>
 		<div>

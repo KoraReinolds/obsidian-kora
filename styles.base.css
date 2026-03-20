@@ -20,3 +20,21 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 .tw-flex {
 	display: flex;
 }
+
+/**
+ * Composite поле (иконка | input): одна видимая рамка только у внешнего `.kora-icon-text-field`.
+ * Глобальные стили Obsidian часто задают border/box-shadow на `input` — убираем, иначе «двойная» обводка.
+ */
+.kora-icon-text-field > .kora-icon-text-field__input[type="text"] {
+	border: none !important;
+	box-shadow: none !important;
+	padding-left: 0 !important;
+	-webkit-appearance: none;
+	appearance: none;
+}
+
+.kora-icon-text-field > .kora-icon-text-field__input[type="text"]:focus,
+.kora-icon-text-field > .kora-icon-text-field__input[type="text"]:focus-visible {
+	outline: none !important;
+	box-shadow: none !important;
+}

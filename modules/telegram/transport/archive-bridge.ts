@@ -14,6 +14,7 @@ import {
 import type {
 	ArchiveChat,
 	ArchiveChatsResponse,
+	ArchiveDeleteChatResponse,
 	ArchiveMessage,
 	ArchiveMessageResponse,
 	ArchiveMessagesResponse,
@@ -100,6 +101,35 @@ export class ArchiveBridge extends BaseHttpClient {
 		);
 
 		return response?.chats || [];
+	}
+
+	/**
+	 * @async
+	 * @description Удаляет чат и всю его историю из локального архива (SQLite на gramjs-server), без затрагивания Telegram.
+	 * @param {string} chatId - Идентификатор чата в архиве.
+	 * @returns {Promise<{ deleted: boolean }>} deleted — строка в `chats` была удалена; false если чата не было в архиве.
+	 */
+	async deleteArchivedChat(chatId: string): Promise<{ deleted: boolean }> {
+		const trimmed = chatId.trim();
+		if (!trimmed) {
+			throw new Error('chatId не задан');
+		}
+
+		const response = await this.handleRequest<ArchiveDeleteChatResponse>(
+			`/archive/chat/${encodeURIComponent(trimmed)}`,
+			{ method: 'DELETE' },
+			'Ошибка удаления чата из архива'
+		);
+
+		if (!response) {
+			throw new Error('Не удалось удалить чат из архива');
+		}
+
+		if (!response.success) {
+			throw new Error(response.error || 'Не удалось удалить чат из архива');
+		}
+
+		return { deleted: response.deleted === true };
 	}
 
 	/**

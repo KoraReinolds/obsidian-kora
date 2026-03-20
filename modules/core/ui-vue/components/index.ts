@@ -10,3 +10,6 @@ export { default as SummaryChip } from './SummaryChip.vue';
 export { default as MessageCard } from './MessageCard.vue';
 export { default as EmptyState } from './EmptyState.vue';
 export { default as LoadingState } from './LoadingState.vue';
+export { default as UiHostIcon } from './UiHostIcon.vue';
+export { default as IconButton } from './IconButton.vue';
+export { default as IconTextField } from './IconTextField.vue';

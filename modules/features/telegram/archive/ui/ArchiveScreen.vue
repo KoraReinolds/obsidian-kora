@@ -8,6 +8,8 @@ import {
 	DetailsPane,
 	EmptyState,
 	EntityListPane,
+	IconButton,
+	IconTextField,
 	LoadingState,
 	MessageCard,
 	StatusBanner,
@@ -42,25 +44,27 @@ const {
 	isRefreshing,
 	isLoadingMessages,
 	isSyncing,
+	isDeletingChatId,
 	screenMessage,
 	selectedChat,
 	refreshData,
 	handleSync,
 	handleChatSelection,
+	handleDeleteChat,
 	formatDate,
 } = model;
 
 /**
- * @description Единые стили полей ввода и фокуса для панели и списка чатов.
+ * @description Стили контейнера {@link IconTextField} (flex + рамка); фокус — `focus-within`, т.к. фокус на внутреннем input.
  */
 const fieldClass =
-	'h-9 min-h-9 w-full min-w-0 rounded-lg border border-solid border-[var(--background-modifier-border)] bg-[var(--background-primary)] px-2.5 text-sm text-[var(--text-normal)] placeholder:text-[var(--text-muted)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--interactive-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background-secondary)]';
+	'box-border h-8 min-h-8 w-full min-w-0 rounded-lg border border-solid border-[var(--background-modifier-border)] bg-[var(--background-primary)] px-0 text-sm text-[var(--text-normal)] focus-within:outline-none focus-within:ring-2 focus-within:ring-[var(--interactive-accent)] focus-within:ring-offset-1 focus-within:ring-offset-[var(--background-secondary)]';
 
 /**
- * @description Поле внутри уже обведённого блока toolbar — без второй рамки, одна «полоска» снаружи.
+ * @description Peer внутри обведённой группы toolbar — без собственной рамки.
  */
 const toolbarFieldClass =
-	'h-9 min-h-9 w-full min-w-0 rounded-md border-0 bg-transparent px-2.5 text-sm text-[var(--text-normal)] placeholder:text-[var(--text-muted)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--interactive-accent)] focus-visible:ring-inset';
+	'box-border h-8 min-h-8 w-full min-w-0 rounded-md border-0 bg-transparent px-0 text-sm text-[var(--text-normal)] focus-within:outline-none focus-within:ring-2 focus-within:ring-[var(--interactive-accent)] focus-within:ring-inset';
 
 void refreshData();
 </script>
@@ -70,34 +74,47 @@ void refreshData();
 		<template #toolbar>
 			<Toolbar>
 				<div
-					class="flex min-w-0 flex-[1_1_280px] flex-wrap items-center gap-2 rounded-lg border border-solid border-[var(--background-modifier-border)] bg-[var(--background-primary)] p-1.5 sm:flex-nowrap"
+					class="flex min-w-0 w-full flex-nowrap items-stretch gap-2"
 				>
-					<input
-						v-model="peerInputValue"
-						type="text"
-						placeholder="@channel или -1001234567890"
-						:class="toolbarFieldClass"
-						class="flex-1 sm:min-w-[200px]"
-						@keydown.enter.prevent="handleSync"
-					/>
-					<button
-						class="mod-cta h-9 shrink-0 px-3"
-						:disabled="isSyncing || isRefreshing"
-						@click="handleSync"
+					<div
+						class="flex min-w-0 flex-1 flex-nowrap items-center gap-1 rounded-lg border border-solid border-[var(--background-modifier-border)] bg-[var(--background-primary)] px-1 py-0"
 					>
-						<span v-text="isSyncing ? 'Синхронизация…' : 'Синхронизировать'" />
-					</button>
-				</div>
-				<div
-					class="flex shrink-0 items-center self-stretch border-l border-solid border-[var(--background-modifier-border)] pl-2"
-				>
-					<button
-						class="h-9 px-3"
-						:disabled="isSyncing || isRefreshing"
-						@click="refreshData"
+						<div class="min-w-0 flex-1 basis-0">
+							<IconTextField
+								v-model="peerInputValue"
+								:input-class="toolbarFieldClass"
+								icon="at-sign"
+								icon-label="Peer канала или чата"
+								placeholder="@channel или -1001234567890"
+								submit-on-enter
+								@enter="handleSync"
+							/>
+						</div>
+						<IconButton
+							size="sm"
+							variant="accent"
+							icon="refresh-cw"
+							label="Синхронизировать архив"
+							title="Синхронизировать"
+							:disabled="isSyncing || isRefreshing"
+							:loading="isSyncing"
+							@click="handleSync"
+						/>
+					</div>
+					<div
+						class="flex shrink-0 items-center border-l border-solid border-[var(--background-modifier-border)] pl-2"
 					>
-						Обновить
-					</button>
+						<IconButton
+							size="sm"
+							variant="muted"
+							icon="rotate-ccw"
+							label="Обновить список чатов и сообщения"
+							title="Обновить"
+							:disabled="isSyncing || isRefreshing"
+							:loading="isRefreshing"
+							@click="refreshData"
+						/>
+					</div>
 				</div>
 			</Toolbar>
 		</template>
@@ -121,13 +138,15 @@ void refreshData();
 						class="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]"
 						v-text="'Чаты'"
 					/>
-					<input
-						v-model="searchQuery"
-						type="text"
-						placeholder="Поиск по архивным чатам"
-						:class="fieldClass"
-						class="mt-2"
-					/>
+					<div class="mt-2">
+						<IconTextField
+							v-model="searchQuery"
+							:input-class="fieldClass"
+							icon="search"
+							icon-label="Поиск по архивным чатам"
+							placeholder="Поиск по архивным чатам"
+						/>
+					</div>
 					<div class="mt-2 text-xs text-[var(--text-muted)]">
 						<span
 							v-if="isRefreshing"
@@ -150,35 +169,53 @@ void refreshData();
 								: 'По текущему поиску чаты не найдены.'
 						"
 					/>
-					<button
+					<div
 						v-for="(chat, index) in filteredChats"
 						:key="chat?.chatId || `chat-fallback-${index}`"
-						type="button"
-						class="flex w-full min-w-0 shrink-0 cursor-pointer flex-row items-center gap-2 rounded-xl border border-solid px-3 py-2.5 text-left shadow-sm transition-[border-color,box-shadow] hover:border-[var(--interactive-accent-hover)] hover:shadow"
-						:class="
-							selectedChatId === chat?.chatId
-								? 'border-[var(--interactive-accent)] bg-[var(--background-modifier-hover)] ring-1 ring-[var(--interactive-accent)]/25'
-								: 'border-[var(--background-modifier-border)] bg-[var(--background-primary)]'
-						"
-						@click="chat?.chatId && handleChatSelection(chat.chatId)"
+						class="flex min-w-0 shrink-0 items-center gap-1.5"
 					>
-						<div
-							class="min-w-0 flex-1 truncate text-sm font-semibold leading-tight text-[var(--text-normal)]"
+						<button
+							type="button"
+							class="flex min-w-0 flex-1 cursor-pointer flex-row items-center gap-2 rounded-xl border border-solid px-3 py-2.5 text-left shadow-sm transition-[border-color,box-shadow] hover:border-[var(--interactive-accent-hover)] hover:shadow"
+							:class="
+								selectedChatId === chat?.chatId
+									? 'border-[var(--interactive-accent)] bg-[var(--background-modifier-hover)] ring-1 ring-[var(--interactive-accent)]/25'
+									: 'border-[var(--background-modifier-border)] bg-[var(--background-primary)]'
+							"
+							@click="chat?.chatId && handleChatSelection(chat.chatId)"
 						>
-							{{ chat?.title || 'Без названия' }}
-						</div>
-						<div
-							class="max-w-[min(100%,12.5rem)] shrink-0 truncate text-right text-[11px] leading-tight tabular-nums text-[var(--text-muted)]"
-						>
-							<span
-								v-text="`${chat?.messageCount || 0} · ${formatDate(chat?.lastSyncedAt)}`"
-							/>
-							<span
-								v-if="chat?.username"
-								v-text="` · @${chat.username.replace(/^@/, '')}`"
-							/>
-						</div>
-					</button>
+							<div
+								class="min-w-0 flex-1 truncate text-sm font-semibold leading-tight text-[var(--text-normal)]"
+							>
+								{{ chat?.title || 'Без названия' }}
+							</div>
+							<div
+								class="max-w-[min(100%,12.5rem)] shrink-0 truncate text-right text-[11px] leading-tight tabular-nums text-[var(--text-muted)]"
+							>
+								<span
+									v-text="`${chat?.messageCount || 0} · ${formatDate(chat?.lastSyncedAt)}`"
+								/>
+								<span
+									v-if="chat?.username"
+									v-text="` · @${chat.username.replace(/^@/, '')}`"
+								/>
+							</div>
+						</button>
+						<IconButton
+							size="sm"
+							variant="danger"
+							icon="trash-2"
+							label="Удалить чат из локального архива"
+							title="Удалить из архива"
+							:disabled="
+								isDeletingChatId === chat?.chatId ||
+								isRefreshing ||
+								isSyncing
+							"
+							:loading="isDeletingChatId === chat?.chatId"
+							@click.stop="chat?.chatId && handleDeleteChat(chat.chatId)"
+						/>
+					</div>
 				</div>
 			</EntityListPane>
 
@@ -188,17 +225,32 @@ void refreshData();
 					class="flex min-h-0 flex-1 flex-col gap-3"
 				>
 					<div
-						class="shrink-0 border-b border-solid border-[var(--background-modifier-border)] pb-3"
+						class="flex shrink-0 flex-wrap items-start justify-between gap-2 border-b border-solid border-[var(--background-modifier-border)] pb-3"
 					>
-						<div class="text-sm font-semibold leading-snug">
-							{{ selectedChat.title }}
+						<div class="min-w-0 flex-1">
+							<div class="text-sm font-semibold leading-snug">
+								{{ selectedChat.title }}
+							</div>
+							<div
+								v-if="selectedChat.username"
+								class="mt-0.5 text-xs text-[var(--text-muted)]"
+							>
+								@{{ selectedChat.username.replace(/^@/, '') }}
+							</div>
 						</div>
-						<div
-							v-if="selectedChat.username"
-							class="mt-0.5 text-xs text-[var(--text-muted)]"
-						>
-							@{{ selectedChat.username.replace(/^@/, '') }}
-						</div>
+						<IconButton
+							variant="danger"
+							icon="trash-2"
+							label="Удалить чат из локального архива"
+							title="Удалить из архива"
+							:disabled="
+								isDeletingChatId === selectedChat.chatId ||
+								isRefreshing ||
+								isSyncing
+							"
+							:loading="isDeletingChatId === selectedChat.chatId"
+							@click="handleDeleteChat(selectedChat.chatId)"
+						/>
 					</div>
 
 					<div class="flex flex-wrap gap-2">

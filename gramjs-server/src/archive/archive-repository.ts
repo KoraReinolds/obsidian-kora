@@ -321,6 +321,19 @@ export class ArchiveRepository {
 	}
 
 	/**
+	 * @description Удаляет чат из архива: каскадно уходят сообщения, sync_state и sync_runs (см. схему SQLite).
+	 * @param {string} chatId - Идентификатор чата в архиве.
+	 * @returns {{ deleted: boolean }} deleted — была ли удалена хотя бы одна строка в `chats`.
+	 */
+	deleteChat(chatId: string): { deleted: boolean } {
+		const result = this.db
+			.prepare('DELETE FROM chats WHERE chat_id = ?')
+			.run(chatId);
+
+		return { deleted: result.changes > 0 };
+	}
+
+	/**
 	 * @description Возвращает одно архивное сообщение по стабильному первичному ключу.
 	 * @param {string} messagePk - Стабильный ключ сообщения (например `telegram:...`).
 	 * @returns {ArchiveMessage | null} Сообщение или null, если не найдено.

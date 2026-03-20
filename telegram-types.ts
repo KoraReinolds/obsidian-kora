@@ -276,6 +276,16 @@ export interface ArchiveChatsResponse {
 }
 
 /**
+ * @description Ответ `DELETE /archive/chat/:chatId` — удаление чата и связанных данных из локального SQLite-архива.
+ */
+export interface ArchiveDeleteChatResponse {
+	success: boolean;
+	deleted?: boolean;
+	chatId?: string;
+	error?: string;
+}
+
+/**
  * @description Ответ `GET /archive/messages` с пагинацией.
  */
 export interface ArchiveMessagesResponse {

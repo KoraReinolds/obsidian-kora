@@ -5,7 +5,7 @@
 </script>
 
 <template>
-	<div class="flex flex-wrap items-stretch gap-2">
+	<div class="flex w-full min-w-0 flex-nowrap items-stretch gap-2">
 		<slot />
 	</div>
 </template>
