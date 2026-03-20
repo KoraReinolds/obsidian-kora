@@ -13,6 +13,8 @@ import {
 } from '../core/base-http-client';
 import type {
 	ArchiveChat,
+	ArchiveBackfillRequest,
+	ArchiveBackfillResponse,
 	ArchiveChatsResponse,
 	ArchiveDeleteChatResponse,
 	ArchiveMessage,
@@ -89,6 +91,30 @@ export class ArchiveBridge extends BaseHttpClient {
 
 	/**
 	 * @async
+	 * @description Запускает ручную догрузку более старой истории через Telegram `maxId`.
+	 * @param {ArchiveBackfillRequest} request - Параметры backfill-запроса.
+	 * @returns {Promise<NonNullable<ArchiveBackfillResponse['result']>>} Метрики выполнения backfill.
+	 */
+	async backfillArchive(
+		request: ArchiveBackfillRequest
+	): Promise<NonNullable<ArchiveBackfillResponse['result']>> {
+		const response = await this.handleRequest<ArchiveBackfillResponse>(
+			'/archive/backfill',
+			{ method: 'POST', body: request, timeout: 60000 },
+			'Ошибка догрузки старых сообщений'
+		);
+
+		if (!response?.result) {
+			throw new Error(
+				response?.error || 'Не удалось догрузить старые сообщения'
+			);
+		}
+
+		return response.result;
+	}
+
+	/**
+	 * @async
 	 * @description Возвращает архивные чаты с количеством сообщений.
 	 * @param {number} limit - Максимум чатов в ответе.
 	 * @returns {Promise<ArchiveChat[]>} Список чатов из архива.
@@ -135,6 +161,7 @@ export class ArchiveBridge extends BaseHttpClient {
 	/**
 	 * @async
 	 * @description Returns paginated archived messages for a chat.
+	 * The page order is always newest-to-oldest (`messageId DESC`), and `offset` is measured in that order.
 	 * @param {GetArchivedMessagesRequest} request - Chat and pagination options.
 	 * @returns {Promise<ArchiveMessagesResponse>} Paginated message payload.
 	 */

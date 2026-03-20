@@ -16,6 +16,7 @@ import {
 	SummaryChip,
 	Toolbar,
 } from '../../../../core/ui-vue';
+import { ref, watch } from 'vue';
 import { useArchiveScreen } from '../model/use-archive-screen';
 import type { ArchiveTransportPort } from '../ports/archive-transport-port';
 
@@ -40,19 +41,50 @@ const {
 	filteredChats,
 	selectedChatId,
 	selectedChatMessages,
-	selectedChatTotal,
+	currentPage,
+	totalPages,
+	canGoPrevPage,
+	canGoNextPage,
 	isRefreshing,
 	isLoadingMessages,
 	isSyncing,
+	isBackfilling,
 	isDeletingChatId,
 	screenMessage,
 	selectedChat,
 	refreshData,
 	handleSync,
 	handleChatSelection,
+	goToPrevPage,
+	goToNextPage,
+	goToPage,
+	reloadCurrentPage,
+	handleBackfillOlder,
+	handleSyncNewerForSelectedChat,
+	visibleRangeText,
+	visibleTimeRangeText,
+	fullTimeRangeText,
 	handleDeleteChat,
 	formatDate,
 } = model;
+
+const pageInputValue = ref('1');
+watch(
+	() => currentPage.value,
+	value => {
+		pageInputValue.value = String(value);
+	},
+	{ immediate: true }
+);
+
+const handlePageInputSubmit = (): void => {
+	const page = Number(pageInputValue.value);
+	if (!Number.isFinite(page) || page <= 0) {
+		pageInputValue.value = String(currentPage.value);
+		return;
+	}
+	void goToPage(page);
+};
 
 /**
  * @description Стили контейнера {@link IconTextField} (flex + рамка); фокус — `focus-within`, т.к. фокус на внутреннем input.
@@ -73,9 +105,7 @@ void refreshData();
 	<AppShell title="Архив Telegram">
 		<template #toolbar>
 			<Toolbar>
-				<div
-					class="flex min-w-0 w-full flex-nowrap items-stretch gap-2"
-				>
+				<div class="flex min-w-0 w-full flex-nowrap items-stretch gap-2">
 					<div
 						class="flex min-w-0 flex-1 flex-nowrap items-center gap-1 rounded-lg border border-solid border-[var(--background-modifier-border)] bg-[var(--background-primary)] px-1 py-0"
 					>
@@ -148,14 +178,8 @@ void refreshData();
 						/>
 					</div>
 					<div class="mt-2 text-xs text-[var(--text-muted)]">
-						<span
-							v-if="isRefreshing"
-							v-text="'Обновляем список чатов…'"
-						/>
-						<span
-							v-else
-							v-text="`Архивных чатов: ${filteredChats.length}`"
-						/>
+						<span v-if="isRefreshing" v-text="'Обновляем список чатов…'" />
+						<span v-else v-text="`Архивных чатов: ${filteredChats.length}`" />
 					</div>
 				</div>
 				<div
@@ -193,7 +217,9 @@ void refreshData();
 								class="max-w-[min(100%,12.5rem)] shrink-0 truncate text-right text-[11px] leading-tight tabular-nums text-[var(--text-muted)]"
 							>
 								<span
-									v-text="`${chat?.messageCount || 0} · ${formatDate(chat?.lastSyncedAt)}`"
+									v-text="
+										`${chat?.messageCount || 0} · ${formatDate(chat?.lastSyncedAt)}`
+									"
 								/>
 								<span
 									v-if="chat?.username"
@@ -208,9 +234,7 @@ void refreshData();
 							label="Удалить чат из локального архива"
 							title="Удалить из архива"
 							:disabled="
-								isDeletingChatId === chat?.chatId ||
-								isRefreshing ||
-								isSyncing
+								isDeletingChatId === chat?.chatId || isRefreshing || isSyncing
 							"
 							:loading="isDeletingChatId === chat?.chatId"
 							@click.stop="chat?.chatId && handleDeleteChat(chat.chatId)"
@@ -220,10 +244,7 @@ void refreshData();
 			</EntityListPane>
 
 			<DetailsPane class="min-h-0">
-				<div
-					v-if="selectedChat"
-					class="flex min-h-0 flex-1 flex-col gap-3"
-				>
+				<div v-if="selectedChat" class="flex min-h-0 flex-1 flex-col gap-3">
 					<div
 						class="flex shrink-0 flex-wrap items-start justify-between gap-2 border-b border-solid border-[var(--background-modifier-border)] pb-3"
 					>
@@ -265,19 +286,103 @@ void refreshData();
 						class="flex shrink-0 flex-wrap items-baseline justify-between gap-2 border-b border-solid border-[var(--background-modifier-border)] pb-2"
 					>
 						<div class="text-sm font-semibold">Сообщения</div>
-						<div class="text-xs text-[var(--text-muted)]">
+						<div
+							class="flex items-center gap-2 text-xs text-[var(--text-muted)]"
+						>
 							{{
 								isLoadingMessages
 									? 'Загрузка…'
-									: `Всего в архиве: ${selectedChatTotal}`
+									: `Показано: ${visibleRangeText}`
 							}}
+							<span
+								v-if="!isLoadingMessages"
+								v-text="`· Страница ${currentPage} из ${totalPages}`"
+							/>
 						</div>
+					</div>
+					<div
+						class="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-solid border-[var(--background-modifier-border)] pb-2"
+					>
+						<div class="flex flex-wrap items-center gap-2">
+							<IconButton
+								size="sm"
+								variant="accent"
+								icon="arrow-up-circle"
+								label="Догрузить новые сообщения из Telegram"
+								title="Догрузить в начало"
+								:disabled="
+									isSyncing ||
+									isLoadingMessages ||
+									isRefreshing ||
+									isBackfilling
+								"
+								:loading="isSyncing"
+								@click="handleSyncNewerForSelectedChat"
+							/>
+							<IconButton
+								size="sm"
+								variant="muted"
+								icon="chevron-left"
+								label="Более новые сообщения"
+								title="Назад"
+								:disabled="isLoadingMessages || !canGoPrevPage"
+								@click="goToPrevPage"
+							/>
+							<div class="w-28">
+								<IconTextField
+									v-model="pageInputValue"
+									:input-class="fieldClass"
+									icon="hash"
+									icon-label="Номер страницы"
+									:placeholder="`стр. ${currentPage}`"
+									submit-on-enter
+									@enter="handlePageInputSubmit"
+								/>
+							</div>
+							<IconButton
+								size="sm"
+								variant="muted"
+								icon="chevron-right"
+								label="Более старые сообщения"
+								title="Вперёд"
+								:disabled="isLoadingMessages || !canGoNextPage"
+								@click="goToNextPage"
+							/>
+							<IconButton
+								size="sm"
+								variant="muted"
+								icon="rotate-ccw"
+								label="Перезагрузить текущую страницу"
+								title="Перезагрузить страницу"
+								:disabled="isLoadingMessages"
+								@click="reloadCurrentPage"
+							/>
+							<IconButton
+								size="sm"
+								variant="accent"
+								icon="arrow-down-circle"
+								label="Догрузить старые сообщения из Telegram"
+								title="Догрузить в конец"
+								:disabled="
+									isBackfilling ||
+									isLoadingMessages ||
+									isSyncing ||
+									isRefreshing
+								"
+								:loading="isBackfilling"
+								@click="handleBackfillOlder"
+							/>
+						</div>
+						<div
+							class="text-xs text-[var(--text-muted)]"
+							v-text="fullTimeRangeText"
+						/>
 					</div>
 
 					<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
 						<LoadingState
 							v-if="isLoadingMessages"
-							text="Загружаем сообщения…"
+							text="Загружаем страницу сообщений…"
 						/>
 						<EmptyState
 							v-else-if="selectedChatMessages.length === 0"

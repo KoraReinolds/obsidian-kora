@@ -321,6 +321,95 @@ export class ArchiveRepository {
 	}
 
 	/**
+	 * @description Возвращает полный временной диапазон сообщений чата в локальной БД.
+	 * @param {string} chatId - Идентификатор чата.
+	 * @returns {{ oldestTimestampUtc: string | null; newestTimestampUtc: string | null }} Временные границы по всей таблице сообщений чата.
+	 */
+	getMessagesTimeRange(chatId: string): {
+		oldestTimestampUtc: string | null;
+		newestTimestampUtc: string | null;
+	} {
+		const row = this.db
+			.prepare(
+				`
+				SELECT
+					MIN(timestamp_utc) AS oldest_timestamp_utc,
+					MAX(timestamp_utc) AS newest_timestamp_utc
+				FROM messages
+				WHERE chat_id = ?
+			`
+			)
+			.get(chatId) as
+			| {
+					oldest_timestamp_utc?: string | null;
+					newest_timestamp_utc?: string | null;
+			  }
+			| undefined;
+		return {
+			oldestTimestampUtc: row?.oldest_timestamp_utc ?? null,
+			newestTimestampUtc: row?.newest_timestamp_utc ?? null,
+		};
+	}
+
+	/**
+	 * @description Возвращает минимальный `message_id` в архиве чата как курсор для backfill через Telegram `maxId`.
+	 * @param {string} chatId - Идентификатор чата.
+	 * @returns {number | null} Самый старый id сообщения или null, если архив пуст.
+	 */
+	getOldestMessageId(chatId: string): number | null {
+		const row = this.db
+			.prepare(
+				'SELECT MIN(message_id) AS oldest_message_id FROM messages WHERE chat_id = ?'
+			)
+			.get(chatId) as { oldest_message_id?: number | null } | undefined;
+		return row?.oldest_message_id ?? null;
+	}
+
+	/**
+	 * @description Читает метаданные чата из локального архива, чтобы выбрать корректный peer для Telegram API.
+	 * @param {string} chatId - Идентификатор чата.
+	 * @returns {ArchiveChat | null} Чат или null.
+	 */
+	getChat(chatId: string): ArchiveChat | null {
+		const row = this.db
+			.prepare(
+				`
+				SELECT c.chat_id, c.title, c.username, c.type, c.last_synced_at, c.extra_json,
+				       COUNT(m.message_pk) AS message_count
+				FROM chats c
+				LEFT JOIN messages m ON m.chat_id = c.chat_id
+				WHERE c.chat_id = ?
+				GROUP BY c.chat_id
+			`
+			)
+			.get(chatId) as
+			| {
+					chat_id: string;
+					title: string;
+					username?: string | null;
+					type: 'channel' | 'group' | 'chat' | 'unknown';
+					last_synced_at?: string | null;
+					extra_json?: string | null;
+					message_count: number;
+			  }
+			| undefined;
+
+		if (!row) {
+			return null;
+		}
+
+		return {
+			chatId: row.chat_id,
+			title: row.title,
+			username: row.username,
+			type: row.type,
+			lastSyncedAt: row.last_synced_at,
+			messageCount: Number(row.message_count || 0),
+			extra: this.parseJson(row.extra_json),
+		};
+	}
+
+	/**
 	 * @description Удаляет чат из архива: каскадно уходят сообщения, sync_state и sync_runs (см. схему SQLite).
 	 * @param {string} chatId - Идентификатор чата в архиве.
 	 * @returns {{ deleted: boolean }} deleted — была ли удалена хотя бы одна строка в `chats`.

@@ -6,6 +6,8 @@
  */
 
 import type {
+	ArchiveBackfillRequest,
+	ArchiveBackfillResult,
 	ArchiveChat,
 	ArchiveMessagesResponse,
 	ArchiveSyncRequest,
@@ -22,6 +24,9 @@ export interface ArchiveTransportPort {
 		request: GetArchivedMessagesRequest
 	): Promise<ArchiveMessagesResponse>;
 	syncArchive(request: ArchiveSyncRequest): Promise<ArchiveSyncResult>;
+	backfillArchive(
+		request: ArchiveBackfillRequest
+	): Promise<ArchiveBackfillResult>;
 	/**
 	 * @description Удаляет чат и связанные сообщения из локального архива.
 	 * @param {string} chatId - Идентификатор чата.

@@ -76,6 +76,18 @@ export interface ArchiveSyncRequest {
 }
 
 /**
+ * @description Тело запроса `POST /archive/backfill` для догрузки более старой истории из Telegram.
+ * @property {string} chatId - Идентификатор архивного чата.
+ * @property {string} [peer] - Явный peer для Telegram API (если нужно переопределить сохраненный в архиве).
+ * @property {number} [limit] - Размер одного шага догрузки.
+ */
+export interface ArchiveBackfillRequest {
+	chatId: string;
+	peer?: string;
+	limit?: number;
+}
+
+/**
  * @description Запрос страницы архивных сообщений для одного чата (`GET /archive/messages`).
  * @property {string} chatId - Стабильный id чата в архиве (как в SQLite).
  * @property {number} [limit] - Размер страницы.
@@ -258,11 +270,35 @@ export interface ArchiveSyncResult {
 }
 
 /**
+ * @description Итог одного backfill-запроса в сторону старых сообщений.
+ */
+export interface ArchiveBackfillResult {
+	chatId: string;
+	peer: string;
+	inserted: number;
+	updated: number;
+	skipped: number;
+	totalProcessed: number;
+	oldestMessageId?: number | null;
+	hasMoreOlder: boolean;
+	mode: string;
+}
+
+/**
  * @description Ответ `POST /archive/sync`.
  */
 export interface ArchiveSyncResponse {
 	success: boolean;
 	result?: ArchiveSyncResult;
+	error?: string;
+}
+
+/**
+ * @description Ответ `POST /archive/backfill`.
+ */
+export interface ArchiveBackfillResponse {
+	success: boolean;
+	result?: ArchiveBackfillResult;
 	error?: string;
 }
 
@@ -287,6 +323,7 @@ export interface ArchiveDeleteChatResponse {
 
 /**
  * @description Ответ `GET /archive/messages` с пагинацией.
+ * Сортировка сообщений фиксирована: от новых к старым (`messageId DESC`), а `offset` считается именно в этом порядке.
  */
 export interface ArchiveMessagesResponse {
 	success: boolean;
@@ -295,6 +332,13 @@ export interface ArchiveMessagesResponse {
 	total: number;
 	offset: number;
 	limit: number;
+	/**
+	 * @description Временной диапазон всех сообщений чата, присутствующих в локальной SQLite БД.
+	 */
+	fullRange: {
+		oldestTimestampUtc: string | null;
+		newestTimestampUtc: string | null;
+	};
 }
 
 /**

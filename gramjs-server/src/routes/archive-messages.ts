@@ -31,20 +31,20 @@ export function registerArchiveMessageRoutes(app: Express): void {
 
 			const parsedLimit = Number(limit) || 100;
 			const parsedOffset = Number(offset) || 0;
+			const safeLimit = Math.min(500, Math.max(1, parsedLimit));
+			const safeOffset = Math.max(0, parsedOffset);
 			const repository = getArchiveRepository();
-			const messages = repository.listMessages(
-				chatId,
-				parsedLimit,
-				parsedOffset
-			);
+			const messages = repository.listMessages(chatId, safeLimit, safeOffset);
+			const fullRange = repository.getMessagesTimeRange(chatId);
 
 			const response: ArchiveMessagesResponse = {
 				success: true,
 				chatId,
 				messages,
 				total: repository.countMessages(chatId),
-				offset: parsedOffset,
-				limit: parsedLimit,
+				offset: safeOffset,
+				limit: safeLimit,
+				fullRange,
 			};
 
 			res.json(response);

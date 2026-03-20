@@ -9,7 +9,10 @@
  * @see {@link ArchiveNormalizer} нормализация Telegram → архив
  */
 
-import type { ArchiveSyncResult } from '../../../telegram-types.js';
+import type {
+	ArchiveBackfillResult,
+	ArchiveSyncResult,
+} from '../../../telegram-types.js';
 import { initClient } from '../services/strategy-service.js';
 import { ArchiveNormalizer } from './archive-normalizer.js';
 import { ArchiveRepository } from './archive-repository.js';
@@ -62,28 +65,10 @@ export class ArchiveSyncService {
 				minId: previousLastMessageId ?? 0,
 				maxId: 0,
 			});
-
-			const sortedMessages = [...rawMessages].sort(
-				(a, b) => Number(a.id) - Number(b.id)
+			const { sortedMessages, counters } = this.persistMessages(
+				chatId,
+				rawMessages
 			);
-			const counters: ArchiveSyncCounters = {
-				inserted: 0,
-				updated: 0,
-				skipped: 0,
-			};
-
-			this.repository.transaction(() => {
-				for (const message of sortedMessages) {
-					const participant = this.normalizer.normalizeParticipant(message);
-					this.repository.upsertParticipant(participant);
-
-					const result = this.repository.upsertMessage(
-						this.normalizer.normalizeMessage(chatId, message)
-					);
-
-					counters[result] += 1;
-				}
-			});
 
 			const lastMessageId =
 				sortedMessages.length > 0
@@ -161,6 +146,63 @@ export class ArchiveSyncService {
 
 	/**
 	 * @async
+	 * @description Догружает более старую историю выбранного архивного чата через Telegram `maxId`.
+	 * Используется вручную из UI, когда пользователь дошел до самой старой локальной страницы.
+	 * @param {{ chatId: string; peer?: string; limit: number }} options - Идентификатор чата и параметры одного backfill-запроса.
+	 * @returns {Promise<{
+	 *  chatId: string;
+	 *  peer: string;
+	 *  inserted: number;
+	 *  updated: number;
+	 *  skipped: number;
+	 *  totalProcessed: number;
+	 *  oldestMessageId: number | null;
+	 *  hasMoreOlder: boolean;
+	 *  mode: string;
+	 * }>} Итог backfill-запроса.
+	 */
+	async backfillOlder(options: {
+		chatId: string;
+		peer?: string;
+		limit: number;
+	}): Promise<ArchiveBackfillResult> {
+		const { chatId, limit, peer } = options;
+		const strategy = await initClient();
+		const chat = this.repository.getChat(chatId);
+		if (!chat) {
+			throw new Error(`Чат ${chatId} не найден в локальном архиве`);
+		}
+
+		const resolvedPeer = peer || chat.username || chat.chatId;
+		const oldestMessageId = this.repository.getOldestMessageId(chatId);
+		const rawMessages = await strategy.getMessages(resolvedPeer, {
+			limit,
+			minId: 0,
+			maxId: oldestMessageId ?? 0,
+		});
+		const { sortedMessages, counters } = this.persistMessages(
+			chatId,
+			rawMessages
+		);
+
+		return {
+			chatId,
+			peer: resolvedPeer,
+			inserted: counters.inserted,
+			updated: counters.updated,
+			skipped: counters.skipped,
+			totalProcessed: sortedMessages.length,
+			oldestMessageId:
+				sortedMessages.length > 0
+					? Number(sortedMessages[0].id)
+					: oldestMessageId,
+			hasMoreOlder: sortedMessages.length >= limit,
+			mode: strategy.getMode(),
+		};
+	}
+
+	/**
+	 * @async
 	 * @description Поиск диалога best-effort, чтобы в архиве сохранялись понятные
 	 * названия и username, а не только сырой peer.
 	 * @param {string} peer - Peer, использованный в синке.
@@ -195,5 +237,39 @@ export class ArchiveSyncService {
 			);
 			return undefined;
 		}
+	}
+
+	/**
+	 * @description Нормализует и атомарно сохраняет пакет сообщений в архив.
+	 * @param {string} chatId - Идентификатор архивного чата.
+	 * @param {any[]} rawMessages - Пакет сообщений Telegram.
+	 * @returns {{ sortedMessages: any[]; counters: ArchiveSyncCounters }} Сортированный пакет и счетчики insert/update/skip.
+	 */
+	private persistMessages(
+		chatId: string,
+		rawMessages: any[]
+	): { sortedMessages: any[]; counters: ArchiveSyncCounters } {
+		const sortedMessages = [...rawMessages].sort(
+			(a, b) => Number(a.id) - Number(b.id)
+		);
+		const counters: ArchiveSyncCounters = {
+			inserted: 0,
+			updated: 0,
+			skipped: 0,
+		};
+
+		this.repository.transaction(() => {
+			for (const message of sortedMessages) {
+				const participant = this.normalizer.normalizeParticipant(message);
+				this.repository.upsertParticipant(participant);
+
+				const result = this.repository.upsertMessage(
+					this.normalizer.normalizeMessage(chatId, message)
+				);
+				counters[result] += 1;
+			}
+		});
+
+		return { sortedMessages, counters };
 	}
 }
