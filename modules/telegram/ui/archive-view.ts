@@ -9,10 +9,7 @@ import { ItemView, WorkspaceLeaf } from 'obsidian';
 import type { App } from 'vue';
 import type KoraPlugin from '../../../main';
 import { ArchiveBridge } from '../transport/archive-bridge';
-import {
-	ArchiveScreen,
-	createArchiveBridgeAdapter,
-} from '../../features/telegram/archive';
+import { ArchiveScreen, createArchiveBridgeAdapter } from '../archive';
 import ObsidianLucideIcon from '../../hosts/obsidian/ui-vue/ObsidianLucideIcon.vue';
 import { mountVueInObsidian, unmountVueInObsidian } from '../../hosts/obsidian';
 

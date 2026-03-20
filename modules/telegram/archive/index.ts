@@ -1,5 +1,5 @@
 /**
- * @description Public exports for Telegram archive feature.
+ * @description Public exports for Telegram archive screen feature.
  */
 export { default as ArchiveScreen } from './ui/ArchiveScreen.vue';
 export * from './model/use-archive-screen';

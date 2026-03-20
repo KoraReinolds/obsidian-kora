@@ -1,16 +1,16 @@
 /**
- * @module features/telegram/archive/adapters/archive-bridge-adapter
+ * @module telegram/archive/adapters/archive-bridge-adapter
  *
- * @description Адаптер существующего `ArchiveBridge` к feature-порту.
+ * @description Adapter that maps existing `ArchiveBridge` into the archive screen transport port.
  */
 
-import type { ArchiveBridge } from '../../../../telegram';
+import type { ArchiveBridge } from '../../transport';
 import type { ArchiveTransportPort } from '../ports/archive-transport-port';
 
 /**
- * @description Создает feature-port на основе существующего bridge.
- * @param {ArchiveBridge} bridge - Transport bridge Obsidian плагина.
- * @returns {ArchiveTransportPort} Порт для archive feature.
+ * @description Creates an archive feature port based on the existing bridge.
+ * @param {ArchiveBridge} bridge - Transport bridge from the Obsidian plugin.
+ * @returns {ArchiveTransportPort} Port for the archive screen feature.
  */
 export function createArchiveBridgeAdapter(
 	bridge: ArchiveBridge

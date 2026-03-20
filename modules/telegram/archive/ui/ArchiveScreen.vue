@@ -1,8 +1,7 @@
 <script setup lang="ts">
 /**
- * @description Reference feature UI для архива Telegram на базе core Vue компонентов.
+ * @description Reference feature UI for Telegram archive based on core Vue components.
  */
-
 import {
 	AppShell,
 	DetailsPane,
@@ -15,7 +14,7 @@ import {
 	StatusBanner,
 	SummaryChip,
 	Toolbar,
-} from '../../../../core/ui-vue';
+} from '../../../core/ui-vue';
 import { ref, watch } from 'vue';
 import { useArchiveScreen } from '../model/use-archive-screen';
 import type { ArchiveTransportPort } from '../ports/archive-transport-port';
@@ -300,6 +299,7 @@ void refreshData();
 							/>
 						</div>
 					</div>
+
 					<div
 						class="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-solid border-[var(--background-modifier-border)] pb-2"
 					>
