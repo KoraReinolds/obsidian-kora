@@ -329,13 +329,14 @@ export class SQLiteSemanticRepository {
 		let rows: Array<{
 			point_id: string;
 			payload_json: string;
-			rank: number;
+			bm25_rank: number | null;
 		}>;
 		try {
 			rows = this.db
 				.prepare(
 					`
-					SELECT c.point_id, c.payload_json, bm25(chunks_fts) AS rank
+					SELECT c.point_id, c.payload_json, bm25(chunks_fts) AS bm25_rank
+					-- Не AS rank: у FTS5 есть служебная колонка rank; иначе в JS теряется bm25().
 					FROM chunks_fts
 					INNER JOIN chunks c ON c.point_id = chunks_fts.point_id
 					WHERE chunks_fts MATCH ?
@@ -345,7 +346,7 @@ export class SQLiteSemanticRepository {
 				.all(ftsQuery, limit) as Array<{
 				point_id: string;
 				payload_json: string;
-				rank: number;
+				bm25_rank: number | null;
 			}>;
 		} catch (error) {
 			// eslint-disable-next-line no-console
@@ -359,7 +360,7 @@ export class SQLiteSemanticRepository {
 		return rows.map(row => ({
 			qdrantId: row.point_id,
 			payload: this.safeJsonParse(row.payload_json, {}),
-			lexicalScore: this.rankToScore(row.rank),
+			lexicalScore: this.rankToScore(row.bm25_rank),
 		}));
 	}
 
@@ -473,9 +474,23 @@ export class SQLiteSemanticRepository {
 		};
 	}
 
-	private rankToScore(rank: number): number {
-		const normalized = Math.abs(rank ?? 0);
-		return 1 / (normalized + 1);
+	/**
+	 * @description Переводит `bm25(chunks_fts)` в [0, 1) для UI и гибридного буста.
+	 * В SQLite FTS5 лучше совпадение — **меньше** число (часто сильно отрицательное).
+	 * Старая формула `1/(|bm25|+1)` давала ~1 при |bm25|→0 (слабый матч) и «все единицы» в UI.
+	 * Здесь: `neg = -bm25`, при типичном отрицательном bm25 больший `neg` = лучше матч → выше score.
+	 * @param {number | null | undefined} rank - Значение `bm25()`.
+	 * @returns {number} Оценка в [0, 1).
+	 */
+	private rankToScore(rank: number | null | undefined): number {
+		if (rank == null || Number.isNaN(rank)) {
+			return 0;
+		}
+		const neg = -rank;
+		if (neg <= 0) {
+			return 0;
+		}
+		return neg / (neg + 1);
 	}
 
 	private buildFtsQuery(query: string): string {
