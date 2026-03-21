@@ -6,7 +6,7 @@
 import { App, MarkdownView, TFile } from 'obsidian';
 import { chunkNote, type Chunk } from '..';
 import { getMarkdownFiles } from '../../obsidian';
-import type { VectorBridge } from '../../vector';
+import type { VectorBridge, VectorSearchOptionsProvider } from '../../vector';
 import { loadBaselineForChunksByOriginalId } from '../ui/chunk-compare';
 import type {
 	ChunkDisplayItem,
@@ -17,6 +17,18 @@ import type {
 } from '../ports/chunk-transport-port';
 
 /**
+ * @description Сравнение путей vault без учёта `\` vs `/` (Windows).
+ * @param {string} a - Путь из контекста редактора.
+ * @param {string} b - Путь из payload индекса.
+ * @returns {boolean} Совпадение после нормализации.
+ */
+function vaultPathsEqual(a: string, b: string): boolean {
+	if (!a || !b) return false;
+	const norm = (p: string) => p.replace(/\\/g, '/');
+	return norm(a) === norm(b);
+}
+
+/**
  * @description Адаптер инфраструктуры Obsidian и vector backend к feature-порту.
  */
 export class ObsidianChunkTransportAdapter implements ChunkTransportPort {
@@ -24,7 +36,8 @@ export class ObsidianChunkTransportAdapter implements ChunkTransportPort {
 
 	constructor(
 		private readonly app: App,
-		private readonly vectorBridge: VectorBridge
+		private readonly vectorBridge: VectorBridge,
+		private readonly getVectorSearchOptions?: VectorSearchOptionsProvider
 	) {}
 
 	/**
@@ -219,33 +232,55 @@ export class ObsidianChunkTransportAdapter implements ChunkTransportPort {
 	/**
 	 * @description Ищет связанные чанки через vector similarity.
 	 * @param {string} query - Текст текущего чанка.
-	 * @param {{ chunkId?: string; originalId?: string }} exclude - Фильтры исключения.
+	 * @param {{ chunkId?: string; originalId?: string; filePath?: string }} exclude -
+	 * Исключение текущего чанка и всей заметки: по chunkId, originalId, префиксу point id
+	 * (`originalId#chunkId` на сервере) и пути `obsidian.path`.
 	 * @returns {Promise<RelatedChunkResult[]>}
 	 */
 	async searchRelated(
 		query: string,
-		exclude: { chunkId?: string; originalId?: string }
+		exclude: { chunkId?: string; originalId?: string; filePath?: string }
 	): Promise<RelatedChunkResult[]> {
+		const searchOpts = this.getVectorSearchOptions?.() ?? {
+			scoreThreshold: 0.3,
+			lexicalBoostWeight: 0.15,
+		};
 		const searchResults = await this.vectorBridge.searchContent({
 			query,
 			limit: 15,
 			contentTypes: ['obsidian_note'],
-			scoreThreshold: 0.3,
+			scoreThreshold: searchOpts.scoreThreshold,
+			lexicalBoostWeight: searchOpts.lexicalBoostWeight,
 		});
 
 		return searchResults.results
 			.filter(result => {
-				const resultChunkId = result.content?.chunkId;
-				const resultOriginalId =
-					result.content?.originalId || result.content?.meta?.originalId;
+				const content = result.content || {};
+				const resultChunkId = content.chunkId;
+				const resultOriginalId = content.originalId || content.meta?.originalId;
+				const resultPath =
+					content.obsidian?.path || content.meta?.obsidian?.path || '';
+				const pointId = typeof result.id === 'string' ? result.id : '';
+
 				if (exclude.chunkId && resultChunkId === exclude.chunkId) return false;
-				if (exclude.originalId && resultOriginalId === exclude.originalId) {
+
+				if (exclude.originalId) {
+					if (resultOriginalId === exclude.originalId) return false;
+					if (pointId.startsWith(`${exclude.originalId}#`)) return false;
+				}
+
+				if (
+					exclude.filePath &&
+					resultPath &&
+					vaultPathsEqual(exclude.filePath, resultPath)
+				) {
 					return false;
 				}
+
 				return true;
 			})
 			.map(result => {
-				const content = result.content || {};
+				const content = result.content ?? {};
 				const sourceFile =
 					content.obsidian?.path || content.meta?.obsidian?.path || '';
 				return {

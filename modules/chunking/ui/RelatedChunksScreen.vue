@@ -1,7 +1,11 @@
 <script setup lang="ts">
 /**
  * @description Vue screen для related chunks по активному чанку.
+ * Порог score и вес лексического буста хранятся в {@link defaultVectorSettings}
+ * и редактируются здесь; при изменении полей (debounce) настройки сохраняются и
+ * список related перезапрашивается.
  */
+import { onUnmounted, ref, watch } from 'vue';
 import {
 	AppShell,
 	DetailsPane,
@@ -14,12 +18,22 @@ import {
 	StatusBanner,
 	SummaryChip,
 } from '../../core/ui-vue';
+import { defaultVectorSettings } from '../../vector/types';
+import type KoraPlugin from '../../../main';
 import { useRelatedChunksScreen } from '../model/use-related-chunks-screen';
 import type { ChunkTransportPort } from '../ports/chunk-transport-port';
 
 const props = defineProps<{
 	transport: ChunkTransportPort;
+	plugin: KoraPlugin;
 }>();
+
+const scoreThreshold = ref(
+	props.plugin.settings.vectorSettings.searchScoreThreshold
+);
+const lexicalBoostWeight = ref(
+	props.plugin.settings.vectorSettings.lexicalBoostWeight
+);
 
 const {
 	relatedChunks,
@@ -29,8 +43,59 @@ const {
 	isLoadingRelated,
 	message,
 	refreshContext,
+	loadRelated,
 	openRelated,
 } = useRelatedChunksScreen({ transport: props.transport });
+
+/**
+ * @description Пишет значения полей в настройки плагина и сохраняет их.
+ * @returns {Promise<void>}
+ */
+async function persistSearchParamsFromFields(): Promise<void> {
+	const d = defaultVectorSettings;
+	const st = parseFloat(String(scoreThreshold.value));
+	const lw = parseFloat(String(lexicalBoostWeight.value));
+	props.plugin.settings.vectorSettings.searchScoreThreshold = Number.isFinite(
+		st
+	)
+		? Math.min(1, Math.max(0, st))
+		: d.searchScoreThreshold;
+	props.plugin.settings.vectorSettings.lexicalBoostWeight =
+		Number.isFinite(lw) && lw >= 0 ? lw : d.lexicalBoostWeight;
+	await props.plugin.saveSettings();
+}
+
+let searchParamsDebounce: ReturnType<typeof setTimeout> | null = null;
+const SEARCH_PARAMS_DEBOUNCE_MS = 400;
+
+onUnmounted(() => {
+	if (searchParamsDebounce !== null) {
+		clearTimeout(searchParamsDebounce);
+		searchParamsDebounce = null;
+	}
+});
+
+/**
+ * @description При изменении порога или веса пересохраняем настройки и заново
+ * запрашиваем related (тот же активный чанк), чтобы список соответствовал параметрам.
+ */
+watch(
+	[scoreThreshold, lexicalBoostWeight],
+	() => {
+		if (searchParamsDebounce !== null) {
+			clearTimeout(searchParamsDebounce);
+			searchParamsDebounce = null;
+		}
+		searchParamsDebounce = window.setTimeout(() => {
+			searchParamsDebounce = null;
+			void (async () => {
+				await persistSearchParamsFromFields();
+				await loadRelated();
+			})();
+		}, SEARCH_PARAMS_DEBOUNCE_MS);
+	},
+	{ flush: 'post' }
+);
 </script>
 
 <template>
@@ -71,6 +136,43 @@ const {
 						"
 					/>
 				</template>
+				<MessageCard
+					compact
+					title="Параметры поиска (related)"
+					:subtitle="'Порог и лексический буст применяются к запросам related chunks.'"
+				>
+					<template #body>
+						<div class="flex flex-col gap-2">
+							<label class="flex flex-col gap-0.5">
+								<span
+									class="text-[11px] text-[var(--text-muted)]"
+									v-text="'Порог score (0–1)'"
+								/>
+								<input
+									v-model.number="scoreThreshold"
+									type="number"
+									class="w-full rounded border border-solid border-[var(--background-modifier-border)] bg-[var(--background-primary)] px-2 py-1 text-xs"
+									min="0"
+									max="1"
+									step="0.05"
+								/>
+							</label>
+							<label class="flex flex-col gap-0.5">
+								<span
+									class="text-[11px] text-[var(--text-muted)]"
+									v-text="'Вес лексического (FTS) буста'"
+								/>
+								<input
+									v-model.number="lexicalBoostWeight"
+									type="number"
+									class="w-full rounded border border-solid border-[var(--background-modifier-border)] bg-[var(--background-primary)] px-2 py-1 text-xs"
+									min="0"
+									step="0.05"
+								/>
+							</label>
+						</div>
+					</template>
+				</MessageCard>
 				<LoadingState
 					v-if="isLoading || isLoadingRelated"
 					text="Ищем связанные чанки…"

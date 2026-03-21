@@ -13,6 +13,7 @@ import {
 	mountVueInObsidian,
 	unmountVueInObsidian,
 } from '../../hosts/obsidian';
+import type { VectorSearchOptionsProvider } from '../../vector';
 import { VectorBridge } from '../../vector';
 import { ObsidianSemanticInspectorTransportAdapter } from '../adapters/obsidian-semantic-inspector-transport-adapter';
 import SemanticInspectorScreen from './SemanticInspectorScreen.vue';
@@ -29,12 +30,14 @@ export class SemanticInspectorView extends ItemView {
 	constructor(
 		leaf: WorkspaceLeaf,
 		app: ObsidianApp,
-		vectorBridge: VectorBridge
+		vectorBridge: VectorBridge,
+		getVectorSearchOptions?: VectorSearchOptionsProvider
 	) {
 		super(leaf);
 		this.transport = new ObsidianSemanticInspectorTransportAdapter(
 			app,
-			vectorBridge
+			vectorBridge,
+			getVectorSearchOptions
 		);
 	}
 

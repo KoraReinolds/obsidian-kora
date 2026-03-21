@@ -34,6 +34,8 @@ interface SearchRequest {
 	contentTypes?: string[];
 	filters?: Record<string, any>;
 	scoreThreshold?: number;
+	/** Только для semantic backend sqlite: вес FTS в `vectorScore + lexical * weight`. */
+	lexicalBoostWeight?: number;
 }
 
 interface VectorStats {

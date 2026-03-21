@@ -558,6 +558,9 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 	.gap-0 {
 		gap: calc(var(--spacing) * 0);
 	}
+	.gap-0\.5 {
+		gap: calc(var(--spacing) * 0.5);
+	}
 	.gap-1 {
 		gap: calc(var(--spacing) * 1);
 	}
@@ -807,6 +810,9 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 	}
 	.py-0 {
 		padding-block: calc(var(--spacing) * 0);
+	}
+	.py-1 {
+		padding-block: calc(var(--spacing) * 1);
 	}
 	.py-2\.5 {
 		padding-block: calc(var(--spacing) * 2.5);

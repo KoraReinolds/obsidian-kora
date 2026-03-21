@@ -27,6 +27,8 @@ export interface SearchOptions {
 	contentTypes?: string[];
 	filters?: Record<string, any>;
 	scoreThreshold?: number;
+	/** Вес лексического (FTS5) скора при смешивании с косинусом; только `sqlite` backend. */
+	lexicalBoostWeight?: number;
 }
 
 export interface StoredContentRecord {

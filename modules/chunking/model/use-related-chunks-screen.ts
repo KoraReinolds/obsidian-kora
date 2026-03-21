@@ -108,6 +108,7 @@ export function useRelatedChunksScreen(
 				{
 					chunkId: activeChunk.value.chunkId,
 					originalId: context.value.originalId,
+					filePath: context.value.filePath,
 				}
 			);
 		} catch (error) {

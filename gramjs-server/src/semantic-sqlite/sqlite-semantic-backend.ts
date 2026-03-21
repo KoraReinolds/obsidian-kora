@@ -174,7 +174,15 @@ export class SQLiteSemanticBackend implements SemanticBackend {
 			contentTypes = [],
 			filters = {},
 			scoreThreshold = 0.0,
+			lexicalBoostWeight: rawLexicalWeight,
 		} = options;
+
+		const lexicalBoostWeight =
+			typeof rawLexicalWeight === 'number' &&
+			!Number.isNaN(rawLexicalWeight) &&
+			rawLexicalWeight >= 0
+				? rawLexicalWeight
+				: 0.15;
 
 		const queryEmbedding = await this.embeddingService.generateEmbedding(query);
 		const vectorCandidates = this.repository
@@ -202,7 +210,7 @@ export class SQLiteSemanticBackend implements SemanticBackend {
 					candidate.embedding
 				);
 				const lexicalBoost = lexicalScoreById.get(candidate.qdrantId) || 0;
-				const combinedScore = vectorScore + lexicalBoost * 0.15;
+				const combinedScore = vectorScore + lexicalBoost * lexicalBoostWeight;
 
 				return {
 					id: candidate.qdrantId,

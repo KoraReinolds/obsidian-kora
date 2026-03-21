@@ -9,5 +9,9 @@ export type {
 	VectorStoredContentRecord,
 } from './vector-bridge';
 export { VectorSettingTab } from './settings-tab';
-export type { VectorSettingsInterface } from './types';
+export type {
+	VectorSearchOptionsProvider,
+	VectorSearchRuntimeOptions,
+	VectorSettingsInterface,
+} from './types';
 export { defaultVectorSettings } from './types';

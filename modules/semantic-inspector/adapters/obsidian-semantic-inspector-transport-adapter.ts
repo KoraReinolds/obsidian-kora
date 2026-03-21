@@ -13,6 +13,7 @@ import type {
 	VectorHealthResponse,
 	VectorStoredContentRecord,
 } from '../../vector';
+import type { VectorSearchOptionsProvider } from '../../vector';
 import { VectorBridge } from '../../vector';
 import type {
 	SemanticInspectorActionResult,
@@ -44,9 +45,14 @@ export class ObsidianSemanticInspectorTransportAdapter
 
 	constructor(
 		private readonly app: App,
-		private readonly vectorBridge: VectorBridge
+		private readonly vectorBridge: VectorBridge,
+		getVectorSearchOptions?: VectorSearchOptionsProvider
 	) {
-		this.chunkAdapter = new ObsidianChunkTransportAdapter(app, vectorBridge);
+		this.chunkAdapter = new ObsidianChunkTransportAdapter(
+			app,
+			vectorBridge,
+			getVectorSearchOptions
+		);
 	}
 
 	/**

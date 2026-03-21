@@ -48,7 +48,7 @@ export interface ChunkTransportPort {
 	isVectorHealthy(): Promise<boolean>;
 	searchRelated(
 		query: string,
-		exclude: { chunkId?: string; originalId?: string }
+		exclude: { chunkId?: string; originalId?: string; filePath?: string }
 	): Promise<RelatedChunkResult[]>;
 	openRelatedChunk(result: RelatedChunkResult): Promise<void>;
 	getUnsyncedNotes(limit: number): Promise<UnsyncedNoteRef[]>;

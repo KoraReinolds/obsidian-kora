@@ -19,6 +19,7 @@ export function registerSearchRoute(app: Express): void {
 				contentTypes = [],
 				filters = {},
 				scoreThreshold = 0.0,
+				lexicalBoostWeight,
 			} = req.body || {};
 			if (!query || typeof query !== 'string') {
 				return res
@@ -31,6 +32,10 @@ export function registerSearchRoute(app: Express): void {
 				contentTypes,
 				filters,
 				scoreThreshold,
+				...(typeof lexicalBoostWeight === 'number' &&
+				!Number.isNaN(lexicalBoostWeight)
+					? { lexicalBoostWeight }
+					: {}),
 			});
 
 			res.json({ success: true, ...results });

@@ -204,11 +204,25 @@ export default class KoraPlugin extends Plugin {
 
 		this.registerView(
 			RELATED_CHUNKS_VIEW_TYPE,
-			leaf => new RelatedChunksView(leaf, this.app, this.vectorBridge)
+			leaf =>
+				new RelatedChunksView(
+					leaf,
+					this.app,
+					this.vectorBridge,
+					() => ({
+						scoreThreshold: this.settings.vectorSettings.searchScoreThreshold,
+						lexicalBoostWeight: this.settings.vectorSettings.lexicalBoostWeight,
+					}),
+					this
+				)
 		);
 		this.registerView(
 			SEMANTIC_INSPECTOR_VIEW_TYPE,
-			leaf => new SemanticInspectorView(leaf, this.app, this.vectorBridge)
+			leaf =>
+				new SemanticInspectorView(leaf, this.app, this.vectorBridge, () => ({
+					scoreThreshold: this.settings.vectorSettings.searchScoreThreshold,
+					lexicalBoostWeight: this.settings.vectorSettings.lexicalBoostWeight,
+				}))
 		);
 		this.registerView(
 			ARCHIVE_VIEW_TYPE,

@@ -5,9 +5,10 @@
  */
 import { App as ObsidianApp, ItemView, WorkspaceLeaf } from 'obsidian';
 import type { App as VueApp } from 'vue';
-import type { VectorBridge } from '../../vector';
+import type { VectorBridge, VectorSearchOptionsProvider } from '../../vector';
 import { mountVueInObsidian, unmountVueInObsidian } from '../../hosts/obsidian';
 import ObsidianLucideIcon from '../../hosts/obsidian/ui-vue/ObsidianLucideIcon.vue';
+import type KoraPlugin from '../../../main';
 import { ObsidianChunkTransportAdapter } from '../adapters/obsidian-chunk-transport-adapter';
 import RelatedChunksScreen from './RelatedChunksScreen.vue';
 
@@ -20,10 +21,16 @@ export class RelatedChunksView extends ItemView {
 	constructor(
 		leaf: WorkspaceLeaf,
 		app: ObsidianApp,
-		vectorBridge: VectorBridge
+		vectorBridge: VectorBridge,
+		getVectorSearchOptions: VectorSearchOptionsProvider | undefined,
+		private readonly plugin: KoraPlugin
 	) {
 		super(leaf);
-		this.transport = new ObsidianChunkTransportAdapter(app, vectorBridge);
+		this.transport = new ObsidianChunkTransportAdapter(
+			app,
+			vectorBridge,
+			getVectorSearchOptions
+		);
 	}
 
 	getViewType(): string {
@@ -43,7 +50,7 @@ export class RelatedChunksView extends ItemView {
 		this.vueApp = mountVueInObsidian(
 			container,
 			RelatedChunksScreen,
-			{ transport: this.transport },
+			{ transport: this.transport, plugin: this.plugin },
 			{ hostLucideIcon: ObsidianLucideIcon }
 		);
 	}
