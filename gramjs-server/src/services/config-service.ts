@@ -3,10 +3,12 @@
  * Provides getters/setters and a simple shape to validate completeness.
  */
 
-// Load environment variables from .env (based on process.cwd()) before reading process.env
-import 'dotenv/config';
+import { loadGramJsEnv } from './env-loader.js';
+
+loadGramJsEnv();
 
 export type TelegramMode = 'bot' | 'userbot';
+export type SemanticBackendType = 'qdrant' | 'sqlite';
 
 export interface ServerConfig {
 	apiId: number | undefined;
@@ -15,6 +17,11 @@ export interface ServerConfig {
 	botToken: string | undefined;
 	mode: TelegramMode;
 	archiveDatabasePath: string | undefined;
+	semanticBackend: SemanticBackendType;
+	semanticDatabasePath: string | undefined;
+	openaiApiKey: string | undefined;
+	embeddingModel: string | undefined;
+	embeddingBaseUrl: string | undefined;
 }
 
 let configState: ServerConfig = {
@@ -25,6 +32,16 @@ let configState: ServerConfig = {
 	stringSession: process.env.TELEGRAM_SESSION,
 	botToken: process.env.TELEGRAM_BOT_TOKEN,
 	archiveDatabasePath: process.env.ARCHIVE_DB_PATH,
+	semanticBackend:
+		(process.env.SEMANTIC_BACKEND as SemanticBackendType | undefined) ||
+		'qdrant',
+	semanticDatabasePath: process.env.SEMANTIC_DB_PATH,
+	openaiApiKey: process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY,
+	embeddingModel: process.env.EMBEDDING_MODEL || 'text-embedding-3-small',
+	embeddingBaseUrl:
+		process.env.OPENROUTER_BASE_URL ||
+		process.env.OPENAI_BASE_URL ||
+		'https://openrouter.ai/api/v1',
 	// Initialize with a safe default; actual mode is resolved dynamically in getConfig
 	mode: 'bot',
 };

@@ -361,6 +361,11 @@ export interface ArchiveSyncStateResponse {
 /**
  * @description Конфигурация GramJS на сервере.
  * @property {string} [archiveDatabasePath] — путь к файлу SQLite-архива на хосте gramjs-server.
+ * @property {'qdrant' | 'sqlite'} [semanticBackend] — активный semantic backend на стороне gramjs-server.
+ * @property {string} [semanticDatabasePath] — путь к SQLite-файлу semantic index-а, если используется sqlite backend.
+ * @property {string} [openaiApiKey] — API key для embeddings provider (совместимо с OpenRouter/OpenAI).
+ * @property {string} [embeddingModel] — model id для embeddings API.
+ * @property {string} [embeddingBaseUrl] — base URL OpenAI-compatible embeddings endpoint.
  */
 export interface GramJSConfig {
 	mode?: 'bot' | 'userbot';
@@ -369,6 +374,11 @@ export interface GramJSConfig {
 	apiHash?: string;
 	stringSession?: string;
 	archiveDatabasePath?: string;
+	semanticBackend?: 'qdrant' | 'sqlite';
+	semanticDatabasePath?: string;
+	openaiApiKey?: string;
+	embeddingModel?: string;
+	embeddingBaseUrl?: string;
 }
 
 export interface ConfigResponse {

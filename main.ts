@@ -170,6 +170,11 @@ export default class KoraPlugin extends Plugin {
 		// Инициализируем Vector bridge
 		this.vectorBridge = new VectorBridge();
 
+		// Push saved plugin settings into running GramJS processes on startup.
+		// This keeps runtime config aligned after plugin reloads and reduces drift
+		// between persisted Obsidian settings and server-side in-memory config.
+		await this.syncGramJSConfig();
+
 		// Инициализируем VaultOperations
 		this.vaultOps = new VaultOperations(this.app);
 
@@ -355,6 +360,11 @@ export default class KoraPlugin extends Plugin {
 			apiHash: this.settings.gramjs.apiHash,
 			stringSession: this.settings.gramjs.stringSession,
 			archiveDatabasePath: this.settings.archiveSettings.databasePath,
+			semanticBackend: this.settings.vectorSettings.semanticBackend,
+			semanticDatabasePath: this.settings.vectorSettings.semanticDatabasePath,
+			openaiApiKey: this.settings.vectorSettings.openaiApiKey,
+			embeddingModel: this.settings.vectorSettings.embeddingModel,
+			embeddingBaseUrl: this.settings.vectorSettings.embeddingBaseUrl,
 		};
 
 		try {
@@ -398,6 +408,11 @@ export default class KoraPlugin extends Plugin {
 
 			await this.archiveBridge.updateArchiveServerConfig({
 				archiveDatabasePath: this.settings.archiveSettings.databasePath,
+				semanticBackend: this.settings.vectorSettings.semanticBackend,
+				semanticDatabasePath: this.settings.vectorSettings.semanticDatabasePath,
+				openaiApiKey: this.settings.vectorSettings.openaiApiKey,
+				embeddingModel: this.settings.vectorSettings.embeddingModel,
+				embeddingBaseUrl: this.settings.vectorSettings.embeddingBaseUrl,
 			});
 			console.log(
 				'[syncGramJSConfig] Configuration synced with archive server'

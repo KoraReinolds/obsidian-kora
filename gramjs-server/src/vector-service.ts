@@ -1,90 +1,72 @@
 #!/usr/bin/env node
 
 /**
- * Vector Service for Qdrant
- * Handles universal content vectorization and search
+ * Vector Service backed by Qdrant.
+ * Kept behind a generic semantic backend contract so it can be swapped for SQLite.
  */
 
 import { QdrantClient } from '@qdrant/js-client-rest';
-import EmbeddingService, { type EmbeddingResult } from './embedding-service.js';
+import EmbeddingService from './embedding-service.js';
 import { v4 as uuidv4 } from 'uuid';
+import type {
+	ContentData,
+	SearchOptions,
+	SearchResult,
+	SemanticBackend,
+	SemanticBackendConfig,
+	SemanticHealthCheck,
+	SemanticStats,
+	StoredContentRecord,
+	VectorizeResult,
+} from './semantic/types.js';
+import { buildSemanticPayload, generateSnippet } from './semantic/utils.js';
 
-export interface VectorConfig {
-	qdrantUrl?: string;
-	collectionName?: string;
-	vectorSize?: number;
-	openaiApiKey?: string;
-	[key: string]: any;
-}
-
-export interface ContentData {
-	id: string;
-	contentType: string;
-	title?: string;
-	content: string;
-	metadata?: Record<string, any>;
-}
-
-export interface SearchOptions {
-	limit?: number;
-	contentTypes?: string[];
-	filters?: Record<string, any>;
-	scoreThreshold?: number;
-}
-
-export interface SearchResult {
-	query: string;
-	results: Array<{
-		id: string;
-		score: number;
-		content: any;
-		snippet: string;
-	}>;
-	total: number;
-	queryEmbeddingInfo: EmbeddingResult;
-}
-
-export interface VectorizeResult {
-	id: string;
-	qdrantId?: string;
-	status: 'created' | 'updated' | 'unchanged' | 'error';
-	embeddingInfo?: EmbeddingResult;
-	existing?: boolean;
-	error?: string;
-}
-
-class VectorService {
-	private config: Required<VectorConfig> & { [key: string]: any };
+class VectorService implements SemanticBackend {
+	private config: Required<SemanticBackendConfig> & { [key: string]: any };
 	private client: QdrantClient;
 	private embeddingService: EmbeddingService;
 	private isInitialized: boolean;
 
-	constructor(config: VectorConfig = {}) {
+	constructor(config: SemanticBackendConfig = {}) {
 		this.config = {
+			backend: 'qdrant',
 			qdrantUrl:
 				config.qdrantUrl || process.env.QDRANT_URL || 'http://localhost:6333',
 			collectionName: config.collectionName || 'kora_content',
 			vectorSize: config.vectorSize || 1536,
-			openaiApiKey: config.openaiApiKey || process.env.OPENAI_API_KEY || '',
+			openaiApiKey:
+				config.openaiApiKey ||
+				process.env.OPENROUTER_API_KEY ||
+				process.env.OPENAI_API_KEY ||
+				'',
+			embeddingModel:
+				config.embeddingModel ||
+				process.env.EMBEDDING_MODEL ||
+				'text-embedding-3-small',
+			embeddingBaseUrl:
+				config.embeddingBaseUrl ||
+				process.env.OPENROUTER_BASE_URL ||
+				process.env.OPENAI_BASE_URL ||
+				'https://openrouter.ai/api/v1',
+			databasePath: config.databasePath || '',
 			...config,
 		};
 
-		// Initialize Qdrant client
 		this.client = new QdrantClient({
 			url: this.config.qdrantUrl,
 		});
-
-		// Initialize embedding service
 		this.embeddingService = new EmbeddingService({
 			apiKey: this.config.openaiApiKey,
+			baseUrl: this.config.embeddingBaseUrl,
+			model: this.config.embeddingModel,
 			dimensions: this.config.vectorSize,
 		});
-
 		this.isInitialized = false;
 	}
 
 	/**
-	 * Initialize collection if it doesn't exist
+	 * @description Инициализирует коллекцию Qdrant и payload indexes один раз.
+	 * @returns {Promise<void>}
 	 */
 	async initialize(): Promise<void> {
 		if (this.isInitialized) {
@@ -94,7 +76,6 @@ class VectorService {
 		try {
 			console.log('[VectorService] Initializing...');
 
-			// Check if collection exists
 			const collections = await this.client.getCollections();
 			const collectionExists = collections.collections.some(
 				col => col.name === this.config.collectionName
@@ -116,9 +97,7 @@ class VectorService {
 				});
 			}
 
-			// Create indexes for efficient filtering
 			await this.createIndexes();
-
 			this.isInitialized = true;
 			console.log('[VectorService] Initialized successfully');
 		} catch (error) {
@@ -128,13 +107,16 @@ class VectorService {
 	}
 
 	/**
-	 * Create indexes for efficient filtering
+	 * @description Создаёт payload indexes по наиболее часто фильтруемым полям.
+	 * @returns {Promise<void>}
 	 */
 	async createIndexes(): Promise<void> {
 		try {
 			const indexFields = [
+				'pointId',
 				'contentType',
-				'originalId', // Add index for original ID lookup
+				'originalId',
+				'chunkId',
 				'telegram.channelId',
 				'telegram.author',
 				'obsidian.folder',
@@ -148,7 +130,6 @@ class VectorService {
 						field_schema: 'keyword',
 					});
 				} catch (error) {
-					// Index might already exist, ignore error
 					if (!error.message?.includes('already exists')) {
 						console.warn(
 							`[VectorService] Warning creating index for ${field}:`,
@@ -163,7 +144,9 @@ class VectorService {
 	}
 
 	/**
-	 * Vectorize and store content
+	 * @description Векторизует одну запись и upsert-ит её в Qdrant по stable point id.
+	 * @param {ContentData} contentData - Канонические данные записи.
+	 * @returns {Promise<VectorizeResult>} Результат upsert-а.
 	 */
 	async vectorizeContent(contentData: ContentData): Promise<VectorizeResult> {
 		await this.initialize();
@@ -185,8 +168,7 @@ class VectorService {
 				`[VectorService] Vectorizing content: ${id} (${contentType})`
 			);
 
-			// Check if content already exists and unchanged
-			const existingResult = await this.getContentBy('originalId', id);
+			const existingResult = await this.getContentBy('pointId', id);
 			const contentHash = this.embeddingService.generateContentHash(content);
 
 			if (
@@ -194,41 +176,30 @@ class VectorService {
 				existingResult.payload.contentHash === contentHash
 			) {
 				console.log(`[VectorService] Content unchanged, skipping: ${id}`);
-				return { id, status: 'unchanged', existing: true };
+				return {
+					id,
+					pointId: id,
+					qdrantId: existingResult.qdrantId,
+					status: 'unchanged',
+					existing: true,
+				};
 			}
 
-			// Generate embedding
 			const embeddingResult =
 				await this.embeddingService.generateEmbedding(content);
-
-			// Generate or reuse UUID for Qdrant
 			const qdrantId = existingResult ? existingResult.qdrantId : uuidv4();
-
-			// Prepare payload
-			const payload = {
-				originalId: id, // Store original ID for lookup
-				contentType,
-				title,
-				content,
+			const payload = buildSemanticPayload(
+				{ id, contentType, title, content, metadata },
 				contentHash,
-				vectorizedAt: new Date().toISOString(),
-				embeddingModel: embeddingResult.model,
-				embeddingInfo: {
-					dimensions: embeddingResult.dimensions,
-					chunked: embeddingResult.chunked,
-					chunkCount: embeddingResult.chunkCount || 1,
-					usage: embeddingResult.usage,
-				},
-				...metadata,
-			};
+				embeddingResult
+			);
 
-			// Store in Qdrant using UUID
 			await this.client.upsert(this.config.collectionName, {
 				points: [
 					{
 						id: qdrantId,
 						vector: embeddingResult.embedding,
-						payload: payload,
+						payload,
 					},
 				],
 			});
@@ -239,6 +210,7 @@ class VectorService {
 
 			return {
 				id,
+				pointId: id,
 				qdrantId,
 				status: existingResult ? 'updated' : 'created',
 				embeddingInfo: embeddingResult,
@@ -251,7 +223,10 @@ class VectorService {
 	}
 
 	/**
-	 * Search content by query
+	 * @description Выполняет semantic search в Qdrant.
+	 * @param {string} query - Поисковый запрос.
+	 * @param {SearchOptions} [options={}] - Ограничения выборки и threshold.
+	 * @returns {Promise<SearchResult>} Отранжированные результаты.
 	 */
 	async searchContent(
 		query: string,
@@ -269,32 +244,25 @@ class VectorService {
 
 			console.log(`[VectorService] Searching: "${query}"`);
 
-			// Generate query embedding
 			const queryEmbedding =
 				await this.embeddingService.generateEmbedding(query);
-
-			// Build filters
 			const searchFilters = this.buildFilters(contentTypes, filters);
-
-			// Search in Qdrant
 			const searchResult = await this.client.search(
 				this.config.collectionName,
 				{
 					vector: queryEmbedding.embedding,
-					limit: limit,
+					limit,
 					filter: searchFilters,
 					score_threshold: scoreThreshold,
 					with_payload: true,
 				}
 			);
 
-			// Format results
 			const results = searchResult.map(point => ({
 				id: point.id.toString(),
 				score: point.score,
 				content: point.payload,
-				// Add snippet for preview
-				snippet: this.generateSnippet(
+				snippet: generateSnippet(
 					(point.payload as any).content as string,
 					query
 				),
@@ -313,14 +281,15 @@ class VectorService {
 	}
 
 	/**
-	 * Get content by any key
-	 * - key 'id' or 'qdrantId' will search by Qdrant point id via retrieve
-	 * - otherwise searches by payload field equality via scroll filter
+	 * @description Возвращает одну запись по point id/Qdrant id или payload-полю.
+	 * @param {string} key - Ключ поиска.
+	 * @param {string} value - Значение.
+	 * @returns {Promise<StoredContentRecord | null>} Одна запись или null.
 	 */
 	async getContentBy(
 		key: string,
 		value: string
-	): Promise<{ qdrantId: string; payload: any } | null> {
+	): Promise<StoredContentRecord | null> {
 		await this.initialize();
 
 		try {
@@ -368,13 +337,17 @@ class VectorService {
 	}
 
 	/**
-	 * Get multiple contents by payload key equality (or by Qdrant ID array when key is 'id'/'qdrantId').
+	 * @description Возвращает несколько записей по payload-ключу.
+	 * @param {string} key - Ключ поиска.
+	 * @param {string} value - Значение.
+	 * @param {number} [limit=2048] - Максимум результатов.
+	 * @returns {Promise<StoredContentRecord[]>} Список записей.
 	 */
 	async getContentsBy(
 		key: string,
 		value: string,
 		limit = 2048
-	): Promise<Array<{ qdrantId: string; payload: any }>> {
+	): Promise<StoredContentRecord[]> {
 		await this.initialize();
 		try {
 			if (key === 'id' || key === 'qdrantId') {
@@ -388,12 +361,14 @@ class VectorService {
 					payload: p.payload,
 				}));
 			}
+
 			const result = await this.client.scroll(this.config.collectionName, {
 				filter: { must: [{ key, match: { value } }] },
 				limit,
 				with_payload: true,
 				with_vector: false,
 			});
+
 			return result.points.map(pt => ({
 				qdrantId: pt.id.toString(),
 				payload: pt.payload,
@@ -408,29 +383,11 @@ class VectorService {
 	}
 
 	/**
-	 * Get content by ID (backwards compatibility - tries Qdrant ID first, then original ID)
-	 */
-	async getContent(id: string): Promise<any> {
-		await this.initialize();
-
-		try {
-			const byId = await this.getContentBy('id', id);
-			if (byId) return byId.payload;
-			const byOriginal = await this.getContentBy('originalId', id);
-			return byOriginal ? byOriginal.payload : null;
-		} catch (error) {
-			console.error(`[VectorService] Error getting content ${id}:`, error);
-			return null;
-		}
-	}
-
-	// Legacy deleteContent(id) removed in favor of deleteBy(key, value, opts)
-
-	/**
-	 * Delete many contents by payload key/value filter or by qdrantId.
-	 * Returns an approximate count of deleted points (pre-delete match count).
-	 * Value can be a string or array of strings (for batch operations).
-	 * Special case: if key is 'qdrantId', deletes by exact point IDs.
+	 * @description Удаляет записи по Qdrant id или filter-key.
+	 * @param {string} key - Ключ фильтра.
+	 * @param {string | string[]} value - Одно значение или пакет значений.
+	 * @param {{ preCountLimit?: number }} [options] - Опции best-effort pre-count.
+	 * @returns {Promise<{ deleted: number }>} Сколько записей удалено.
 	 */
 	async deleteBy(
 		key: string,
@@ -441,7 +398,6 @@ class VectorService {
 		try {
 			const preCountLimit = options?.preCountLimit ?? 5000;
 
-			// Special case: delete by exact qdrant point IDs
 			if (key === 'qdrantId') {
 				const ids = Array.isArray(value) ? value : [value];
 				console.log(
@@ -457,7 +413,6 @@ class VectorService {
 				return { deleted: ids.length };
 			}
 
-			// Regular filter-based deletion
 			const filter: any = {
 				must: [
 					Array.isArray(value)
@@ -472,7 +427,6 @@ class VectorService {
 				],
 			};
 
-			// Pre-count matches (best-effort)
 			let deleted = 0;
 			try {
 				const scroll = await this.client.scroll(this.config.collectionName, {
@@ -483,12 +437,10 @@ class VectorService {
 				});
 				deleted = scroll.points.length;
 			} catch {
-				// ignore count errors
+				// ignore best-effort count errors
 			}
 
 			console.log('[VectorService] Deleting:', deleted);
-
-			// Delete by filter
 			await this.client.delete(this.config.collectionName, {
 				filter,
 			} as any);
@@ -504,21 +456,14 @@ class VectorService {
 	}
 
 	/**
-	 * Get collection statistics
+	 * @description Возвращает статистику коллекции Qdrant в shape, совместимой с SQLite backend.
+	 * @returns {Promise<SemanticStats>} Сводка по backend-у.
 	 */
-	async getStats(): Promise<{
-		collection: string;
-		totalPoints: number;
-		vectorSize: number;
-		contentTypeBreakdown: Record<string, number>;
-		status: string;
-	}> {
+	async getStats(): Promise<SemanticStats> {
 		await this.initialize();
 
 		try {
 			const info = await this.client.getCollection(this.config.collectionName);
-
-			// Get content type breakdown
 			const scroll = await this.client.scroll(this.config.collectionName, {
 				limit: 1000,
 				with_payload: ['contentType'],
@@ -533,11 +478,13 @@ class VectorService {
 			});
 
 			return {
+				backend: 'qdrant',
 				collection: this.config.collectionName,
 				totalPoints: info.points_count || 0,
 				vectorSize: (info.config.params as any).vectors.size as number,
 				contentTypeBreakdown: contentTypes,
 				status: info.status,
+				qdrantUrl: this.config.qdrantUrl,
 			};
 		} catch (error) {
 			console.error('[VectorService] Error getting stats:', error);
@@ -546,7 +493,10 @@ class VectorService {
 	}
 
 	/**
-	 * Build search filters
+	 * @description Строит payload filters для Qdrant search API.
+	 * @param {string[]} contentTypes - Ограничение по типам.
+	 * @param {Record<string, any>} customFilters - Дополнительные поля payload.
+	 * @returns {any} Qdrant filter или undefined.
 	 */
 	buildFilters(
 		contentTypes: string[],
@@ -554,7 +504,6 @@ class VectorService {
 	): any {
 		const conditions = [];
 
-		// Content type filter
 		if (contentTypes && contentTypes.length > 0) {
 			conditions.push({
 				key: 'contentType',
@@ -564,17 +513,16 @@ class VectorService {
 			});
 		}
 
-		// Custom filters
 		Object.entries(customFilters).forEach(([key, value]) => {
 			if (Array.isArray(value)) {
 				conditions.push({
-					key: key,
+					key,
 					match: { any: value },
 				});
 			} else {
 				conditions.push({
-					key: key,
-					match: { value: value },
+					key,
+					match: { value },
 				});
 			}
 		});
@@ -583,55 +531,10 @@ class VectorService {
 	}
 
 	/**
-	 * Generate content snippet for search results
-	 */
-	generateSnippet(content: string, query: string, maxLength = 200): string {
-		if (!content || !query) return '';
-
-		const queryTerms = query
-			.toLowerCase()
-			.split(/\s+/)
-			.filter(term => term.length > 2);
-		const contentLower = content.toLowerCase();
-
-		// Find best position to start snippet
-		let bestPosition = 0;
-		let maxMatches = 0;
-
-		for (let i = 0; i < content.length - maxLength; i += 20) {
-			const segment = contentLower.substring(i, i + maxLength);
-			const matches = queryTerms.reduce((count, term) => {
-				return count + (segment.includes(term) ? 1 : 0);
-			}, 0);
-
-			if (matches > maxMatches) {
-				maxMatches = matches;
-				bestPosition = i;
-			}
-		}
-
-		let snippet = content.substring(bestPosition, bestPosition + maxLength);
-
-		// Clean up snippet boundaries
-		if (bestPosition > 0) {
-			const firstSpace = snippet.indexOf(' ');
-			if (firstSpace > 0 && firstSpace < 50) {
-				snippet = '...' + snippet.substring(firstSpace);
-			}
-		}
-
-		if (bestPosition + maxLength < content.length) {
-			const lastSpace = snippet.lastIndexOf(' ');
-			if (lastSpace > maxLength - 50) {
-				snippet = snippet.substring(0, lastSpace) + '...';
-			}
-		}
-
-		return snippet.trim();
-	}
-
-	/**
-	 * Batch vectorize multiple contents
+	 * @description Батч-обёртка над `vectorizeContent`.
+	 * @param {ContentData[]} contentList - Список записей.
+	 * @param {(progress: { current: number; total: number; result: VectorizeResult }) => void} [onProgress] - Коллбек прогресса.
+	 * @returns {Promise<VectorizeResult[]>} Результаты по каждому элементу.
 	 */
 	async batchVectorize(
 		contentList: ContentData[],
@@ -656,12 +559,12 @@ class VectorService {
 					});
 				}
 
-				// Small delay to avoid overwhelming the APIs
 				await new Promise(resolve => setTimeout(resolve, 200));
 			} catch (error) {
 				console.error(`[VectorService] Batch error for item ${i}:`, error);
 				results.push({
 					id: contentList[i].id,
+					pointId: contentList[i].id,
 					status: 'error',
 					error: error.message,
 				});
@@ -672,29 +575,30 @@ class VectorService {
 	}
 
 	/**
-	 * Health check
+	 * @description Health-check в унифицированной форме для route `/vector_health`.
+	 * @returns {Promise<SemanticHealthCheck>} Статус backend-а.
 	 */
-	async healthCheck(): Promise<{
-		status: 'healthy' | 'unhealthy';
-		qdrantUrl?: string;
-		collection?: string;
-		stats?: any;
-		error?: string;
-	}> {
+	async healthCheck(): Promise<SemanticHealthCheck> {
 		try {
 			await this.initialize();
 			const stats = await this.getStats();
 			return {
 				status: 'healthy',
+				backend: 'qdrant',
 				qdrantUrl: this.config.qdrantUrl,
 				collection: this.config.collectionName,
+				embeddingModel: this.embeddingService.getModelInfo().model,
+				embeddingBaseUrl: this.config.embeddingBaseUrl,
 				stats,
 			};
 		} catch (error) {
 			return {
 				status: 'unhealthy',
+				backend: 'qdrant',
 				error: error.message,
 				qdrantUrl: this.config.qdrantUrl,
+				embeddingModel: this.embeddingService.getModelInfo().model,
+				embeddingBaseUrl: this.config.embeddingBaseUrl,
 			};
 		}
 	}

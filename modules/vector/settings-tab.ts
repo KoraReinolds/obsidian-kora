@@ -19,7 +19,7 @@ export class VectorSettingTab extends PluginSettingTab {
 
 		containerEl.createEl('h2', { text: 'Vector Search Settings' });
 		containerEl.createEl('p', {
-			text: 'Configure vector search and AI embeddings for content indexing and semantic search.',
+			text: 'Configure semantic search storage and the OpenAI-compatible embeddings endpoint used for indexing.',
 			cls: 'setting-item-description',
 		});
 
@@ -44,40 +44,79 @@ export class VectorSettingTab extends PluginSettingTab {
 			return;
 		}
 
-		containerEl.createEl('h3', { text: 'Qdrant Vector Database' });
+		containerEl.createEl('h3', { text: 'Semantic Backend' });
 		new Setting(containerEl)
-			.setName('Qdrant URL')
-			.setDesc('URL of your Qdrant vector database instance')
-			.addText(text =>
-				text
-					.setPlaceholder('http://localhost:6333')
-					.setValue(this.plugin.settings.vectorSettings.qdrantUrl)
+			.setName('Backend')
+			.setDesc(
+				'Choose which semantic storage backend GramJS server should use.'
+			)
+			.addDropdown(dropdown =>
+				dropdown
+					.addOption('qdrant', 'Qdrant')
+					.addOption('sqlite', 'SQLite')
+					.setValue(this.plugin.settings.vectorSettings.semanticBackend)
 					.onChange(async value => {
-						this.plugin.settings.vectorSettings.qdrantUrl = value;
+						this.plugin.settings.vectorSettings.semanticBackend = value as
+							| 'qdrant'
+							| 'sqlite';
 						await this.plugin.saveSettings();
+						this.display();
 					})
 			);
 
-		new Setting(containerEl)
-			.setName('Collection name')
-			.setDesc('Name of the Qdrant collection to store vectors')
-			.addText(text =>
-				text
-					.setPlaceholder('kora_content')
-					.setValue(this.plugin.settings.vectorSettings.qdrantCollection)
-					.onChange(async value => {
-						this.plugin.settings.vectorSettings.qdrantCollection = value;
-						await this.plugin.saveSettings();
-					})
-			);
+		if (this.plugin.settings.vectorSettings.semanticBackend === 'sqlite') {
+			new Setting(containerEl)
+				.setName('SQLite database path')
+				.setDesc(
+					'Path to semantic index SQLite file on the GramJS server host.'
+				)
+				.addText(text =>
+					text
+						.setPlaceholder('data/semantic-index.sqlite')
+						.setValue(this.plugin.settings.vectorSettings.semanticDatabasePath)
+						.onChange(async value => {
+							this.plugin.settings.vectorSettings.semanticDatabasePath = value;
+							await this.plugin.saveSettings();
+						})
+				);
+		} else {
+			containerEl.createEl('h3', { text: 'Qdrant Vector Database' });
+			new Setting(containerEl)
+				.setName('Qdrant URL')
+				.setDesc('URL of your Qdrant vector database instance')
+				.addText(text =>
+					text
+						.setPlaceholder('http://localhost:6333')
+						.setValue(this.plugin.settings.vectorSettings.qdrantUrl)
+						.onChange(async value => {
+							this.plugin.settings.vectorSettings.qdrantUrl = value;
+							await this.plugin.saveSettings();
+						})
+				);
 
-		containerEl.createEl('h3', { text: 'OpenAI Embeddings' });
+			new Setting(containerEl)
+				.setName('Collection name')
+				.setDesc('Name of the Qdrant collection to store vectors')
+				.addText(text =>
+					text
+						.setPlaceholder('kora_content')
+						.setValue(this.plugin.settings.vectorSettings.qdrantCollection)
+						.onChange(async value => {
+							this.plugin.settings.vectorSettings.qdrantCollection = value;
+							await this.plugin.saveSettings();
+						})
+				);
+		}
+
+		containerEl.createEl('h3', { text: 'Embeddings Provider' });
 		new Setting(containerEl)
-			.setName('OpenAI API Key')
-			.setDesc('Your OpenAI API key for generating embeddings')
+			.setName('OpenRouter API Key')
+			.setDesc(
+				'API key for the OpenAI-compatible embeddings endpoint. OpenRouter keys usually start with sk-or-v1-.'
+			)
 			.addText(text =>
 				text
-					.setPlaceholder('sk-...')
+					.setPlaceholder('sk-or-v1-...')
 					.setValue(this.plugin.settings.vectorSettings.openaiApiKey)
 					.onChange(async value => {
 						this.plugin.settings.vectorSettings.openaiApiKey = value;
@@ -86,26 +125,43 @@ export class VectorSettingTab extends PluginSettingTab {
 			);
 
 		const apiKeyInput = containerEl.querySelector(
-			'input[placeholder="sk-..."]'
+			'input[placeholder="sk-or-v1-..."]'
 		) as HTMLInputElement;
 		if (apiKeyInput) apiKeyInput.type = 'password';
 
 		new Setting(containerEl)
+			.setName('Embeddings endpoint')
+			.setDesc(
+				'Base URL for an OpenAI-compatible embeddings API. Default points to OpenRouter.'
+			)
+			.addText(text =>
+				text
+					.setPlaceholder('https://openrouter.ai/api/v1')
+					.setValue(this.plugin.settings.vectorSettings.embeddingBaseUrl)
+					.onChange(async value => {
+						this.plugin.settings.vectorSettings.embeddingBaseUrl = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
 			.setName('Embedding model')
-			.setDesc('OpenAI model to use for generating embeddings')
+			.setDesc(
+				'Model id for the configured embeddings endpoint. Plain OpenAI ids are auto-prefixed for OpenRouter.'
+			)
 			.addDropdown(dropdown =>
 				dropdown
 					.addOption(
 						'text-embedding-3-small',
-						'text-embedding-3-small (1536 dims, cheaper)'
+						'text-embedding-3-small -> openai/text-embedding-3-small (1536 dims)'
 					)
 					.addOption(
 						'text-embedding-3-large',
-						'text-embedding-3-large (3072 dims, better quality)'
+						'text-embedding-3-large -> openai/text-embedding-3-large (3072 dims)'
 					)
 					.addOption(
 						'text-embedding-ada-002',
-						'text-embedding-ada-002 (1536 dims, legacy)'
+						'text-embedding-ada-002 -> openai/text-embedding-ada-002 (legacy)'
 					)
 					.setValue(this.plugin.settings.vectorSettings.embeddingModel)
 					.onChange(async value => {
@@ -132,7 +188,7 @@ export class VectorSettingTab extends PluginSettingTab {
 		const testContainer = containerEl.createDiv('vector-test-container');
 		new Setting(testContainer)
 			.setName('Test vector services')
-			.setDesc('Test connection to Qdrant and OpenAI services')
+			.setDesc('Test the currently selected semantic backend and embeddings')
 			.addButton(button =>
 				button
 					.setButtonText('Test Connection')
@@ -150,7 +206,11 @@ export class VectorSettingTab extends PluginSettingTab {
 		envHelp.createEl('ul').innerHTML = `
 		  <li><code>QDRANT_URL</code> - Qdrant database URL</li>
 		  <li><code>QDRANT_COLLECTION</code> - Collection name</li>
-		  <li><code>OPENAI_API_KEY</code> - OpenAI API key</li>
+		  <li><code>SEMANTIC_BACKEND</code> - qdrant or sqlite</li>
+		  <li><code>SEMANTIC_DB_PATH</code> - SQLite path for semantic backend</li>
+		  <li><code>OPENROUTER_API_KEY</code> or <code>OPENAI_API_KEY</code> - embeddings API key</li>
+		  <li><code>OPENROUTER_BASE_URL</code> or <code>OPENAI_BASE_URL</code> - embeddings endpoint base URL</li>
+		  <li><code>EMBEDDING_MODEL</code> - embeddings model id</li>
 		`;
 	}
 
@@ -166,10 +226,16 @@ export class VectorSettingTab extends PluginSettingTab {
 				buttonEl.setAttribute('style', 'background-color:#4ade80;');
 				const infoEl = buttonEl.parentElement?.createDiv('vector-test-result');
 				if (infoEl) {
+					const endpointInfo = healthData.databasePath
+						? `<strong>SQLite DB:</strong> ${healthData.databasePath}<br>`
+						: `<strong>Qdrant URL:</strong> ${healthData.qdrantUrl}<br>`;
 					infoEl.innerHTML = `
 					  <div style="margin-top: 8px; padding: 8px; background: #f0f9ff; border-radius: 4px;">
 					    <strong>Vector Service Status:</strong> ${healthData.status}<br>
-					    <strong>Qdrant URL:</strong> ${healthData.qdrantUrl}<br>
+					    <strong>Backend:</strong> ${healthData.backend || 'qdrant'}<br>
+					    ${endpointInfo}
+					    <strong>Embeddings Endpoint:</strong> ${healthData.embeddingBaseUrl || 'n/a'}<br>
+					    <strong>Embeddings Model:</strong> ${healthData.embeddingModel || 'n/a'}<br>
 					    <strong>Collection:</strong> ${healthData.collection}<br>
 					    <strong>Total Points:</strong> ${healthData.stats?.totalPoints || 0}
 					  </div>
@@ -186,7 +252,7 @@ export class VectorSettingTab extends PluginSettingTab {
 				errorEl.innerHTML = `
 				  <div style="margin-top: 8px; padding: 8px; background: #fef2f2; border-radius: 4px; color: #dc2626;">
 				    <strong>Error:</strong> ${(error as Error).message}<br>
-				    <small>Make sure Qdrant is running on port 6333 and GramJS server is running with vector services enabled.</small>
+				    <small>Make sure GramJS server is running and the selected semantic backend is configured correctly.</small>
 				  </div>
 				`;
 			}

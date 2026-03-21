@@ -164,7 +164,7 @@ export class ObsidianChunkTransportAdapter implements ChunkTransportPort {
 			cache as any
 		);
 
-		const { baselineByChunkId, statusByChunkId, qdrantIdByChunkId } =
+		const { baselineByChunkId, statusByChunkId, storedPointIdByChunkId } =
 			await loadBaselineForChunksByOriginalId(
 				this.vectorBridge,
 				context.originalId,
@@ -172,7 +172,7 @@ export class ObsidianChunkTransportAdapter implements ChunkTransportPort {
 			);
 
 		const chunksToVectorize: Array<Record<string, unknown>> = [];
-		const qdrantIdsToDelete: string[] = [];
+		const pointIdsToDelete: string[] = [];
 
 		for (const chunk of chunks) {
 			const status = statusByChunkId.get(chunk.chunkId);
@@ -189,9 +189,9 @@ export class ObsidianChunkTransportAdapter implements ChunkTransportPort {
 
 		for (const [chunkId] of Array.from(baselineByChunkId.entries())) {
 			if (statusByChunkId.get(chunkId) === 'deleted') {
-				const qdrantId = qdrantIdByChunkId.get(chunkId);
-				if (qdrantId) {
-					qdrantIdsToDelete.push(qdrantId);
+				const storedPointId = storedPointIdByChunkId.get(chunkId);
+				if (storedPointId) {
+					pointIdsToDelete.push(storedPointId);
 				}
 			}
 		}
@@ -201,8 +201,8 @@ export class ObsidianChunkTransportAdapter implements ChunkTransportPort {
 				? this.vectorBridge.batchVectorize(chunksToVectorize as any)
 				: Promise.resolve();
 		const deletePromise =
-			qdrantIdsToDelete.length > 0
-				? this.vectorBridge.batchDelete(qdrantIdsToDelete)
+			pointIdsToDelete.length > 0
+				? this.vectorBridge.batchDelete(pointIdsToDelete)
 				: Promise.resolve();
 
 		await Promise.all([vectorizePromise, deletePromise]);

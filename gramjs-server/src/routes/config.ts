@@ -12,6 +12,7 @@ import {
 import StrategyFactory from '../strategies/StrategyFactory.js';
 import { disconnectStrategy } from '../services/strategy-service.js';
 import { resetArchiveServices } from '../services/archive-service-singleton.js';
+import { resetVectorServices } from '../services/vector-service-singleton.js';
 
 export function registerConfigRoutes(app: Express): void {
 	app.post('/config', async (req: Request, res: Response) => {
@@ -19,6 +20,8 @@ export function registerConfigRoutes(app: Express): void {
 			const previousConfig = getConfig();
 			const prevMode = previousConfig.mode;
 			const prevArchiveDatabasePath = previousConfig.archiveDatabasePath;
+			const prevSemanticBackend = previousConfig.semanticBackend;
+			const prevSemanticDatabasePath = previousConfig.semanticDatabasePath;
 			const {
 				mode,
 				botToken,
@@ -26,6 +29,11 @@ export function registerConfigRoutes(app: Express): void {
 				apiHash,
 				stringSession,
 				archiveDatabasePath,
+				semanticBackend,
+				semanticDatabasePath,
+				openaiApiKey,
+				embeddingModel,
+				embeddingBaseUrl,
 			} = req.body || {};
 
 			const parsed = updateConfig({
@@ -36,6 +44,11 @@ export function registerConfigRoutes(app: Express): void {
 				apiHash,
 				stringSession,
 				archiveDatabasePath,
+				semanticBackend: semanticBackend ?? previousConfig.semanticBackend,
+				semanticDatabasePath,
+				openaiApiKey,
+				embeddingModel,
+				embeddingBaseUrl,
 			});
 
 			if (prevMode !== parsed.mode) {
@@ -44,6 +57,16 @@ export function registerConfigRoutes(app: Express): void {
 
 			if (prevArchiveDatabasePath !== parsed.archiveDatabasePath) {
 				resetArchiveServices();
+			}
+
+			if (
+				prevSemanticBackend !== parsed.semanticBackend ||
+				prevSemanticDatabasePath !== parsed.semanticDatabasePath ||
+				previousConfig.openaiApiKey !== parsed.openaiApiKey ||
+				previousConfig.embeddingModel !== parsed.embeddingModel ||
+				previousConfig.embeddingBaseUrl !== parsed.embeddingBaseUrl
+			) {
+				resetVectorServices();
 			}
 
 			const validation = getConfigValidation(parsed.mode);
@@ -58,6 +81,10 @@ export function registerConfigRoutes(app: Express): void {
 					hasBotToken: !!parsed.botToken,
 					hasStringSession: !!parsed.stringSession,
 					archiveDatabasePath: parsed.archiveDatabasePath || null,
+					semanticBackend: parsed.semanticBackend,
+					semanticDatabasePath: parsed.semanticDatabasePath || null,
+					embeddingModel: parsed.embeddingModel || null,
+					embeddingBaseUrl: parsed.embeddingBaseUrl || null,
 				},
 				validation,
 				strategyInfo: StrategyFactory.getStrategyInfo(parsed.mode),

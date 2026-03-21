@@ -6,14 +6,10 @@
  * Supports both bot and userbot modes via command line arguments.
  */
 
-// Load environment variables ASAP
-import { config as configDotenv } from 'dotenv';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+// Load environment variables ASAP from the package root, not from dist/
+import { loadGramJsEnv } from './services/env-loader.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-configDotenv({ path: join(__dirname, '..', '.env') });
+loadGramJsEnv();
 
 // Parse command line arguments
 const args = process.argv.slice(2);

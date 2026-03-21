@@ -61,7 +61,7 @@ export async function loadBaselineForChunksByOriginalId(
 ): Promise<{
 	baselineByChunkId: Map<string, string>;
 	statusByChunkId: Map<string, 'new' | 'deleted' | 'modified' | 'unchanged'>;
-	qdrantIdByChunkId: Map<string, string>;
+	storedPointIdByChunkId: Map<string, string>;
 }> {
 	const res = await vectorBridge.getContentBy({
 		by: 'originalId',
@@ -71,7 +71,7 @@ export async function loadBaselineForChunksByOriginalId(
 	});
 	const points = Array.isArray(res) ? res : [];
 	const baselineByChunkId = new Map<string, string>();
-	const qdrantIdByChunkId = new Map<string, string>();
+	const storedPointIdByChunkId = new Map<string, string>();
 
 	for (const p of points) {
 		const payload = p.payload || {};
@@ -80,7 +80,7 @@ export async function loadBaselineForChunksByOriginalId(
 		const content = payload.content || payload.text || '';
 		if (chunkId) {
 			baselineByChunkId.set(String(chunkId), String(content));
-			qdrantIdByChunkId.set(String(chunkId), p.qdrantId);
+			storedPointIdByChunkId.set(String(chunkId), p.qdrantId);
 		}
 	}
 
@@ -100,7 +100,7 @@ export async function loadBaselineForChunksByOriginalId(
 	for (const [chunkId] of Array.from(baselineByChunkId.entries())) {
 		if (!currentIds.has(chunkId)) statusByChunkId.set(chunkId, 'deleted');
 	}
-	return { baselineByChunkId, statusByChunkId, qdrantIdByChunkId };
+	return { baselineByChunkId, statusByChunkId, storedPointIdByChunkId };
 }
 
 /**

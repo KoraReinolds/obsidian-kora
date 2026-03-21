@@ -11,6 +11,7 @@ import { createHash } from 'crypto';
 export interface EmbeddingConfig {
 	apiKey?: string;
 	model?: string;
+	baseUrl?: string;
 	dimensions?: number;
 	maxTokens?: number;
 	[key: string]: any;
@@ -34,19 +35,30 @@ class EmbeddingService {
 
 	constructor(config: EmbeddingConfig = {}) {
 		this.config = {
-			apiKey: config.apiKey || process.env.OPENAI_API_KEY || '',
+			apiKey:
+				config.apiKey ||
+				process.env.OPENROUTER_API_KEY ||
+				process.env.OPENAI_API_KEY ||
+				'',
 			model: config.model || 'text-embedding-3-small',
+			baseUrl:
+				config.baseUrl ||
+				process.env.OPENROUTER_BASE_URL ||
+				process.env.OPENAI_BASE_URL ||
+				'https://openrouter.ai/api/v1',
 			dimensions: config.dimensions || 1536, // Default for text-embedding-3-small
 			maxTokens: config.maxTokens || 8000, // Safe limit for chunking
 			...config,
 		};
 
 		if (!this.config.apiKey) {
-			throw new Error('OpenAI API key is required');
+			throw new Error('Embedding API key is required');
 		}
 
 		this.openai = new OpenAI({
 			apiKey: this.config.apiKey,
+			baseURL: this.config.baseUrl,
+			defaultHeaders: this.buildDefaultHeaders(),
 		});
 	}
 
@@ -83,7 +95,7 @@ class EmbeddingService {
 	 */
 	async getSingleEmbedding(text: string): Promise<EmbeddingResult> {
 		const response = await this.openai.embeddings.create({
-			model: this.config.model,
+			model: this.resolveModelName(),
 			input: text,
 			dimensions: this.config.dimensions,
 		});
@@ -112,7 +124,7 @@ class EmbeddingService {
 		// Process chunks sequentially to avoid rate limits
 		for (const chunk of chunks) {
 			const response = await this.openai.embeddings.create({
-				model: this.config.model,
+				model: this.resolveModelName(),
 				input: chunk,
 				dimensions: this.config.dimensions,
 			});
@@ -250,9 +262,38 @@ class EmbeddingService {
 	 */
 	getModelInfo(): { model: string; dimensions: number; maxTokens: number } {
 		return {
-			model: this.config.model,
+			model: this.resolveModelName(),
 			dimensions: this.config.dimensions,
 			maxTokens: this.config.maxTokens,
+		};
+	}
+
+	/**
+	 * @description Приводит model id к OpenRouter-совместимому виду.
+	 * @returns {string} Итоговый model id.
+	 */
+	private resolveModelName(): string {
+		const model = this.config.model;
+		const isOpenRouter = this.config.baseUrl.includes('openrouter.ai');
+		if (!isOpenRouter || model.includes('/')) {
+			return model;
+		}
+
+		return `openai/${model}`;
+	}
+
+	/**
+	 * @description Добавляет безопасные дефолтные заголовки для OpenRouter.
+	 * @returns {Record<string, string>} Заголовки клиента.
+	 */
+	private buildDefaultHeaders(): Record<string, string> {
+		if (!this.config.baseUrl.includes('openrouter.ai')) {
+			return {};
+		}
+
+		return {
+			'HTTP-Referer': 'https://obsidian.md',
+			'X-Title': 'obsidian-kora',
 		};
 	}
 }
