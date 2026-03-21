@@ -1,12 +1,14 @@
 /**
  * @module semantic-inspector/model/use-semantic-inspector-screen
  *
- * @description Feature model for the semantic inspector debug screen.
- * It coordinates backend status, current-note lookup, list filtering, and
- * note-scoped debug actions without depending on Obsidian view lifecycle code.
+ * @description Feature model for the semantic inspector: backend health, index
+ * records, local chunk baseline/diff, union list rows, cursor-bound selection,
+ * incremental delta sync, and note-scoped reindex/delete.
  */
 
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import type { ChunkFileContext } from '../../chunking/ports/chunk-transport-port';
+import { findChunkIndexForLine } from '../../chunking/ui/chunk-cursor';
 import {
 	useFilterQuery,
 	useScreenMessage,
@@ -17,6 +19,7 @@ import type {
 	SemanticInspectorNoteContext,
 	SemanticInspectorRecord,
 	SemanticInspectorTransportPort,
+	SemanticInspectorUnifiedRow,
 } from '../ports/semantic-inspector-transport-port';
 
 export interface SemanticInspectorScreenModelOptions {
@@ -38,11 +41,51 @@ const EMPTY_STATUS: SemanticInspectorBackendStatus = {
 };
 
 /**
+ * @description Merges index records and local chunk display items into one row per chunkId.
+ * @param {SemanticInspectorNoteContext | null} note - Note-scoped index records.
+ * @param {ChunkFileContext | null} chunkCtx - Local parse + baseline status.
+ * @returns {SemanticInspectorUnifiedRow[]} Sorted union rows for the list pane.
+ */
+function buildUnifiedRows(
+	note: SemanticInspectorNoteContext | null,
+	chunkCtx: ChunkFileContext | null
+): SemanticInspectorUnifiedRow[] {
+	const byChunk = new Map<string, SemanticInspectorUnifiedRow>();
+	const recordByChunkId = new Map<string, SemanticInspectorRecord>();
+
+	for (const r of note?.records ?? []) {
+		if (!recordByChunkId.has(r.chunkId)) {
+			recordByChunkId.set(r.chunkId, r);
+		}
+	}
+
+	for (const item of chunkCtx?.displayItems ?? []) {
+		const idx = recordByChunkId.get(item.chunkId);
+		byChunk.set(item.chunkId, {
+			chunkId: item.chunkId,
+			localItem: item,
+			indexRecord: idx ?? null,
+		});
+		recordByChunkId.delete(item.chunkId);
+	}
+
+	for (const [chunkId, rec] of recordByChunkId) {
+		byChunk.set(chunkId, {
+			chunkId,
+			localItem: null,
+			indexRecord: rec,
+		});
+	}
+
+	return Array.from(byChunk.values()).sort((a, b) =>
+		a.chunkId.localeCompare(b.chunkId)
+	);
+}
+
+/**
  * @anchor <semantic_inspector_screen_model>
  *
  * @description Builds reactive state/actions for the semantic inspector screen.
- * The model keeps runtime/backend concerns in the transport and exposes only
- * view-ready state for the list-detail Vue screen.
  *
  * @param {SemanticInspectorScreenModelOptions} options - Feature dependencies.
  * @returns {object} Reactive state and actions for the inspector UI.
@@ -52,41 +95,56 @@ export function useSemanticInspectorScreen(
 ) {
 	const backendStatus = ref<SemanticInspectorBackendStatus>(EMPTY_STATUS);
 	const noteContext = ref<SemanticInspectorNoteContext | null>(null);
+	const chunkContext = ref<ChunkFileContext | null>(null);
 	const isRefreshing = ref(false);
 	const isRunningReindex = ref(false);
 	const isRunningDelete = ref(false);
+	const isSyncingDeltas = ref(false);
 	const lastSignature = ref('');
 	const pollIntervalMs = Math.max(250, options.pollIntervalMs ?? 600);
 	let timer: number | null = null;
 
 	const screen = useScreenMessage();
+
 	const records = computed<SemanticInspectorRecord[]>(
 		() => noteContext.value?.records ?? []
 	);
-	const { query, filtered } = useFilterQuery(records, record =>
-		[
-			record.title,
-			record.chunkId,
-			record.pointId,
-			record.originalId,
-			record.contentType,
-			record.preview,
-		].join(' ')
+
+	const unifiedRows = computed(() =>
+		buildUnifiedRows(noteContext.value, chunkContext.value)
 	);
+
+	const { query, filtered } = useFilterQuery(unifiedRows, row => {
+		const local = row.localItem;
+		const idx = row.indexRecord;
+		return [
+			row.chunkId,
+			local?.content ?? '',
+			local?.status ?? '',
+			local?.chunk?.chunkType ?? '',
+			(local?.chunk?.headingsPath ?? []).join(' '),
+			idx?.preview ?? '',
+			idx?.title ?? '',
+			idx?.pointId ?? '',
+			idx?.contentType ?? '',
+		].join(' ');
+	});
+
 	const selection = useSelection<string>(null);
 
-	const selectedRecord = computed<SemanticInspectorRecord | null>(
+	const selectedUnifiedRow = computed<SemanticInspectorUnifiedRow | null>(
 		() =>
-			filtered.value.find(
-				record => record.pointId === selection.selected.value
-			) ?? null
+			filtered.value.find(row => row.chunkId === selection.selected.value) ??
+			null
 	);
 
 	const noteSummaryText = computed(() => {
-		if (!noteContext.value) {
+		if (!noteContext.value && !chunkContext.value) {
 			return 'Нет активной markdown-заметки';
 		}
-		return `${noteContext.value.fileName} · ${records.value.length} records`;
+		const name =
+			noteContext.value?.fileName ?? chunkContext.value?.fileName ?? '';
+		return `${name} · index: ${records.value.length} · local rows: ${chunkContext.value?.displayItems.length ?? 0}`;
 	});
 
 	const breakdownChips = computed(() =>
@@ -95,19 +153,30 @@ export function useSemanticInspectorScreen(
 		)
 	);
 
-	const hasActiveNote = computed(() => Boolean(noteContext.value));
-	const hasRecords = computed(() => records.value.length > 0);
+	const hasActiveNote = computed(() =>
+		Boolean(noteContext.value || chunkContext.value)
+	);
+
+	const hasUnifiedRows = computed(() => unifiedRows.value.length > 0);
+
+	const changedChunkCount = computed(
+		() =>
+			chunkContext.value?.displayItems.filter(i => i.status !== 'unchanged')
+				.length ?? 0
+	);
+
 	const isBusy = computed(
-		() => isRefreshing.value || isRunningReindex.value || isRunningDelete.value
+		() =>
+			isRefreshing.value ||
+			isRunningReindex.value ||
+			isRunningDelete.value ||
+			isSyncingDeltas.value
 	);
 
 	/**
-	 * @description Builds a lightweight signature for note-scoped inspector data.
-	 * This lets the background poll update the screen only when the active note
-	 * or its stored semantic records actually changed.
-	 *
-	 * @param {SemanticInspectorNoteContext | null} context - Current note-scoped inspector state.
-	 * @returns {string} Stable signature used for cheap change detection.
+	 * @description Signature for index records only.
+	 * @param {SemanticInspectorNoteContext | null} context - Note context.
+	 * @returns {string}
 	 */
 	const buildNoteSignature = (
 		context: SemanticInspectorNoteContext | null
@@ -115,18 +184,43 @@ export function useSemanticInspectorScreen(
 		if (!context) {
 			return '';
 		}
-
 		const recordSignature = context.records
 			.map(
 				record => `${record.pointId}:${record.chunkId}:${record.content.length}`
 			)
 			.join('|');
-
 		return `${context.filePath}:${context.originalId}:${context.records.length}:${recordSignature}`;
 	};
 
 	/**
-	 * @description Ensures the selection stays valid when records/filtering change.
+	 * @description Signature for local chunk context.
+	 * @param {ChunkFileContext | null} ctx - Chunk file context.
+	 * @returns {string}
+	 */
+	const buildChunkSignature = (ctx: ChunkFileContext | null): string => {
+		if (!ctx) {
+			return '';
+		}
+		return `${ctx.filePath}:${ctx.chunks.length}:${ctx.displayItems
+			.map(i => `${i.chunkId}:${i.status}`)
+			.join(',')}`;
+	};
+
+	/**
+	 * @description Combined signature for poll cheap compare.
+	 * @param {SemanticInspectorNoteContext | null} note - Index note context.
+	 * @param {ChunkFileContext | null} chunk - Local chunk context.
+	 * @returns {string}
+	 */
+	const buildFullSignature = (
+		note: SemanticInspectorNoteContext | null,
+		chunk: ChunkFileContext | null
+	): string => {
+		return `${buildNoteSignature(note)}||${buildChunkSignature(chunk)}`;
+	};
+
+	/**
+	 * @description Keeps row selection valid when filtering changes.
 	 * @returns {void}
 	 */
 	const syncSelection = (): void => {
@@ -134,31 +228,43 @@ export function useSemanticInspectorScreen(
 			selection.select(null);
 			return;
 		}
-
 		if (
 			selection.selected.value &&
-			filtered.value.some(record => record.pointId === selection.selected.value)
+			filtered.value.some(row => row.chunkId === selection.selected.value)
 		) {
 			return;
 		}
-
-		selection.select(filtered.value[0].pointId);
+		selection.select(filtered.value[0].chunkId);
 	};
 
 	/**
-	 * @description Loads both runtime status and current-note records.
-	 * Errors are surfaced through the shared status banner, while partial success
-	 * still updates whichever data source completed successfully.
+	 * @description Maps editor cursor line to a chunk row when possible.
+	 * @param {ChunkFileContext} ctx - Current chunk context.
+	 * @returns {void}
+	 */
+	const syncSelectionByCursor = (ctx: ChunkFileContext): void => {
+		const line = options.transport.getActiveCursorLine();
+		const index = findChunkIndexForLine(ctx.chunks as any, line);
+		if (index >= 0) {
+			selection.select(ctx.chunks[index].chunkId);
+		}
+	};
+
+	/**
+	 * @description Loads backend status, index records, and local chunk context.
 	 * @returns {Promise<void>}
 	 */
 	const refresh = async (): Promise<void> => {
 		isRefreshing.value = true;
 		screen.clearMessage();
 		try {
-			const [backendResult, noteResult] = await Promise.allSettled([
-				options.transport.getBackendStatus(),
-				options.transport.readCurrentNoteContext(),
-			]);
+			const [backendResult, noteResult, chunkResult] = await Promise.allSettled(
+				[
+					options.transport.getBackendStatus(),
+					options.transport.readCurrentNoteContext(),
+					options.transport.readLocalChunkContext(),
+				]
+			);
 
 			if (backendResult.status === 'fulfilled') {
 				backendStatus.value = backendResult.value;
@@ -172,29 +278,35 @@ export function useSemanticInspectorScreen(
 
 			if (noteResult.status === 'fulfilled') {
 				noteContext.value = noteResult.value;
-				lastSignature.value = buildNoteSignature(noteResult.value);
 			} else {
 				noteContext.value = null;
-				lastSignature.value = '';
 			}
 
-			if (
-				backendResult.status === 'rejected' ||
-				noteResult.status === 'rejected'
-			) {
-				const backendError =
-					backendResult.status === 'rejected'
-						? (backendResult.reason as Error)?.message
-						: null;
-				const noteError =
-					noteResult.status === 'rejected'
-						? (noteResult.reason as Error)?.message
-						: null;
+			if (chunkResult.status === 'fulfilled') {
+				chunkContext.value = chunkResult.value;
+			} else {
+				chunkContext.value = null;
+			}
 
+			lastSignature.value = buildFullSignature(
+				noteContext.value,
+				chunkContext.value
+			);
+
+			if (chunkContext.value) {
+				syncSelectionByCursor(chunkContext.value);
+			}
+
+			const failures = [backendResult, noteResult, chunkResult].filter(
+				r => r.status === 'rejected'
+			) as PromiseRejectedResult[];
+			if (failures.length > 0) {
 				screen.setMessage(
 					'error',
-					[backendError, noteError].filter(Boolean).join(' | ') ||
-						'Не удалось обновить semantic inspector.'
+					failures
+						.map(f => (f.reason as Error)?.message)
+						.filter(Boolean)
+						.join(' | ') || 'Не удалось обновить semantic inspector.'
 				);
 			}
 		} finally {
@@ -204,16 +316,16 @@ export function useSemanticInspectorScreen(
 	};
 
 	/**
-	 * @description Selects a record by backend point id.
-	 * @param {string} pointId - Record identifier from the current filtered list.
+	 * @description Selects a union row by chunkId.
+	 * @param {string} chunkId - Chunk id from the filtered list.
 	 * @returns {void}
 	 */
-	const selectRecord = (pointId: string): void => {
-		selection.select(pointId);
+	const selectRow = (chunkId: string): void => {
+		selection.select(chunkId);
 	};
 
 	/**
-	 * @description Reindexes the current note and refreshes the inspector state.
+	 * @description Reindexes the current note and refreshes inspector state.
 	 * @returns {Promise<void>}
 	 */
 	const reindexCurrentNote = async (): Promise<void> => {
@@ -234,7 +346,7 @@ export function useSemanticInspectorScreen(
 	};
 
 	/**
-	 * @description Deletes all indexed records for the current note and reloads state.
+	 * @description Deletes indexed records for the current note.
 	 * @returns {Promise<void>}
 	 */
 	const deleteCurrentNoteRecords = async (): Promise<void> => {
@@ -255,24 +367,48 @@ export function useSemanticInspectorScreen(
 	};
 
 	/**
-	 * @description Background poll of the current note context, mirroring the
-	 * `chunks` screen pattern. Runtime health stays on manual refresh, while the
-	 * note-scoped records update automatically when the active note changes.
-	 *
+	 * @description Pushes incremental chunk deltas to the vector backend.
+	 * @returns {Promise<void>}
+	 */
+	const syncChunkDeltas = async (): Promise<void> => {
+		if (!chunkContext.value || isSyncingDeltas.value) return;
+		isSyncingDeltas.value = true;
+		try {
+			await options.transport.syncChunkDeltas(chunkContext.value);
+			screen.setMessage('success', 'Синхронизация дельт завершена.');
+			await refresh();
+		} catch (error) {
+			screen.setMessage(
+				'error',
+				`Ошибка синхронизации дельт: ${(error as Error).message}`
+			);
+		} finally {
+			isSyncingDeltas.value = false;
+		}
+	};
+
+	/**
+	 * @description Polls note index + local chunk context; cursor follows active chunk.
 	 * @returns {void}
 	 */
 	const startPolling = (): void => {
 		if (timer) {
 			window.clearInterval(timer);
 		}
-
 		timer = window.setInterval(async () => {
-			const nextContext = await options.transport.readCurrentNoteContext();
-			const nextSignature = buildNoteSignature(nextContext);
-
-			if (nextSignature !== lastSignature.value) {
-				noteContext.value = nextContext;
-				lastSignature.value = nextSignature;
+			const [note, chunk] = await Promise.all([
+				options.transport.readCurrentNoteContext(),
+				options.transport.readLocalChunkContext(),
+			]);
+			const nextSig = buildFullSignature(note, chunk);
+			if (nextSig !== lastSignature.value) {
+				noteContext.value = note;
+				chunkContext.value = chunk;
+				lastSignature.value = nextSig;
+				syncSelection();
+			}
+			if (chunk) {
+				syncSelectionByCursor(chunk);
 			}
 		}, pollIntervalMs);
 	};
@@ -296,23 +432,28 @@ export function useSemanticInspectorScreen(
 	return {
 		backendStatus,
 		noteContext,
+		chunkContext,
 		noteSummaryText,
 		records,
+		unifiedRows,
 		filterQuery: query,
-		filteredRecords: filtered,
+		filteredUnifiedRows: filtered,
 		breakdownChips,
-		selectedRecordId: selection.selected,
-		selectedRecord,
+		selectedChunkId: selection.selected,
+		selectedUnifiedRow,
 		hasActiveNote,
-		hasRecords,
+		hasUnifiedRows,
+		changedChunkCount,
 		isRefreshing,
 		isRunningReindex,
 		isRunningDelete,
+		isSyncingDeltas,
 		isBusy,
 		message: screen.message,
 		clearMessage: screen.clearMessage,
 		refresh,
-		selectRecord,
+		selectRow,
+		syncChunkDeltas,
 		reindexCurrentNote,
 		deleteCurrentNoteRecords,
 	};

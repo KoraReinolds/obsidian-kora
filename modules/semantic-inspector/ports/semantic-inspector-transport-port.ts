@@ -6,6 +6,11 @@
  * Obsidian APIs or the runtime vector backend directly.
  */
 
+import type {
+	ChunkDisplayItem,
+	ChunkFileContext,
+} from '../../chunking/ports/chunk-transport-port';
+
 /**
  * @typedef {Object} SemanticInspectorBackendStatus
  * @property {'healthy' | 'unhealthy' | 'unavailable' | 'error'} status - Current backend health status reported by the runtime service.
@@ -79,6 +84,21 @@ export interface SemanticInspectorNoteContext {
 }
 
 /**
+ * @typedef {Object} SemanticInspectorUnifiedRow
+ * @property {string} chunkId - Stable chunk identifier shared between local parse and index.
+ * @property {ChunkDisplayItem | null} localItem - Local chunk row from {@link ChunkFileContext.displayItems}; `null` when the chunk exists only in the index.
+ * @property {SemanticInspectorRecord | null} indexRecord - Stored semantic record for this chunk; `null` when not yet indexed (for example `new` local chunks).
+ *
+ * @description One list row in the merged inspector: local baseline/diff on the left,
+ * backend snapshot on the right.
+ */
+export interface SemanticInspectorUnifiedRow {
+	chunkId: string;
+	localItem: ChunkDisplayItem | null;
+	indexRecord: SemanticInspectorRecord | null;
+}
+
+/**
  * @typedef {Object} SemanticInspectorActionResult
  * @property {number} affectedCount - Number of records created/updated/deleted when it can be determined.
  * @property {string} message - Human-readable summary for status banners.
@@ -130,4 +150,26 @@ export interface SemanticInspectorTransportPort {
 	 * @returns {Promise<SemanticInspectorActionResult>} Human-readable action summary and affected count.
 	 */
 	deleteCurrentNoteRecords(): Promise<SemanticInspectorActionResult>;
+
+	/**
+	 * @async
+	 * @description Parses the active markdown note into local chunks and compares them
+	 * to the vector baseline (same pipeline as the former Kora Chunks view).
+	 * @returns {Promise<ChunkFileContext | null>} Chunk file context or `null` when no markdown note applies.
+	 */
+	readLocalChunkContext(): Promise<ChunkFileContext | null>;
+
+	/**
+	 * @description Returns the active editor cursor line for mapping to chunk coverage.
+	 * @returns {number} 0-based line index, or `-1` when unavailable.
+	 */
+	getActiveCursorLine(): number;
+
+	/**
+	 * @async
+	 * @description Incrementally vectorizes new/modified chunks and deletes removed chunk points.
+	 * @param {ChunkFileContext} context - Latest chunk context from {@link readLocalChunkContext}.
+	 * @returns {Promise<void>}
+	 */
+	syncChunkDeltas(context: ChunkFileContext): Promise<void>;
 }

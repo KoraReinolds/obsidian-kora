@@ -7,6 +7,8 @@
  */
 
 import { App, MarkdownView, TFile } from 'obsidian';
+import { ObsidianChunkTransportAdapter } from '../../chunking/adapters/obsidian-chunk-transport-adapter';
+import type { ChunkFileContext } from '../../chunking/ports/chunk-transport-port';
 import type {
 	VectorHealthResponse,
 	VectorStoredContentRecord,
@@ -38,11 +40,41 @@ export class ObsidianSemanticInspectorTransportAdapter
 	implements SemanticInspectorTransportPort
 {
 	private lastMarkdownFilePath: string | null = null;
+	private readonly chunkAdapter: ObsidianChunkTransportAdapter;
 
 	constructor(
 		private readonly app: App,
 		private readonly vectorBridge: VectorBridge
-	) {}
+	) {
+		this.chunkAdapter = new ObsidianChunkTransportAdapter(app, vectorBridge);
+	}
+
+	/**
+	 * @async
+	 * @description Delegates to {@link ObsidianChunkTransportAdapter.readActiveChunkContext}.
+	 * @returns {Promise<ChunkFileContext | null>}
+	 */
+	async readLocalChunkContext(): Promise<ChunkFileContext | null> {
+		return this.chunkAdapter.readActiveChunkContext();
+	}
+
+	/**
+	 * @description Delegates to {@link ObsidianChunkTransportAdapter.getActiveCursorLine}.
+	 * @returns {number}
+	 */
+	getActiveCursorLine(): number {
+		return this.chunkAdapter.getActiveCursorLine();
+	}
+
+	/**
+	 * @async
+	 * @description Delegates to {@link ObsidianChunkTransportAdapter.syncContext}.
+	 * @param {ChunkFileContext} context - Latest chunk context for delta sync.
+	 * @returns {Promise<void>}
+	 */
+	async syncChunkDeltas(context: ChunkFileContext): Promise<void> {
+		return this.chunkAdapter.syncContext(context);
+	}
 
 	/**
 	 * @async

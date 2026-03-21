@@ -1,5 +1,4 @@
 import { Plugin, TFile, WorkspaceLeaf } from 'obsidian';
-import { CHUNK_VIEW_TYPE, ChunkView } from './modules/chunking/ui/chunk-view';
 import {
 	RELATED_CHUNKS_VIEW_TYPE,
 	RelatedChunksView,
@@ -203,11 +202,6 @@ export default class KoraPlugin extends Plugin {
 
 		this.mcpServerManager.startServer(this.settings.port);
 
-		// Register right panel view for chunks
-		this.registerView(
-			CHUNK_VIEW_TYPE,
-			leaf => new ChunkView(leaf, this.app, this.vectorBridge)
-		);
 		this.registerView(
 			RELATED_CHUNKS_VIEW_TYPE,
 			leaf => new RelatedChunksView(leaf, this.app, this.vectorBridge)
@@ -220,9 +214,6 @@ export default class KoraPlugin extends Plugin {
 			ARCHIVE_VIEW_TYPE,
 			leaf => new ArchiveView(leaf, this, this.archiveBridge)
 		);
-		this.addRibbonIcon('blocks', 'Open Chunks', () => {
-			this.activateChunkView();
-		});
 		this.addRibbonIcon('git-branch', 'Open Related Chunks', () => {
 			this.activateRelatedChunksView();
 		});
@@ -280,13 +271,6 @@ export default class KoraPlugin extends Plugin {
 		this.mcpServerManager?.stopServer();
 		this.uiManager?.cleanup();
 		this.dailyContentInjector?.cleanup();
-	}
-
-	async activateChunkView() {
-		const leaf = this.app.workspace.getRightLeaf(false);
-		if (!leaf) return;
-		await leaf.setViewState({ type: CHUNK_VIEW_TYPE, active: true });
-		this.app.workspace.revealLeaf(leaf);
 	}
 
 	async activateRelatedChunksView() {

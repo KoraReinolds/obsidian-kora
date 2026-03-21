@@ -35,16 +35,26 @@ withDefaults(
 	<article
 		:class="[
 			stacked
-				? 'border-0 border-b border-solid border-[var(--background-modifier-border)] bg-[var(--background-primary)] px-2.5 py-2.5 last:border-b-0'
+				? [
+						'border-0 border-b border-solid border-[var(--background-modifier-border)] px-2.5 py-2.5 last:border-b-0',
+						selected
+							? 'bg-[var(--interactive-accent)]/12 shadow-[inset_3px_0_0_0_var(--interactive-accent)]'
+							: 'bg-[var(--background-primary)]',
+					].join(' ')
 				: 'rounded-lg border border-solid bg-[var(--background-primary)] p-2.5',
-			stacked
-				? ''
-				: selected
-					? 'border-[var(--interactive-accent)] ring-1 ring-[var(--interactive-accent)]/25'
-					: 'border-[var(--background-modifier-border)]',
+			!stacked && selected
+				? 'border-[var(--interactive-accent)] ring-1 ring-[var(--interactive-accent)]/25'
+				: !stacked
+					? 'border-[var(--background-modifier-border)]'
+					: '',
 			clickable ? 'cursor-pointer' : '',
 			hoverable
-				? 'transition-[border-color,background-color,box-shadow] hover:bg-[var(--background-modifier-hover)]'
+				? [
+						'transition-[border-color,background-color,box-shadow]',
+						stacked && selected
+							? 'hover:bg-[var(--interactive-accent)]/18'
+							: 'hover:bg-[var(--background-modifier-hover)]',
+					].join(' ')
 				: '',
 		]"
 	>
