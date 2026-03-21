@@ -16,7 +16,6 @@ export interface SQLiteSemanticDatabaseConfig {
 export class SQLiteSemanticDatabase {
 	private readonly databasePath: string;
 	private readonly db: Database.Database;
-	private readonly ftsEnabled: boolean;
 
 	constructor(config: SQLiteSemanticDatabaseConfig = {}) {
 		this.databasePath = this.resolveDatabasePath(config.databasePath);
@@ -25,7 +24,7 @@ export class SQLiteSemanticDatabase {
 		this.db.pragma('journal_mode = WAL');
 		this.db.pragma('foreign_keys = ON');
 		this.db.pragma('busy_timeout = 5000');
-		this.ftsEnabled = this.initializeSchema();
+		this.initializeSchema();
 	}
 
 	/**
@@ -45,14 +44,6 @@ export class SQLiteSemanticDatabase {
 	}
 
 	/**
-	 * @description Показывает, удалось ли включить FTS5 слой.
-	 * @returns {boolean} `true`, если virtual table доступна.
-	 */
-	isFtsEnabled(): boolean {
-		return this.ftsEnabled;
-	}
-
-	/**
 	 * @description Закрывает соединение SQLite при reset/reconfigure backend-а.
 	 * @returns {void}
 	 */
@@ -61,11 +52,11 @@ export class SQLiteSemanticDatabase {
 	}
 
 	/**
-	 * @description Создаёт схему canonical chunks + embeddings. FTS5 создаётся best-effort:
-	 * если модуль недоступен, semantic backend продолжает работать через vector + LIKE fallback.
-	 * @returns {boolean} Признак, что FTS5 удалось инициализировать.
+	 * @description Создаёт схему canonical chunks + embeddings и виртуальную таблицу FTS5.
+	 * Без FTS5 semantic index не поднимается — ошибка пробрасывается сразу.
+	 * @returns {void}
 	 */
-	private initializeSchema(): boolean {
+	private initializeSchema(): void {
 		this.db.exec(`
 			CREATE TABLE IF NOT EXISTS chunks (
 				point_id TEXT PRIMARY KEY,
@@ -101,23 +92,14 @@ export class SQLiteSemanticDatabase {
 				ON chunks(content_hash);
 		`);
 
-		try {
-			this.db.exec(`
-				CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts
-				USING fts5(
-					point_id UNINDEXED,
-					title,
-					content
-				);
-			`);
-			return true;
-		} catch (error) {
-			console.warn(
-				'[SQLiteSemanticDatabase] FTS5 unavailable, falling back to LIKE search:',
-				(error as Error).message
+		this.db.exec(`
+			CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts
+			USING fts5(
+				point_id UNINDEXED,
+				title,
+				content
 			);
-			return false;
-		}
+		`);
 	}
 
 	/**

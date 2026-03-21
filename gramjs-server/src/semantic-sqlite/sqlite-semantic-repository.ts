@@ -1,7 +1,7 @@
 /**
  * @module semantic-sqlite/sqlite-semantic-repository
  * @description Репозиторий над SQLite semantic index-ом. Хранит канонические payload-ы
- * и embeddings в одной БД, а также поддерживает FTS/LIKE fallback для lexical search.
+ * и embeddings в одной БД; лексический поиск только через FTS5 (без LIKE-fallback).
  */
 
 import type Database from 'better-sqlite3';
@@ -26,7 +26,7 @@ export interface SQLiteSemanticUpsertRecord {
 export class SQLiteSemanticRepository {
 	constructor(
 		private readonly db: Database.Database,
-		private readonly options: { ftsEnabled: boolean; databasePath: string }
+		private readonly options: { databasePath: string }
 	) {}
 
 	/**
@@ -137,19 +137,17 @@ export class SQLiteSemanticRepository {
 					embeddingDimensions: record.embeddingDimensions,
 				});
 
-			if (this.options.ftsEnabled) {
-				this.db
-					.prepare('DELETE FROM chunks_fts WHERE point_id = ?')
-					.run(record.pointId);
-				this.db
-					.prepare(
-						`
-						INSERT INTO chunks_fts (point_id, title, content)
-						VALUES (?, ?, ?)
+			this.db
+				.prepare('DELETE FROM chunks_fts WHERE point_id = ?')
+				.run(record.pointId);
+			this.db
+				.prepare(
 					`
-					)
-					.run(record.pointId, record.title, record.content);
-			}
+					INSERT INTO chunks_fts (point_id, title, content)
+					VALUES (?, ?, ?)
+				`
+				)
+				.run(record.pointId, record.title, record.content);
 		})();
 
 		return {
@@ -309,11 +307,11 @@ export class SQLiteSemanticRepository {
 	}
 
 	/**
-	 * @description Пытается найти lexical matches через FTS5, а если он недоступен —
-	 * через LIKE fallback.
+	 * @description Лексические совпадения через FTS5 (`chunks_fts`). Без токенов для MATCH —
+	 * пустой массив; ошибка SQL не маскируется.
 	 * @param {string} query - Поисковый запрос.
 	 * @param {number} limit - Максимум результатов.
-	 * @returns {Array<{ qdrantId: string; payload: any; lexicalScore: number }>} Результаты lexical fallback.
+	 * @returns {Array<{ qdrantId: string; payload: any; lexicalScore: number }>}
 	 */
 	findLexicalMatches(
 		query: string,
@@ -323,59 +321,31 @@ export class SQLiteSemanticRepository {
 			return [];
 		}
 
-		if (this.options.ftsEnabled) {
-			try {
-				const ftsQuery = this.buildFtsQuery(query);
-				if (ftsQuery) {
-					const rows = this.db
-						.prepare(
-							`
-							SELECT c.point_id, c.payload_json, bm25(chunks_fts) AS rank
-							FROM chunks_fts
-							INNER JOIN chunks c ON c.point_id = chunks_fts.point_id
-							WHERE chunks_fts MATCH ?
-							LIMIT ?
-						`
-						)
-						.all(ftsQuery, limit) as Array<{
-						point_id: string;
-						payload_json: string;
-						rank: number;
-					}>;
-
-					return rows.map(row => ({
-						qdrantId: row.point_id,
-						payload: this.safeJsonParse(row.payload_json, {}),
-						lexicalScore: this.rankToScore(row.rank),
-					}));
-				}
-			} catch (error) {
-				console.warn(
-					'[SQLiteSemanticRepository] FTS query failed, falling back to LIKE:',
-					(error as Error).message
-				);
-			}
+		const ftsQuery = this.buildFtsQuery(query);
+		if (!ftsQuery) {
+			return [];
 		}
 
-		const likeValue = `%${query.trim()}%`;
 		const rows = this.db
 			.prepare(
 				`
-				SELECT point_id, payload_json
-				FROM chunks
-				WHERE content LIKE ? OR title LIKE ?
+				SELECT c.point_id, c.payload_json, bm25(chunks_fts) AS rank
+				FROM chunks_fts
+				INNER JOIN chunks c ON c.point_id = chunks_fts.point_id
+				WHERE chunks_fts MATCH ?
 				LIMIT ?
 			`
 			)
-			.all(likeValue, likeValue, limit) as Array<{
+			.all(ftsQuery, limit) as Array<{
 			point_id: string;
 			payload_json: string;
+			rank: number;
 		}>;
 
-		return rows.map((row, index) => ({
+		return rows.map(row => ({
 			qdrantId: row.point_id,
 			payload: this.safeJsonParse(row.payload_json, {}),
-			lexicalScore: 1 / (index + 1),
+			lexicalScore: this.rankToScore(row.rank),
 		}));
 	}
 
@@ -440,16 +410,14 @@ export class SQLiteSemanticRepository {
 		}
 
 		this.db.transaction(() => {
-			if (this.options.ftsEnabled) {
-				this.db
-					.prepare(
-						`
-						DELETE FROM chunks_fts
-						WHERE point_id IN (${ids.map(() => '?').join(', ')})
+			this.db
+				.prepare(
 					`
-					)
-					.run(...ids);
-			}
+					DELETE FROM chunks_fts
+					WHERE point_id IN (${ids.map(() => '?').join(', ')})
+				`
+				)
+				.run(...ids);
 
 			this.db
 				.prepare(

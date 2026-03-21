@@ -63,7 +63,6 @@ export class SQLiteSemanticBackend implements SemanticBackend {
 		this.repository = new SQLiteSemanticRepository(
 			this.database.getConnection(),
 			{
-				ftsEnabled: this.database.isFtsEnabled(),
 				databasePath: this.database.getDatabasePath(),
 			}
 		);
@@ -160,7 +159,8 @@ export class SQLiteSemanticBackend implements SemanticBackend {
 	}
 
 	/**
-	 * @description Выполняет semantic search по SQLite embeddings c lexical boost/fallback.
+	 * @description Semantic search по embeddings; лексический буст через FTS5.
+	 * Если векторный топ пуст — только результаты FTS (не LIKE).
 	 * @param {string} query - Поисковый запрос.
 	 * @param {SearchOptions} [options={}] - Ограничения поиска.
 	 * @returns {Promise<SearchResult>} Отранжированные результаты.
