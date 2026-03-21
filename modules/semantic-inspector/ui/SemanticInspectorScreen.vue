@@ -51,42 +51,31 @@ const normalizeForCompare = (value: string): string =>
 	(value || '').replace(/\s+/g, ' ').trim();
 
 /**
- * @description Две колонки превью, когда обе стороны есть и расходятся.
- * Предпочтительно опираться на {@link ChunkDisplayItem.status} из baseline-пайплайна:
- * он синхронизируется с редактированием/сохранением даже если `indexRecord.content`
- * из ответа API случайно совпадает с локальным (вложенные поля, пустой `content`, нормализация).
+ * @description Одна колонка в списке только если чанк есть и в заметке, и в индексе,
+ * и нормализованный текст совпадает. Удалённый из заметки чанк (`deleted`) всегда
+ * две колонки: слева пусто, справа индекс.
  * @param {SemanticInspectorUnifiedRow} row - Строка объединённого списка.
  * @returns {boolean}
  */
-const shouldSplitRow = (row: SemanticInspectorUnifiedRow): boolean => {
+const isSameChunkBothSides = (row: SemanticInspectorUnifiedRow): boolean => {
 	if (!row.localItem || !row.indexRecord) {
 		return false;
 	}
-	if (row.localItem.status !== 'unchanged') {
-		return true;
+	if (row.localItem.status === 'deleted') {
+		return false;
 	}
 	const a = normalizeForCompare(row.localItem.content);
 	const b = normalizeForCompare(row.indexRecord.content);
-	return a !== b;
+	return a === b;
 };
 
 /**
- * @description Одноколоночное превью, когда разделение не нужно.
+ * @description Превью для одноколоночной строки: вызывается только при {@link isSameChunkBothSides}.
  * @param {SemanticInspectorUnifiedRow} row - Строка объединённого списка.
  * @returns {string}
  */
-const mergedRowPreview = (row: SemanticInspectorUnifiedRow): string => {
-	if (row.localItem && !row.indexRecord) {
-		return clip(row.localItem.content, PREVIEW_MAX);
-	}
-	if (!row.localItem && row.indexRecord) {
-		return clip(row.indexRecord.preview, PREVIEW_MAX);
-	}
-	if (row.localItem && row.indexRecord) {
-		return clip(row.localItem.content, PREVIEW_MAX);
-	}
-	return '—';
-};
+const mergedRowPreview = (row: SemanticInspectorUnifiedRow): string =>
+	clip(row.localItem?.content ?? '', PREVIEW_MAX);
 
 const props = defineProps<{
 	transport: SemanticInspectorTransportPort;
@@ -317,18 +306,18 @@ const backendVariant = computed<
 							</template>
 							<template #body>
 								<div
-									v-if="shouldSplitRow(row)"
+									v-if="!isSameChunkBothSides(row)"
 									class="grid w-full min-w-0 grid-cols-2 gap-2 text-[11px] leading-snug"
 								>
 									<div
-										class="min-w-0 border-r border-solid border-[var(--background-modifier-border)] pr-2 text-[var(--text-normal)]"
+										class="min-h-[1.25em] min-w-0 border-r border-solid border-[var(--background-modifier-border)] pr-2 text-[var(--text-normal)]"
 									>
 										<span
-											v-if="row.localItem"
+											v-if="row.localItem && row.localItem.status !== 'deleted'"
 											v-text="clip(row.localItem.content, PREVIEW_MAX)"
 										/>
 										<span
-											v-else
+											v-else-if="!row.localItem"
 											class="text-[var(--text-muted)] italic"
 											v-text="'—'"
 										/>
@@ -381,7 +370,18 @@ const backendVariant = computed<
 							compact
 						>
 							<template #body>
+								<p
+									v-if="
+										screen.selectedUnifiedRow.value.localItem?.status ===
+										'deleted'
+									"
+									class="m-0 text-[11px] leading-normal text-[var(--text-muted)]"
+									v-text="
+										'Нет в тексте заметки (чанк удалён из текста; в индексе запись ещё есть — см. справа).'
+									"
+								/>
 								<pre
+									v-else
 									class="m-0 overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] leading-5 text-[var(--text-normal)]"
 									v-text="
 										screen.selectedUnifiedRow.value.localItem?.content || ''

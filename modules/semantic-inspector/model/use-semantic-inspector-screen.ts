@@ -42,15 +42,17 @@ const EMPTY_STATUS: SemanticInspectorBackendStatus = {
 
 /**
  * @description Объединяет записи индекса и элементы отображения локальных чанков в одну строку на chunkId.
+ * Порядок строк совпадает с {@link ChunkFileContext.displayItems}: сначала чанки в порядке разбора заметки,
+ * затем удалённые из файла, но ещё в индексе; в конце — записи только из индекса (без локального чанка),
+ * по `chunkId` для стабильности.
  * @param {SemanticInspectorNoteContext | null} note - Записи индекса в рамках заметки.
  * @param {ChunkFileContext | null} chunkCtx - Локальный парсинг и статус baseline.
- * @returns {SemanticInspectorUnifiedRow[]} Отсортированные объединённые строки для панели списка.
+ * @returns {SemanticInspectorUnifiedRow[]} Объединённые строки для панели списка.
  */
 function buildUnifiedRows(
 	note: SemanticInspectorNoteContext | null,
 	chunkCtx: ChunkFileContext | null
 ): SemanticInspectorUnifiedRow[] {
-	const byChunk = new Map<string, SemanticInspectorUnifiedRow>();
 	const recordByChunkId = new Map<string, SemanticInspectorRecord>();
 
 	for (const r of note?.records ?? []) {
@@ -59,9 +61,11 @@ function buildUnifiedRows(
 		}
 	}
 
+	const rows: SemanticInspectorUnifiedRow[] = [];
+
 	for (const item of chunkCtx?.displayItems ?? []) {
 		const idx = recordByChunkId.get(item.chunkId);
-		byChunk.set(item.chunkId, {
+		rows.push({
 			chunkId: item.chunkId,
 			localItem: item,
 			indexRecord: idx ?? null,
@@ -69,17 +73,17 @@ function buildUnifiedRows(
 		recordByChunkId.delete(item.chunkId);
 	}
 
+	const indexOnly: SemanticInspectorUnifiedRow[] = [];
 	for (const [chunkId, rec] of recordByChunkId) {
-		byChunk.set(chunkId, {
+		indexOnly.push({
 			chunkId,
 			localItem: null,
 			indexRecord: rec,
 		});
 	}
+	indexOnly.sort((a, b) => a.chunkId.localeCompare(b.chunkId));
 
-	return Array.from(byChunk.values()).sort((a, b) =>
-		a.chunkId.localeCompare(b.chunkId)
-	);
+	return rows.concat(indexOnly);
 }
 
 /**
