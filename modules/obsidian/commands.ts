@@ -13,6 +13,7 @@ import {
 import { FrontmatterUtils, VaultOperations } from '.';
 import { DuplicateTimeFixer } from '../utils';
 import { RELATED_CHUNKS_VIEW_TYPE } from '../chunking/ui/related-chunks-view';
+import { SEMANTIC_INSPECTOR_VIEW_TYPE } from '../semantic-inspector';
 import type { KoraMcpPluginSettings as KoraPluginSettings } from '../../main';
 
 export class PluginCommands {
@@ -80,6 +81,12 @@ export class PluginCommands {
 				name: 'Open Related Chunks',
 				callback: (args?: Record<string, string>) =>
 					this.openRelatedChunks(args),
+			},
+			{
+				id: 'open-semantic-inspector',
+				name: 'Open Semantic Inspector',
+				callback: (args?: Record<string, string>) =>
+					this.openSemanticInspector(args),
 			},
 			{
 				id: 'sync-note-list-to-telegram',
@@ -219,6 +226,30 @@ export class PluginCommands {
 			new Notice('Related Chunks view opened');
 		} catch (error) {
 			new Notice(`Error opening Related Chunks view: ${error}`);
+		}
+	}
+
+	/**
+	 * @description Open Semantic Inspector view.
+	 */
+	private async openSemanticInspector(
+		args?: Record<string, string>
+	): Promise<void> {
+		const leaf = this.app.workspace.getRightLeaf(false);
+		if (!leaf) {
+			new Notice('Unable to create right panel view');
+			return;
+		}
+
+		try {
+			await leaf.setViewState({
+				type: SEMANTIC_INSPECTOR_VIEW_TYPE,
+				active: true,
+			});
+			this.app.workspace.revealLeaf(leaf);
+			new Notice('Semantic Inspector view opened');
+		} catch (error) {
+			new Notice(`Error opening Semantic Inspector view: ${error}`);
 		}
 	}
 

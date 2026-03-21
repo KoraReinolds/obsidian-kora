@@ -5,6 +5,10 @@ import {
 	RelatedChunksView,
 } from './modules/chunking/ui/related-chunks-view';
 import {
+	SEMANTIC_INSPECTOR_VIEW_TYPE,
+	SemanticInspectorView,
+} from './modules/semantic-inspector';
+import {
 	ARCHIVE_VIEW_TYPE,
 	ArchiveBridge,
 	ArchiveSettingTab,
@@ -209,6 +213,10 @@ export default class KoraPlugin extends Plugin {
 			leaf => new RelatedChunksView(leaf, this.app, this.vectorBridge)
 		);
 		this.registerView(
+			SEMANTIC_INSPECTOR_VIEW_TYPE,
+			leaf => new SemanticInspectorView(leaf, this.app, this.vectorBridge)
+		);
+		this.registerView(
 			ARCHIVE_VIEW_TYPE,
 			leaf => new ArchiveView(leaf, this, this.archiveBridge)
 		);
@@ -217,6 +225,9 @@ export default class KoraPlugin extends Plugin {
 		});
 		this.addRibbonIcon('git-branch', 'Open Related Chunks', () => {
 			this.activateRelatedChunksView();
+		});
+		this.addRibbonIcon('search', 'Open Semantic Inspector', () => {
+			this.activateSemanticInspectorView();
 		});
 		this.addRibbonIcon('database', 'Открыть архив Telegram', () => {
 			this.activateArchiveView();
@@ -282,6 +293,16 @@ export default class KoraPlugin extends Plugin {
 		const leaf = this.app.workspace.getRightLeaf(false);
 		if (!leaf) return;
 		await leaf.setViewState({ type: RELATED_CHUNKS_VIEW_TYPE, active: true });
+		this.app.workspace.revealLeaf(leaf);
+	}
+
+	async activateSemanticInspectorView() {
+		const leaf = this.app.workspace.getRightLeaf(false);
+		if (!leaf) return;
+		await leaf.setViewState({
+			type: SEMANTIC_INSPECTOR_VIEW_TYPE,
+			active: true,
+		});
 		this.app.workspace.revealLeaf(leaf);
 	}
 

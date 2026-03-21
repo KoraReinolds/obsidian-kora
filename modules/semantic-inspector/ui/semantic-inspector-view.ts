@@ -1,0 +1,69 @@
+/**
+ * @module semantic-inspector/ui/semantic-inspector-view
+ *
+ * @description Obsidian host adapter that mounts the semantic inspector Vue
+ * screen into a right-side `ItemView`.
+ */
+
+import { ItemView, WorkspaceLeaf } from 'obsidian';
+import type { App as VueApp } from 'vue';
+import type { App as ObsidianApp } from 'obsidian';
+import {
+	ObsidianLucideIcon,
+	mountVueInObsidian,
+	unmountVueInObsidian,
+} from '../../hosts/obsidian';
+import { VectorBridge } from '../../vector';
+import { ObsidianSemanticInspectorTransportAdapter } from '../adapters/obsidian-semantic-inspector-transport-adapter';
+import SemanticInspectorScreen from './SemanticInspectorScreen.vue';
+
+export const SEMANTIC_INSPECTOR_VIEW_TYPE = 'kora-semantic-inspector';
+
+/**
+ * @description Mounts semantic inspector UI inside an Obsidian right-panel view.
+ */
+export class SemanticInspectorView extends ItemView {
+	private vueApp: VueApp | null = null;
+	private readonly transport: ObsidianSemanticInspectorTransportAdapter;
+
+	constructor(
+		leaf: WorkspaceLeaf,
+		app: ObsidianApp,
+		vectorBridge: VectorBridge
+	) {
+		super(leaf);
+		this.transport = new ObsidianSemanticInspectorTransportAdapter(
+			app,
+			vectorBridge
+		);
+	}
+
+	getViewType(): string {
+		return SEMANTIC_INSPECTOR_VIEW_TYPE;
+	}
+
+	getDisplayText(): string {
+		return 'Semantic Inspector';
+	}
+
+	getIcon(): string {
+		return 'search';
+	}
+
+	async onOpen(): Promise<void> {
+		const container = this.containerEl.children[1] as HTMLElement;
+		container.empty();
+		container.style.height = '100%';
+		this.vueApp = mountVueInObsidian(
+			container,
+			SemanticInspectorScreen,
+			{ transport: this.transport },
+			{ hostLucideIcon: ObsidianLucideIcon }
+		);
+	}
+
+	async onClose(): Promise<void> {
+		unmountVueInObsidian(this.vueApp);
+		this.vueApp = null;
+	}
+}

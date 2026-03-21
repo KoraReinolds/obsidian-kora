@@ -41,13 +41,33 @@ interface VectorStats {
 	vectorSize: number;
 	contentTypeBreakdown: Record<string, number>;
 	status: string;
+	backend?: 'qdrant' | 'sqlite';
+	databasePath?: string;
+	qdrantUrl?: string;
 }
 
-interface SearchResult {
+export interface SearchResult {
 	id: string;
 	score: number;
 	content: any;
 	snippet: string;
+}
+
+export interface VectorStoredContentRecord {
+	qdrantId: string;
+	payload: any;
+}
+
+export interface VectorHealthResponse {
+	status: 'healthy' | 'unhealthy' | 'unavailable' | 'error';
+	backend?: 'qdrant' | 'sqlite';
+	collection?: string;
+	databasePath?: string;
+	qdrantUrl?: string;
+	embeddingModel?: string;
+	embeddingBaseUrl?: string;
+	stats?: VectorStats;
+	error?: string;
 }
 
 export class VectorBridge {
@@ -69,15 +89,22 @@ export class VectorBridge {
 	 */
 	async isVectorServiceHealthy(): Promise<boolean> {
 		try {
-			const response = await fetch(`${this.baseUrl}/vector_health`, {
-				method: 'GET',
-				headers: { 'Content-Type': 'application/json' },
-			});
-			const health = await response.json();
+			const health = await this.getVectorHealthDetails();
 			return health.status === 'healthy';
 		} catch (error) {
 			return false;
 		}
+	}
+
+	/**
+	 * Returns full vector backend health payload for debug/admin screens.
+	 */
+	async getVectorHealthDetails(): Promise<VectorHealthResponse> {
+		const response = await fetch(`${this.baseUrl}/vector_health`, {
+			method: 'GET',
+			headers: { 'Content-Type': 'application/json' },
+		});
+		return await response.json();
 	}
 
 	/**
@@ -190,11 +217,7 @@ export class VectorBridge {
 		value: string;
 		multiple?: boolean;
 		limit?: number;
-	}): Promise<
-		| { qdrantId: string; payload: any }
-		| Array<{ qdrantId: string; payload: any }>
-		| null
-	> {
+	}): Promise<VectorStoredContentRecord | VectorStoredContentRecord[] | null> {
 		const { by, value, multiple = false, limit = 2048 } = params;
 		try {
 			const qs = new URLSearchParams({
