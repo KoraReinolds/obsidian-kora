@@ -1,8 +1,8 @@
 /**
  * @module semantic-inspector/ui/semantic-inspector-view
  *
- * @description Obsidian host adapter that mounts the semantic inspector Vue
- * screen into a right-side `ItemView`.
+ * @description Хост-адаптер Obsidian: монтирует Vue-экран semantic inspector
+ * в правую панель (`ItemView`).
  */
 
 import { ItemView, WorkspaceLeaf } from 'obsidian';
@@ -20,7 +20,7 @@ import SemanticInspectorScreen from './SemanticInspectorScreen.vue';
 export const SEMANTIC_INSPECTOR_VIEW_TYPE = 'kora-semantic-inspector';
 
 /**
- * @description Mounts semantic inspector UI inside an Obsidian right-panel view.
+ * @description Монтирует UI semantic inspector во view правой панели Obsidian.
  */
 export class SemanticInspectorView extends ItemView {
 	private vueApp: VueApp | null = null;

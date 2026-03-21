@@ -1,5 +1,5 @@
 /**
- * @description Public exports for reusable Vue composables.
+ * @description Публичные экспорты переиспользуемых Vue composables.
  */
 export * from './use-async-state';
 export * from './use-filter-query';

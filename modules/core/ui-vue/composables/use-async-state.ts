@@ -1,7 +1,7 @@
 /**
  * @module core/ui-vue/composables/use-async-state
  *
- * @description Generic helper для отслеживания состояния асинхронных операций
+ * @description Обобщённый helper для отслеживания состояния асинхронных операций
  * и сохранения последней ошибки.
  */
 

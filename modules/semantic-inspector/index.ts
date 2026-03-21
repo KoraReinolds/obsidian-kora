@@ -1,5 +1,5 @@
 /**
- * @description Public exports for the semantic inspector feature.
+ * @description Публичные экспорты фичи semantic inspector.
  */
 export { default as SemanticInspectorScreen } from './ui/SemanticInspectorScreen.vue';
 export * from './ui/semantic-inspector-view';

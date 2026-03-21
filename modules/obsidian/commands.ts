@@ -1,5 +1,6 @@
 /**
- * Command definitions for the Kora MCP plugin
+ * @module modules/obsidian/commands
+ * @description Определения команд плагина Kora MCP.
  */
 
 import { App, Notice, Command } from 'obsidian';
@@ -49,7 +50,8 @@ export class PluginCommands {
 	}
 
 	/**
-	 * Get all commands
+	 * @description Возвращает все зарегистрированные команды.
+	 * @returns {Command[]}
 	 */
 	getCommands(): Command[] {
 		const commands: Command[] = [
@@ -230,7 +232,7 @@ export class PluginCommands {
 	}
 
 	/**
-	 * @description Open Semantic Inspector view.
+	 * @description Открыть представление Semantic Inspector.
 	 */
 	private async openSemanticInspector(
 		args?: Record<string, string>

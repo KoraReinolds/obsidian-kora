@@ -1,7 +1,7 @@
 /**
  * @module core/ui-vue/composables/use-filter-query
  *
- * @description Generic composable для фильтрации коллекций по
+ * @description Обобщённый composable для фильтрации коллекций по
  * строковому поисковому запросу.
  */
 

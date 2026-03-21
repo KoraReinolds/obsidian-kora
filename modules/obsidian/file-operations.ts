@@ -1,11 +1,12 @@
 /**
- * File operations and content utilities
+ * @module modules/obsidian/file-operations
+ * @description Операции с файлами и утилиты для контента.
  */
 
 import { App, TFile } from 'obsidian';
 
 /**
- * Options for getMarkdownFiles function
+ * @description Параметры функции {@link getMarkdownFiles}.
  */
 export interface GetMarkdownFilesOptions {
 	include?: string[];
@@ -13,10 +14,10 @@ export interface GetMarkdownFilesOptions {
 }
 
 /**
- * Checks if a file path matches a glob-like pattern.
- * @param path The file path to check.
- * @param pattern The glob pattern (* and ** supported).
- * @returns True if the path matches the pattern.
+ * @description Проверяет, соответствует ли путь файла glob-подобному шаблону.
+ * @param {string} path - Путь к файлу.
+ * @param {string} pattern - Шаблон glob-подобный (* и ** поддерживаются).
+ * @returns {boolean} Совпадение пути с шаблоном.
  */
 function matchesPattern(path: string, pattern: string): boolean {
 	// Convert glob-like pattern to regex
@@ -33,7 +34,7 @@ function matchesPattern(path: string, pattern: string): boolean {
 }
 
 /**
- * Checks include pattern: if pattern has wildcards, use glob matching; otherwise use simple substring search.
+ * @description Проверка include: при шаблоне с `*` — glob; иначе подстрока.
  */
 function matchesInclude(path: string, pattern: string): boolean {
 	const hasWildcard = pattern.includes('*');
@@ -44,13 +45,13 @@ function matchesInclude(path: string, pattern: string): boolean {
 }
 
 /**
- * Retrieves markdown files from the vault.
- * @param app The Obsidian application instance.
- * @param options Optional parameters for filtering and content inclusion.
- * @returns An array of markdown file data.
+ * @description Возвращает markdown-файлы из хранилища с фильтрами.
+ * @param {App} app - Экземпляр приложения Obsidian.
+ * @param {GetMarkdownFilesOptions} [options] - Опциональные include/exclude.
+ * @returns {TFile[]} Массив файлов.
  *
- * Note: Use 'include' with glob patterns instead of folderPath for folder filtering.
- * Example: include: ['Notes/**', 'Projects/*.md'] for files in Notes folder and md files in Projects folder.
+ * Примечание: для папок используйте `include` с glob, а не отдельный folderPath.
+ * Пример: `include: ['Notes/**', 'Projects/*.md']`.
  */
 export function getMarkdownFiles(
 	app: App,

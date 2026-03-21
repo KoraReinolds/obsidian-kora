@@ -1,6 +1,7 @@
 /**
- * ConfigService: Holds runtime configuration for the GramJS server.
- * Provides getters/setters and a simple shape to validate completeness.
+ * @module services/config-service
+ * @description Хранит runtime-конфигурацию сервера GramJS: геттеры/сеттеры и простую
+ * структуру для проверки полноты настроек.
  */
 
 import { loadGramJsEnv } from './env-loader.js';

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * @description Reusable empty state блок с muted-текстом.
+ * @description Переиспользуемый блок пустого состояния с приглушённым текстом.
  */
 defineProps<{
 	title?: string;

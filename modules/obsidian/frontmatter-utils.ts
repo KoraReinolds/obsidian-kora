@@ -1,12 +1,13 @@
 /**
- * Frontmatter utilities for working with note metadata
+ * @module modules/obsidian/frontmatter-utils
+ * @description Утилиты для работы с frontmatter метаданных заметок.
  *
- * Features:
- * - Basic frontmatter operations (get, update)
- * - Array field management with uniqueness enforcement
- * - Batch operations for multiple files
- * - Automatic type conversion for array fields
- * - All operations use updateFrontmatterForFiles as the core method
+ * Возможности:
+ * - базовые операции с frontmatter (чтение, обновление);
+ * - управление полями-массивами с контролем уникальности;
+ * - пакетные операции для нескольких файлов;
+ * - автоматическое приведение типов для полей-массивов;
+ * - все операции опираются на {@link updateFrontmatterForFiles} как ядро.
  */
 
 import { App, TFile, TFolder } from 'obsidian';
@@ -15,7 +16,9 @@ export class FrontmatterUtils {
 	constructor(private app: App) {}
 
 	/**
-	 * Get frontmatter from file
+	 * @description Читает frontmatter файла.
+	 * @param {TFile} file - Файл заметки.
+	 * @returns {Promise<any>}
 	 */
 	async getFrontmatter(file: TFile): Promise<any> {
 		const results = await this.getFrontmatterForFiles([file.path]);
@@ -23,7 +26,10 @@ export class FrontmatterUtils {
 	}
 
 	/**
-	 * Get specific frontmatter field
+	 * @description Читает конкретное поле frontmatter.
+	 * @param {TFile} file - Файл заметки.
+	 * @param {string} field - Имя поля.
+	 * @returns {Promise<any>}
 	 */
 	async getFrontmatterField(file: TFile, field: string): Promise<any> {
 		const frontmatter = await this.getFrontmatter(file);
@@ -31,7 +37,7 @@ export class FrontmatterUtils {
 	}
 
 	/**
-	 * Add value to array field in frontmatter, ensuring uniqueness
+	 * @description Добавляет значение в поле-массив frontmatter с уникальностью.
 	 */
 	async addToArrayField(file: TFile, field: string, value: any): Promise<void> {
 		const frontmatter = await this.getFrontmatter(file);
@@ -57,7 +63,7 @@ export class FrontmatterUtils {
 	}
 
 	/**
-	 * Remove value from array field in frontmatter
+	 * @description Удаляет значение из поля-массива frontmatter.
 	 */
 	async removeFromArrayField(
 		file: TFile,
@@ -76,10 +82,10 @@ export class FrontmatterUtils {
 	}
 
 	/**
-	 * Updates the frontmatter for a given list of files.
-	 * @param filePaths An array of file paths to update.
-	 * @param frontmatter The frontmatter object to be added or updated.
-	 * @returns A promise that resolves with the results of the operation.
+	 * @description Обновляет frontmatter для списка файлов.
+	 * @param {string[]} filePaths - Пути файлов для обновления.
+	 * @param {Record<string, any>} frontmatter - Объект frontmatter для слияния/записи.
+	 * @returns {Promise<{ results: { file: string; status: 'success' | 'error'; message?: string }[] }>}
 	 */
 	async updateFrontmatterForFiles(
 		filePaths: string[],
@@ -120,9 +126,9 @@ export class FrontmatterUtils {
 	}
 
 	/**
-	 * Retrieves the frontmatter for a given list of files.
-	 * @param filePaths An array of file paths to read.
-	 * @returns A promise that resolves with an array of objects, each containing the file path and its frontmatter.
+	 * @description Читает frontmatter для списка файлов.
+	 * @param {string[]} filePaths - Пути файлов.
+	 * @returns {Promise<any[]>} Массив объектов с путём и frontmatter.
 	 */
 	async getFrontmatterForFiles(filePaths: string[]): Promise<any[]> {
 		const results: {
@@ -150,8 +156,8 @@ export class FrontmatterUtils {
 	}
 
 	/**
-	 * Retrieves the frontmatter of all markdown files in the "/Area" directory.
-	 * @returns A promise that resolves with the frontmatter data for all area notes.
+	 * @description Читает frontmatter всех markdown-файлов в каталоге `/Area`.
+	 * @returns {Promise<any[]>}
 	 */
 	async getAreaFrontmatters(): Promise<any[]> {
 		const areaFolder = this.app.vault.getAbstractFileByPath('Area');

@@ -1,6 +1,7 @@
 /**
- * Bridge for communicating with vector services on GramJS server
- * Provides TypeScript interface for vector operations
+ * @module modules/vector/vector-bridge
+ * @description Мост для обмена с векторными сервисами на сервере GramJS.
+ * Даёт TypeScript-интерфейс для векторных операций.
  */
 
 import { Notice } from 'obsidian';
@@ -85,7 +86,8 @@ export class VectorBridge {
 	}
 
 	/**
-	 * Check vector service health
+	 * @description Проверяет доступность векторного сервиса (health).
+	 * @returns {Promise<boolean>}
 	 */
 	async isVectorServiceHealthy(): Promise<boolean> {
 		try {
@@ -97,7 +99,8 @@ export class VectorBridge {
 	}
 
 	/**
-	 * Returns full vector backend health payload for debug/admin screens.
+	 * @description Возвращает полный payload здоровья векторного бэкенда для отладочных/админских экранов.
+	 * @returns {Promise<VectorHealthResponse>}
 	 */
 	async getVectorHealthDetails(): Promise<VectorHealthResponse> {
 		const response = await fetch(`${this.baseUrl}/vector_health`, {
@@ -108,7 +111,9 @@ export class VectorBridge {
 	}
 
 	/**
-	 * Vectorize content (universal)
+	 * @description Векторизует контент (универсальный endpoint).
+	 * @param {VectorizeRequest} request - Параметры векторизации.
+	 * @returns {Promise<any>}
 	 */
 	async vectorizeContent(request: VectorizeRequest): Promise<any> {
 		try {
@@ -132,7 +137,9 @@ export class VectorBridge {
 	}
 
 	/**
-	 * Vectorize multiple contents in batch
+	 * @description Пакетная векторизация нескольких фрагментов контента.
+	 * @param {VectorizeRequest[]} contents - Массив запросов.
+	 * @returns {Promise<any>}
 	 */
 	async batchVectorize(contents: VectorizeRequest[]): Promise<any> {
 		try {
@@ -156,7 +163,9 @@ export class VectorBridge {
 	}
 
 	/**
-	 * Vectorize Telegram messages from channel
+	 * @description Векторизует сообщения Telegram из канала.
+	 * @param {VectorizeMessagesRequest} request - Параметры выборки.
+	 * @returns {Promise<any>}
 	 */
 	async vectorizeMessages(request: VectorizeMessagesRequest): Promise<any> {
 		try {
@@ -180,7 +189,9 @@ export class VectorBridge {
 	}
 
 	/**
-	 * Search vectorized content
+	 * @description Семантический поиск по проиндексированному контенту.
+	 * @param {SearchRequest} request - Запрос поиска.
+	 * @returns {Promise<{ results: SearchResult[]; total: number; query: string }>}
 	 */
 	async searchContent(
 		request: SearchRequest
@@ -206,11 +217,10 @@ export class VectorBridge {
 	}
 
 	/**
-	 * Get content by ID
-	 */
-	/**
-	 * Universal content getter.
-	 * - When multiple=true, returns an array; otherwise returns a single item or null.
+	 * @description Универсальное получение контента по полю.
+	 * При `multiple=true` возвращает массив; иначе один элемент или `null`.
+	 * @param {object} params - Параметры фильтрации (`by`, `value`, `multiple`, `limit`).
+	 * @returns {Promise<VectorStoredContentRecord | VectorStoredContentRecord[] | null>}
 	 */
 	async getContentBy(params: {
 		by: string;
@@ -249,8 +259,9 @@ export class VectorBridge {
 	}
 
 	/**
-	 * Delete all vectors for a given originalId. Optionally keep specific chunkIds.
-	 * Returns number of deleted points.
+	 * @description Удаляет все векторы для указанного `originalId` (опционально можно сузить по chunkId на сервере).
+	 * @param {string} originalId - Стабильный id заметки.
+	 * @returns {Promise<number>} Число удалённых точек.
 	 */
 	async deleteByOriginalId(originalId: string): Promise<number> {
 		try {
@@ -275,10 +286,10 @@ export class VectorBridge {
 	}
 
 	/**
-	 * Delete multiple chunks by their IDs (auto-detects chunkId vs qdrantId)
-	 * Returns object with deleted count and failed IDs
-	 * - If IDs look like UUIDs (contain dashes), treats as qdrantIds
-	 * - Otherwise treats as chunkIds
+	 * @description Удаляет несколько чанков по id (авто-различение `chunkId` и `qdrantId`).
+	 * Если id похожи на UUID (с дефисами), считаются `qdrantId`; иначе — `chunkId`.
+	 * @param {string[]} ids - Список идентификаторов.
+	 * @returns {Promise<{ deleted: number; failed: string[] }>} Счётчик удалённых и список неудачных id.
 	 */
 	async batchDelete(
 		ids: string[]
@@ -319,7 +330,8 @@ export class VectorBridge {
 	}
 
 	/**
-	 * Get vector service statistics
+	 * @description Возвращает статистику векторного сервиса.
+	 * @returns {Promise<VectorStats>}
 	 */
 	async getStats(): Promise<VectorStats> {
 		try {
@@ -341,12 +353,10 @@ export class VectorBridge {
 	}
 
 	/**
-	 * Vectorize current Obsidian note.
-	 * If frontmatter/cache are available, splits the note into chunks and batch vectorizes them.
-	 * Otherwise falls back to single-document vectorization.
-	 *
-	 * @param file - Note descriptor including path, content, title, optional metadata/frontmatter and optional cache
-	 * @returns Batch result when chunked; otherwise single vectorize result
+	 * @description Векторизует текущую заметку Obsidian.
+	 * При наличии frontmatter/cache разбивает заметку на чанки и шлёт батч; иначе одна запись.
+	 * @param {object} file - Дескриптор заметки: path, content, title, опционально metadata/frontmatter и cache.
+	 * @returns {Promise<any>} Результат батча при чанковании; иначе одиночная векторизация.
 	 */
 	async vectorizeNote(file: {
 		originalId: string;
@@ -419,7 +429,8 @@ export class VectorBridge {
 	}
 
 	/**
-	 * Test connection and show status
+	 * @description Проверяет подключение и показывает статус через Notice.
+	 * @returns {Promise<boolean>}
 	 */
 	async testConnection(): Promise<boolean> {
 		try {

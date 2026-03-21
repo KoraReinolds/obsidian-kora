@@ -2,8 +2,9 @@
 /**
  * @module semantic-inspector/ui/SemanticInspectorScreen
  *
- * @description Debug screen: runtime backend status, union rows (local parse vs
- * index) with cursor-bound selection, incremental delta sync, reindex/delete.
+ * @description Отладочный экран: состояние бэкенда в рантайме, объединённые строки
+ * (локальный парсинг против индекса) с привязкой к курсору, инкрементальная синхронизация
+ * дельт, переиндексация и удаление.
  */
 
 import {
@@ -31,9 +32,9 @@ import type {
 const PREVIEW_MAX = 220;
 
 /**
- * @description Truncates row preview text for the list.
- * @param {string} text - Raw text.
- * @param {number} max - Max characters before ellipsis.
+ * @description Обрезает текст превью строки для списка.
+ * @param {string} text - Исходный текст.
+ * @param {number} max - Максимум символов до многоточия.
  * @returns {string}
  */
 const clip = (text: string, max: number): string => {
@@ -42,19 +43,19 @@ const clip = (text: string, max: number): string => {
 };
 
 /**
- * @description Collapses whitespace for stable local vs index body comparison.
- * @param {string} value - Raw chunk or stored content.
+ * @description Схлопывает пробелы для стабильного сравнения локального тела и индекса.
+ * @param {string} value - Сырой чанк или сохранённый контент.
  * @returns {string}
  */
 const normalizeForCompare = (value: string): string =>
 	(value || '').replace(/\s+/g, ' ').trim();
 
 /**
- * @description Use two preview columns when both sides exist and they diverge.
- * Prefer {@link ChunkDisplayItem.status} from the baseline pipeline: it stays
- * in sync with edit/save even when `indexRecord.content` from the API payload
- * matches local by accident (nested fields, empty `content`, normalization).
- * @param {SemanticInspectorUnifiedRow} row - Union list row.
+ * @description Две колонки превью, когда обе стороны есть и расходятся.
+ * Предпочтительно опираться на {@link ChunkDisplayItem.status} из baseline-пайплайна:
+ * он синхронизируется с редактированием/сохранением даже если `indexRecord.content`
+ * из ответа API случайно совпадает с локальным (вложенные поля, пустой `content`, нормализация).
+ * @param {SemanticInspectorUnifiedRow} row - Строка объединённого списка.
  * @returns {boolean}
  */
 const shouldSplitRow = (row: SemanticInspectorUnifiedRow): boolean => {
@@ -70,8 +71,8 @@ const shouldSplitRow = (row: SemanticInspectorUnifiedRow): boolean => {
 };
 
 /**
- * @description Single-column preview when split is not needed.
- * @param {SemanticInspectorUnifiedRow} row - Union list row.
+ * @description Одноколоночное превью, когда разделение не нужно.
+ * @param {SemanticInspectorUnifiedRow} row - Строка объединённого списка.
  * @returns {string}
  */
 const mergedRowPreview = (row: SemanticInspectorUnifiedRow): string => {

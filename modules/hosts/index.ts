@@ -1,5 +1,5 @@
 /**
- * @description Public exports for host-layer adapters.
+ * @description Публичные экспорты адаптеров слоя host.
  */
 export * from './obsidian';
 export * from './web';

@@ -1,4 +1,4 @@
 /**
- * @description Public exports for shared core contracts.
+ * @description Публичные экспорты общих контрактов ядра.
  */
 export * from './view-contracts';

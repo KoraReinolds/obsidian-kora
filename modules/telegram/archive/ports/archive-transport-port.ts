@@ -1,7 +1,7 @@
 /**
  * @module telegram/archive/ports/archive-transport-port
  *
- * @description Transport port contract for the Telegram archive screen feature.
+ * @description Контракт транспортного порта для экрана архива Telegram.
  */
 
 import type {
@@ -15,7 +15,7 @@ import type {
 } from '../../../../telegram-types';
 
 /**
- * @description Contract of transport operations required by archive screen feature.
+ * @description Набор операций транспорта, необходимых экрану архива.
  */
 export interface ArchiveTransportPort {
 	getArchivedChats(limit?: number): Promise<ArchiveChat[]>;
@@ -27,9 +27,9 @@ export interface ArchiveTransportPort {
 		request: ArchiveBackfillRequest
 	): Promise<ArchiveBackfillResult>;
 	/**
-	 * @description Deletes a chat and its related messages from local archive.
-	 * @param {string} chatId - Chat identifier in local archive.
-	 * @returns {Promise<{ deleted: boolean }>} Whether the chat row existed and was deleted.
+	 * @description Удаляет чат и связанные с ним сообщения из локального архива.
+	 * @param {string} chatId - Идентификатор чата в локальном архиве.
+	 * @returns {Promise<{ deleted: boolean }>} Была ли строка чата и удалена ли она.
 	 */
 	deleteArchiveChat(chatId: string): Promise<{ deleted: boolean }>;
 }

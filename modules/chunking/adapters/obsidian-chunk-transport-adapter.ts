@@ -1,7 +1,7 @@
 /**
  * @module chunking/adapters/obsidian-chunk-transport-adapter
  *
- * @description Obsidian + VectorBridge адаптер для Vue экранов chunking.
+ * @description Адаптер Obsidian и VectorBridge для Vue-экранов chunking.
  */
 import { App, MarkdownView, TFile } from 'obsidian';
 import { chunkNote, type Chunk } from '..';

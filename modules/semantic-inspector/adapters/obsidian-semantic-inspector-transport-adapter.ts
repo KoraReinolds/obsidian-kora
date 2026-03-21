@@ -1,9 +1,9 @@
 /**
  * @module semantic-inspector/adapters/obsidian-semantic-inspector-transport-adapter
  *
- * @description Obsidian-specific transport adapter for the semantic inspector.
- * It resolves the current markdown note, derives `originalId` from frontmatter,
- * and queries the runtime semantic backend through {@link VectorBridge}.
+ * @description Транспортный адаптер под Obsidian для semantic inspector.
+ * Определяет текущую markdown-заметку, выводит `originalId` из frontmatter
+ * и запрашивает рантайм семантический бэкенд через {@link VectorBridge}.
  */
 
 import { App, MarkdownView, TFile } from 'obsidian';
@@ -33,8 +33,8 @@ interface ActiveNoteDescriptor {
 /**
  * @anchor <semantic_inspector_adapter>
  *
- * @description Resolves current-note semantic diagnostics for the inspector
- * without leaking Obsidian APIs into the Vue feature layer.
+ * @description Разрешает семантическую диагностику текущей заметки для инспектора
+ * без протекания API Obsidian в слой Vue-фичи.
  */
 export class ObsidianSemanticInspectorTransportAdapter
 	implements SemanticInspectorTransportPort
@@ -51,7 +51,7 @@ export class ObsidianSemanticInspectorTransportAdapter
 
 	/**
 	 * @async
-	 * @description Delegates to {@link ObsidianChunkTransportAdapter.readActiveChunkContext}.
+	 * @description Делегирует в {@link ObsidianChunkTransportAdapter.readActiveChunkContext}.
 	 * @returns {Promise<ChunkFileContext | null>}
 	 */
 	async readLocalChunkContext(): Promise<ChunkFileContext | null> {
@@ -59,7 +59,7 @@ export class ObsidianSemanticInspectorTransportAdapter
 	}
 
 	/**
-	 * @description Delegates to {@link ObsidianChunkTransportAdapter.getActiveCursorLine}.
+	 * @description Делегирует в {@link ObsidianChunkTransportAdapter.getActiveCursorLine}.
 	 * @returns {number}
 	 */
 	getActiveCursorLine(): number {
@@ -68,8 +68,8 @@ export class ObsidianSemanticInspectorTransportAdapter
 
 	/**
 	 * @async
-	 * @description Delegates to {@link ObsidianChunkTransportAdapter.syncContext}.
-	 * @param {ChunkFileContext} context - Latest chunk context for delta sync.
+	 * @description Делегирует в {@link ObsidianChunkTransportAdapter.syncContext}.
+	 * @param {ChunkFileContext} context - Актуальный контекст чанков для синхронизации дельт.
 	 * @returns {Promise<void>}
 	 */
 	async syncChunkDeltas(context: ChunkFileContext): Promise<void> {
@@ -78,8 +78,8 @@ export class ObsidianSemanticInspectorTransportAdapter
 
 	/**
 	 * @async
-	 * @description Loads semantic index records for the current markdown note.
-	 * @returns {Promise<SemanticInspectorNoteContext | null>} Note-scoped semantic context or `null` if there is no inspectable note.
+	 * @description Загружает записи семантического индекса для текущей markdown-заметки.
+	 * @returns {Promise<SemanticInspectorNoteContext | null>} Семантический контекст заметки или `null`, если нет заметки для инспекции.
 	 */
 	async readCurrentNoteContext(): Promise<SemanticInspectorNoteContext | null> {
 		const activeNote = await this.resolveActiveNoteDescriptor();
@@ -110,8 +110,8 @@ export class ObsidianSemanticInspectorTransportAdapter
 
 	/**
 	 * @async
-	 * @description Reads full backend health state from the runtime vector service.
-	 * @returns {Promise<SemanticInspectorBackendStatus>} Normalized runtime backend status.
+	 * @description Читает полное состояние здоровья бэкенда у рантайм векторного сервиса.
+	 * @returns {Promise<SemanticInspectorBackendStatus>} Нормализованный статус рантайм-бэкенда.
 	 */
 	async getBackendStatus(): Promise<SemanticInspectorBackendStatus> {
 		const health = await this.vectorBridge.getVectorHealthDetails();
@@ -120,8 +120,8 @@ export class ObsidianSemanticInspectorTransportAdapter
 
 	/**
 	 * @async
-	 * @description Reindexes the current note via the shared vectorization pipeline.
-	 * @returns {Promise<SemanticInspectorActionResult>} Summary of the completed reindex action.
+	 * @description Переиндексирует текущую заметку через общий пайплайн векторизации.
+	 * @returns {Promise<SemanticInspectorActionResult>} Сводка завершённой переиндексации.
 	 */
 	async reindexCurrentNote(): Promise<SemanticInspectorActionResult> {
 		const activeNote = await this.resolveActiveNoteDescriptor();
@@ -150,8 +150,8 @@ export class ObsidianSemanticInspectorTransportAdapter
 
 	/**
 	 * @async
-	 * @description Deletes semantic index rows for the current note by `originalId`.
-	 * @returns {Promise<SemanticInspectorActionResult>} Summary of the delete action.
+	 * @description Удаляет строки семантического индекса для текущей заметки по `originalId`.
+	 * @returns {Promise<SemanticInspectorActionResult>} Сводка действия удаления.
 	 */
 	async deleteCurrentNoteRecords(): Promise<SemanticInspectorActionResult> {
 		const activeNote = await this.resolveActiveNoteDescriptor();
@@ -174,9 +174,9 @@ export class ObsidianSemanticInspectorTransportAdapter
 
 	/**
 	 * @async
-	 * @description Resolves the current markdown note and prepares all fields
-	 * needed for lookup/reindex/delete operations.
-	 * @returns {Promise<ActiveNoteDescriptor | null>} Prepared note descriptor or `null` when there is no suitable markdown note.
+	 * @description Определяет текущую markdown-заметку и готовит все поля
+	 * для поиска, переиндексации и удаления.
+	 * @returns {Promise<ActiveNoteDescriptor | null>} Дескриптор заметки или `null`, если нет подходящей markdown-заметки.
 	 */
 	private async resolveActiveNoteDescriptor(): Promise<ActiveNoteDescriptor | null> {
 		const file = this.resolveActiveMarkdownFile();
@@ -200,10 +200,10 @@ export class ObsidianSemanticInspectorTransportAdapter
 	}
 
 	/**
-	 * @description Finds the markdown note that should be inspected.
-	 * The inspector can become the active leaf, so the adapter first checks the
-	 * active file and then falls back to any open markdown leaf or the last seen path.
-	 * @returns {TFile | null} Candidate markdown note or `null`.
+	 * @description Находит markdown-заметку, которую нужно инспектировать.
+	 * Инспектор может стать активным листом, поэтому адаптер сначала проверяет
+	 * активный файл, затем любой открытый markdown-лист или последний известный путь.
+	 * @returns {TFile | null} Кандидат-заметка или `null`.
 	 */
 	private resolveActiveMarkdownFile(): TFile | null {
 		const activeFile = this.app.workspace.getActiveFile();
@@ -242,9 +242,9 @@ export class ObsidianSemanticInspectorTransportAdapter
 	}
 
 	/**
-	 * @description Extracts frontmatter object from an Obsidian metadata cache.
-	 * @param {Record<string, unknown>} cache - Metadata cache returned by Obsidian.
-	 * @returns {Record<string, unknown>} Plain frontmatter object.
+	 * @description Извлекает объект frontmatter из кэша метаданных Obsidian.
+	 * @param {Record<string, unknown>} cache - Кэш метаданных от Obsidian.
+	 * @returns {Record<string, unknown>} Простой объект frontmatter.
 	 */
 	private readFrontmatter(
 		cache: Record<string, unknown>
@@ -256,10 +256,10 @@ export class ObsidianSemanticInspectorTransportAdapter
 	}
 
 	/**
-	 * @description Normalizes backend payloads into view-friendly semantic records.
-	 * @param {VectorStoredContentRecord} item - Raw record from `/content`.
-	 * @param {string} fallbackOriginalId - Stable note identifier resolved from frontmatter.
-	 * @returns {SemanticInspectorRecord} Normalized record for the inspector UI.
+	 * @description Нормализует payload бэкенда в удобные для UI семантические записи.
+	 * @param {VectorStoredContentRecord} item - Сырая запись из `/content`.
+	 * @param {string} fallbackOriginalId - Стабильный идентификатор заметки из frontmatter.
+	 * @returns {SemanticInspectorRecord} Нормализованная запись для UI инспектора.
 	 */
 	private normalizeRecord(
 		item: VectorStoredContentRecord,
@@ -295,9 +295,9 @@ export class ObsidianSemanticInspectorTransportAdapter
 	}
 
 	/**
-	 * @description Converts raw runtime health payload into stable inspector state.
-	 * @param {VectorHealthResponse} health - Raw response from `/vector_health`.
-	 * @returns {SemanticInspectorBackendStatus} Normalized backend status for the screen header.
+	 * @description Преобразует сырой payload здоровья рантайма в стабильное состояние инспектора.
+	 * @param {VectorHealthResponse} health - Сырой ответ `/vector_health`.
+	 * @returns {SemanticInspectorBackendStatus} Нормализованный статус бэкенда для заголовка экрана.
 	 */
 	private normalizeBackendStatus(
 		health: VectorHealthResponse
@@ -325,9 +325,9 @@ export class ObsidianSemanticInspectorTransportAdapter
 	}
 
 	/**
-	 * @description Estimates the number of updated records from vectorize responses.
-	 * @param {unknown} result - Raw response from vectorize endpoints.
-	 * @returns {number} Affected record count when it can be inferred.
+	 * @description Оценивает число обновлённых записей по ответам vectorize.
+	 * @param {unknown} result - Сырой ответ endpoint vectorize.
+	 * @returns {number} Число затронутых записей, если его можно вывести.
 	 */
 	private countVectorizeResult(result: unknown): number {
 		if (!result || typeof result !== 'object') {
@@ -351,9 +351,9 @@ export class ObsidianSemanticInspectorTransportAdapter
 	}
 
 	/**
-	 * @description Reads the stable note identifier from frontmatter.
-	 * @param {Record<string, unknown>} fm - Frontmatter object.
-	 * @returns {string} Stable originalId value stored in `date created`.
+	 * @description Читает стабильный идентификатор заметки из frontmatter.
+	 * @param {Record<string, unknown>} fm - Объект frontmatter.
+	 * @returns {string} Значение originalId в поле `date created`.
 	 */
 	private getCreatedRawFromFrontmatter(fm: Record<string, unknown>): string {
 		const created = fm['date created'];
@@ -364,9 +364,9 @@ export class ObsidianSemanticInspectorTransportAdapter
 	}
 
 	/**
-	 * @description Returns the first non-empty string candidate.
-	 * @param {...unknown[]} candidates - Possible scalar values.
-	 * @returns {string} First non-empty normalized string or an empty string.
+	 * @description Возвращает первую непустую строку-кандидат.
+	 * @param {...unknown[]} candidates - Возможные скалярные значения.
+	 * @returns {string} Первая непустая нормализованная строка или пустая строка.
 	 */
 	private readString(...candidates: unknown[]): string {
 		for (const candidate of candidates) {
@@ -385,9 +385,9 @@ export class ObsidianSemanticInspectorTransportAdapter
 	}
 
 	/**
-	 * @description Normalizes a payload value into a plain object for safe property access.
-	 * @param {unknown} value - Arbitrary payload value from backend response.
-	 * @returns {Record<string, unknown>} Plain object or empty object fallback.
+	 * @description Приводит значение payload к простому объекту для безопасного доступа к полям.
+	 * @param {unknown} value - Произвольное значение payload из ответа бэкенда.
+	 * @returns {Record<string, unknown>} Простой объект или пустой объект по умолчанию.
 	 */
 	private ensureObject(value: unknown): Record<string, unknown> {
 		return value && typeof value === 'object'
@@ -396,9 +396,9 @@ export class ObsidianSemanticInspectorTransportAdapter
 	}
 
 	/**
-	 * @description Extracts nested metadata from a backend payload while preserving the raw object.
-	 * @param {Record<string, unknown>} payload - Raw backend payload.
-	 * @returns {Record<string, unknown>} Nested `metadata`/`meta` object or empty object.
+	 * @description Извлекает вложенные метаданные из payload бэкенда, сохраняя сырой объект.
+	 * @param {Record<string, unknown>} payload - Сырой payload бэкенда.
+	 * @returns {Record<string, unknown>} Вложенный объект `metadata`/`meta` или пустой объект.
 	 */
 	private readPayloadMetadata(
 		payload: Record<string, unknown>
@@ -407,18 +407,18 @@ export class ObsidianSemanticInspectorTransportAdapter
 	}
 
 	/**
-	 * @description Extracts human-readable content body from a backend payload.
-	 * @param {Record<string, unknown>} payload - Raw backend payload.
-	 * @returns {string} Stored content body or empty string.
+	 * @description Извлекает человекочитаемое тело контента из payload бэкенда.
+	 * @param {Record<string, unknown>} payload - Сырой payload бэкенда.
+	 * @returns {string} Сохранённое тело контента или пустая строка.
 	 */
 	private readPayloadContent(payload: Record<string, unknown>): string {
 		return this.readString(payload.content, payload.contentRaw, payload.text);
 	}
 
 	/**
-	 * @description Extracts a record title from a backend payload.
-	 * @param {Record<string, unknown>} payload - Raw backend payload.
-	 * @returns {string} Human-readable title or empty string.
+	 * @description Извлекает заголовок записи из payload бэкенда.
+	 * @param {Record<string, unknown>} payload - Сырой payload бэкенда.
+	 * @returns {string} Человекочитаемый заголовок или пустая строка.
 	 */
 	private readPayloadTitle(payload: Record<string, unknown>): string {
 		const metadata = this.readPayloadMetadata(payload);
@@ -432,9 +432,9 @@ export class ObsidianSemanticInspectorTransportAdapter
 	}
 
 	/**
-	 * @description Builds a compact preview for list rows without hiding the raw content in details.
-	 * @param {string} content - Full record content.
-	 * @returns {string} One-line preview string.
+	 * @description Собирает компактное превью для строк списка, не скрывая сырой контент в деталях.
+	 * @param {string} content - Полный контент записи.
+	 * @returns {string} Однострочная строка превью.
 	 */
 	private toPreview(content: string): string {
 		const normalized = content.replace(/\s+/g, ' ').trim();

@@ -8,7 +8,7 @@ import type { ArchiveBridge } from '../../transport';
 import type { ArchiveTransportPort } from '../ports/archive-transport-port';
 
 /**
- * @description Creates an archive feature port based on the existing bridge.
+ * @description Создаёт порт фичи архива на основе существующего моста.
  * @param {ArchiveBridge} bridge - Transport bridge from the Obsidian plugin.
  * @returns {ArchiveTransportPort} Port for the archive screen feature.
  */

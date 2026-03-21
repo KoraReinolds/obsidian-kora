@@ -160,10 +160,10 @@ export class ArchiveBridge extends BaseHttpClient {
 
 	/**
 	 * @async
-	 * @description Returns paginated archived messages for a chat.
-	 * The page order is always newest-to-oldest (`messageId DESC`), and `offset` is measured in that order.
-	 * @param {GetArchivedMessagesRequest} request - Chat and pagination options.
-	 * @returns {Promise<ArchiveMessagesResponse>} Paginated message payload.
+	 * @description Постраничные архивные сообщения для чата.
+	 * Порядок страницы всегда от новых к старым (`messageId DESC`), `offset` считается в этом порядке.
+	 * @param {GetArchivedMessagesRequest} request - Чат и параметры пагинации.
+	 * @returns {Promise<ArchiveMessagesResponse>} Страница сообщений.
 	 */
 	async getArchivedMessages(
 		request: GetArchivedMessagesRequest

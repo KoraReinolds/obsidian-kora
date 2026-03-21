@@ -1,5 +1,5 @@
 /**
- * @description Public exports for reusable Vue UI core components.
+ * @description Публичные экспорты переиспользуемых Vue-компонентов ядра UI.
  */
 export { default as AppShell } from './AppShell.vue';
 export { default as Toolbar } from './Toolbar.vue';

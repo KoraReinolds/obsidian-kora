@@ -1,9 +1,9 @@
 /**
  * @module semantic-inspector/model/use-semantic-inspector-screen
  *
- * @description Feature model for the semantic inspector: backend health, index
- * records, local chunk baseline/diff, union list rows, cursor-bound selection,
- * incremental delta sync, and note-scoped reindex/delete.
+ * @description Модель фичи semantic inspector: здоровье бэкенда, записи индекса,
+ * локальный baseline/diff чанков, объединённые строки списка, выбор по курсору,
+ * инкрементальная синхронизация дельт и переиндексация/удаление в рамках заметки.
  */
 
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
@@ -41,10 +41,10 @@ const EMPTY_STATUS: SemanticInspectorBackendStatus = {
 };
 
 /**
- * @description Merges index records and local chunk display items into one row per chunkId.
- * @param {SemanticInspectorNoteContext | null} note - Note-scoped index records.
- * @param {ChunkFileContext | null} chunkCtx - Local parse + baseline status.
- * @returns {SemanticInspectorUnifiedRow[]} Sorted union rows for the list pane.
+ * @description Объединяет записи индекса и элементы отображения локальных чанков в одну строку на chunkId.
+ * @param {SemanticInspectorNoteContext | null} note - Записи индекса в рамках заметки.
+ * @param {ChunkFileContext | null} chunkCtx - Локальный парсинг и статус baseline.
+ * @returns {SemanticInspectorUnifiedRow[]} Отсортированные объединённые строки для панели списка.
  */
 function buildUnifiedRows(
 	note: SemanticInspectorNoteContext | null,
@@ -85,10 +85,10 @@ function buildUnifiedRows(
 /**
  * @anchor <semantic_inspector_screen_model>
  *
- * @description Builds reactive state/actions for the semantic inspector screen.
+ * @description Собирает реактивное состояние и действия для экрана semantic inspector.
  *
- * @param {SemanticInspectorScreenModelOptions} options - Feature dependencies.
- * @returns {object} Reactive state and actions for the inspector UI.
+ * @param {SemanticInspectorScreenModelOptions} options - Зависимости фичи.
+ * @returns {object} Реактивное состояние и действия для UI инспектора.
  */
 export function useSemanticInspectorScreen(
 	options: SemanticInspectorScreenModelOptions
@@ -174,8 +174,8 @@ export function useSemanticInspectorScreen(
 	);
 
 	/**
-	 * @description Signature for index records only.
-	 * @param {SemanticInspectorNoteContext | null} context - Note context.
+	 * @description Сигнатура только по записям индекса.
+	 * @param {SemanticInspectorNoteContext | null} context - Контекст заметки.
 	 * @returns {string}
 	 */
 	const buildNoteSignature = (
@@ -193,8 +193,8 @@ export function useSemanticInspectorScreen(
 	};
 
 	/**
-	 * @description Signature for local chunk context.
-	 * @param {ChunkFileContext | null} ctx - Chunk file context.
+	 * @description Сигнатура для локального контекста чанков.
+	 * @param {ChunkFileContext | null} ctx - Контекст файла с чанками.
 	 * @returns {string}
 	 */
 	const buildChunkSignature = (ctx: ChunkFileContext | null): string => {
@@ -207,9 +207,9 @@ export function useSemanticInspectorScreen(
 	};
 
 	/**
-	 * @description Combined signature for poll cheap compare.
-	 * @param {SemanticInspectorNoteContext | null} note - Index note context.
-	 * @param {ChunkFileContext | null} chunk - Local chunk context.
+	 * @description Объединённая сигнатура для дешёвого сравнения при опросе.
+	 * @param {SemanticInspectorNoteContext | null} note - Контекст заметки в индексе.
+	 * @param {ChunkFileContext | null} chunk - Локальный контекст чанков.
 	 * @returns {string}
 	 */
 	const buildFullSignature = (
@@ -220,7 +220,7 @@ export function useSemanticInspectorScreen(
 	};
 
 	/**
-	 * @description Keeps row selection valid when filtering changes.
+	 * @description Сохраняет корректность выбора строки при смене фильтра.
 	 * @returns {void}
 	 */
 	const syncSelection = (): void => {
@@ -238,8 +238,8 @@ export function useSemanticInspectorScreen(
 	};
 
 	/**
-	 * @description Maps editor cursor line to a chunk row when possible.
-	 * @param {ChunkFileContext} ctx - Current chunk context.
+	 * @description Сопоставляет строку курсора редактора со строкой чанка, если возможно.
+	 * @param {ChunkFileContext} ctx - Текущий контекст чанков.
 	 * @returns {void}
 	 */
 	const syncSelectionByCursor = (ctx: ChunkFileContext): void => {
@@ -251,7 +251,7 @@ export function useSemanticInspectorScreen(
 	};
 
 	/**
-	 * @description Loads backend status, index records, and local chunk context.
+	 * @description Загружает статус бэкенда, записи индекса и локальный контекст чанков.
 	 * @returns {Promise<void>}
 	 */
 	const refresh = async (): Promise<void> => {
@@ -316,8 +316,8 @@ export function useSemanticInspectorScreen(
 	};
 
 	/**
-	 * @description Selects a union row by chunkId.
-	 * @param {string} chunkId - Chunk id from the filtered list.
+	 * @description Выбирает объединённую строку по chunkId.
+	 * @param {string} chunkId - Идентификатор чанка из отфильтрованного списка.
 	 * @returns {void}
 	 */
 	const selectRow = (chunkId: string): void => {
@@ -325,7 +325,7 @@ export function useSemanticInspectorScreen(
 	};
 
 	/**
-	 * @description Reindexes the current note and refreshes inspector state.
+	 * @description Переиндексирует текущую заметку и обновляет состояние инспектора.
 	 * @returns {Promise<void>}
 	 */
 	const reindexCurrentNote = async (): Promise<void> => {
@@ -346,7 +346,7 @@ export function useSemanticInspectorScreen(
 	};
 
 	/**
-	 * @description Deletes indexed records for the current note.
+	 * @description Удаляет проиндексированные записи для текущей заметки.
 	 * @returns {Promise<void>}
 	 */
 	const deleteCurrentNoteRecords = async (): Promise<void> => {
@@ -367,7 +367,7 @@ export function useSemanticInspectorScreen(
 	};
 
 	/**
-	 * @description Pushes incremental chunk deltas to the vector backend.
+	 * @description Отправляет инкрементальные дельты чанков в векторный бэкенд.
 	 * @returns {Promise<void>}
 	 */
 	const syncChunkDeltas = async (): Promise<void> => {
@@ -388,7 +388,7 @@ export function useSemanticInspectorScreen(
 	};
 
 	/**
-	 * @description Polls note index + local chunk context; cursor follows active chunk.
+	 * @description Опрашивает индекс заметки и локальный контекст чанков; курсор следует активному чанку.
 	 * @returns {void}
 	 */
 	const startPolling = (): void => {

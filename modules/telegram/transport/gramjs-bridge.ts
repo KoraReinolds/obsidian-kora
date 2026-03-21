@@ -1,6 +1,6 @@
 /**
- * Bridge for communicating with standalone GramJS server
- * Handles HTTP requests to the Node.js GramJS server
+ * @module modules/telegram/transport/gramjs-bridge
+ * @description Мост к отдельному серверу GramJS: HTTP-запросы к Node.js GramJS server.
  */
 
 import { Notice } from 'obsidian';
@@ -43,14 +43,14 @@ export class GramJSBridge extends BaseHttpClient {
 	}
 
 	/**
-	 * Check if GramJS server is running
+	 * @description Проверяет, запущен ли сервер GramJS.
 	 */
 	async isServerRunning(): Promise<boolean> {
 		return await this.isServerReachable();
 	}
 
 	/**
-	 * Send text message via GramJS userbot with MarkdownV2 support
+	 * @description Отправляет текст через userbot GramJS с поддержкой MarkdownV2.
 	 */
 	async sendMessage(request: SendMessageRequest): Promise<SendMessageResponse> {
 		const result = await this.handleRequest<SendMessageResponse>(
@@ -70,7 +70,7 @@ export class GramJSBridge extends BaseHttpClient {
 	}
 
 	/**
-	 * Edit existing message via GramJS userbot
+	 * @description Редактирует существующее сообщение через userbot GramJS.
 	 */
 	async editMessage(request: EditMessageRequest): Promise<boolean> {
 		const result = await this.handleRequest(
@@ -83,7 +83,7 @@ export class GramJSBridge extends BaseHttpClient {
 	}
 
 	/**
-	 * Send file via GramJS userbot
+	 * @description Отправляет файл через userbot GramJS.
 	 */
 	async sendFile(request: SendFileRequest): Promise<boolean> {
 		const result = await this.handleRequest(
@@ -96,14 +96,14 @@ export class GramJSBridge extends BaseHttpClient {
 	}
 
 	/**
-	 * Get current user info from GramJS
+	 * @description Возвращает данные текущего пользователя GramJS (`/me`).
 	 */
 	async getMe(): Promise<UserInfo> {
 		return await this.makeRequest<UserInfo>('/me');
 	}
 
 	/**
-	 * Get all channels (chats, groups, channels)
+	 * @description Список каналов, групп и чатов (`/channels`).
 	 */
 	async getChannels(): Promise<Channel[]> {
 		const data = await this.handleRequest<ChannelsResponse>(
@@ -123,7 +123,7 @@ export class GramJSBridge extends BaseHttpClient {
 	}
 
 	/**
-	 * Get messages from a specific channel/chat between dates
+	 * @description Сообщения чата/канала за интервал дат (`/messages`).
 	 */
 	async getMessages(request: GetMessagesRequest): Promise<Message[]> {
 		const { peer, startDate, endDate, limit = 100 } = request;
@@ -145,7 +145,7 @@ export class GramJSBridge extends BaseHttpClient {
 	}
 
 	/**
-	 * Update GramJS server configuration
+	 * @description Обновляет конфигурацию сервера GramJS.
 	 */
 	async updateGramJSConfig(config: GramJSConfig): Promise<boolean> {
 		const data = await this.handleRequest<ConfigResponse>(
@@ -163,7 +163,7 @@ export class GramJSBridge extends BaseHttpClient {
 	}
 
 	/**
-	 * Test connection to GramJS server
+	 * @description Проверяет подключение к серверу GramJS.
 	 */
 	async testConnection(): Promise<boolean> {
 		try {

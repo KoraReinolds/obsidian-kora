@@ -1,14 +1,14 @@
 /**
- * Chunk Cursor Utilities
- * Description: Helpers to watch editor cursor line and map it to a chunk index.
+ * @module modules/chunking/ui/chunk-cursor
+ * @description Утилиты курсора редактора: отслеживание строки и сопоставление с индексом чанка.
  */
 
 import { App, MarkdownView } from 'obsidian';
 import type { Chunk } from '..';
 
 /**
- * Find the index of the chunk that contains the given cursor line.
- * Accepts chunks augmented with startLine/endLine.
+ * @description Находит индекс чанка, содержащего строку курсора.
+ * Принимает чанки с полями `startLine`/`endLine` (через `position`).
  */
 export function findChunkIndexForLine(
 	chunks: Array<
@@ -28,8 +28,8 @@ export function findChunkIndexForLine(
 }
 
 /**
- * Start polling the active editor cursor line. Calls callback when line changes.
- * Returns a cleanup function to stop polling.
+ * @description Запускает опрос строки курсора активного редактора; вызывает callback при смене строки.
+ * @returns {() => void} Функция остановки опроса.
  */
 export function startCursorPolling(
 	app: App,

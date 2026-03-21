@@ -1,7 +1,7 @@
 /**
  * @module core/ui-vue/composables/use-paginated-list
  *
- * @description Generic composable для пагинации списка и выполнения загрузки.
+ * @description Обобщённый composable для пагинации списка и выполнения загрузки.
  */
 
 import { ref } from 'vue';

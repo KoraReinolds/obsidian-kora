@@ -1,7 +1,7 @@
 /**
  * @module core/ui-vue/composables/use-selection
  *
- * @description Generic composable для хранения и изменения выбранного элемента.
+ * @description Обобщённый composable для хранения и изменения выбранного элемента.
  */
 
 import { ref } from 'vue';

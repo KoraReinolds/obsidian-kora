@@ -24,7 +24,7 @@ export interface ScreenMessage {
 }
 
 /**
- * @description Generic контракт state любого Vue-экрана.
+ * @description Обобщённый контракт состояния любого Vue-экрана.
  */
 export interface ScreenState<TData = unknown> {
 	isLoading: boolean;
@@ -33,7 +33,7 @@ export interface ScreenState<TData = unknown> {
 }
 
 /**
- * @description Generic контракт действий/обработчиков экрана.
+ * @description Обобщённый контракт действий и обработчиков экрана.
  */
 export interface ScreenActions<TParams = void> {
 	refresh(params?: TParams): Promise<void>;

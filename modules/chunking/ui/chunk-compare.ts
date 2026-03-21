@@ -1,13 +1,13 @@
 /**
- * Chunk Compare
- * Description: Fetch previously indexed chunk content via VectorBridge and render inline diffs.
+ * @module modules/chunking/ui/chunk-compare
+ * @description Сравнение чанков: загрузка ранее проиндексированного контента через VectorBridge и inline-diff.
  */
 
 import type { Chunk } from '..';
 import type { VectorBridge } from '../../vector';
 import { renderInlineDiff } from './inline-diff';
 
-/** Result of a comparison operation. */
+/** Результат операции сравнения. */
 export interface ChunkCompareResult {
 	exists: boolean;
 	changed: boolean;
@@ -15,7 +15,7 @@ export interface ChunkCompareResult {
 }
 
 /**
- * Fetch stored content for a chunk.
+ * @description Загружает сохранённый контент чанка.
  */
 export async function fetchStoredChunkContent(
 	vectorBridge: VectorBridge,
@@ -38,7 +38,7 @@ export async function fetchStoredChunkContent(
 }
 
 /**
- * Compare a current chunk against stored content.
+ * @description Сравнивает текущий чанк с сохранённым в индексе.
  */
 export async function compareChunk(
 	vectorBridge: VectorBridge,
@@ -51,8 +51,8 @@ export async function compareChunk(
 }
 
 /**
- * Load baseline stored content for a list of chunks.
- * Returns a Map keyed by chunkId with previous text or null if not indexed.
+ * @description Загружает baseline сохранённого контента для списка чанков.
+ * Возвращает `Map` по chunkId с предыдущим текстом или признаком отсутствия в индексе.
  */
 export async function loadBaselineForChunksByOriginalId(
 	vectorBridge: VectorBridge,
@@ -104,7 +104,7 @@ export async function loadBaselineForChunksByOriginalId(
 }
 
 /**
- * Fetch and render inline diff for a chunk inside mount element.
+ * @description Загружает и рендерит inline-diff чанка внутри элемента `mountEl`.
  */
 export async function fetchAndRenderChunkDiff(
 	vectorBridge: VectorBridge,

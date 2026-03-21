@@ -30,7 +30,7 @@ export class SQLiteSemanticRepository {
 	) {}
 
 	/**
-	 * @description Upsert-ит каноническую запись и embedding в одной транзакции.
+	 * @description Вставляет или обновляет каноническую запись и embedding в одной транзакции (upsert).
 	 * @param {SQLiteSemanticUpsertRecord} record - Нормализованная запись semantic index-а.
 	 * @returns {{ status: 'created' | 'updated' | 'unchanged'; qdrantId: string; existing: boolean }} Результат upsert-а.
 	 */

@@ -1,8 +1,8 @@
 /**
  * @module telegram/archive/model/use-archive-screen
  *
- * @description Feature composable for Telegram archive screen.
- * Encapsulates state/actions without dependency on Obsidian ItemView.
+ * @description Composable фичи экрана архива Telegram.
+ * Инкапсулирует состояние и действия без зависимости от Obsidian ItemView.
  */
 
 import { computed, ref } from 'vue';
@@ -11,7 +11,7 @@ import { useFilterQuery, useScreenMessage } from '../../../core/ui-vue';
 import type { ArchiveTransportPort } from '../ports/archive-transport-port';
 
 /**
- * @description Initialization options for the archive screen model.
+ * @description Параметры инициализации модели экрана архива.
  */
 export interface ArchiveScreenModelOptions {
 	transport: ArchiveTransportPort;
@@ -22,9 +22,9 @@ export interface ArchiveScreenModelOptions {
 }
 
 /**
- * @description Creates state/actions for archive UI.
- * @param {ArchiveScreenModelOptions} options - Feature dependencies and settings.
- * @returns {object} State и действия archive feature.
+ * @description Создаёт состояние и действия для UI архива.
+ * @param {ArchiveScreenModelOptions} options - Зависимости фичи и настройки.
+ * @returns {object} State и действия фичи архива.
  */
 export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 	const selectedChatId = ref<string | null>(null);
@@ -113,10 +113,10 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 	});
 
 	/**
-	 * @description Normalizes input chat list and removes broken records,
-	 * so UI does not crash on access to `chatId`/`title`.
-	 * @param {unknown[]} rawChats - Raw data from the transport.
-	 * @returns {ArchiveChat[]} Valid chats for UI.
+	 * @description Нормализует входной список чатов и убирает битые записи,
+	 * чтобы UI не падал при обращении к `chatId`/`title`.
+	 * @param {unknown[]} rawChats - Сырые данные от транспорта.
+	 * @returns {ArchiveChat[]} Валидные чаты для UI.
 	 */
 	const normalizeChats = (rawChats: unknown[]): ArchiveChat[] => {
 		return rawChats
@@ -138,7 +138,7 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 	};
 
 	/**
-	 * @description Loads chats list and synchronizes current selected chatId.
+	 * @description Загружает список чатов и синхронизирует выбранный chatId.
 	 */
 	const loadChats = async (): Promise<void> => {
 		const rawChats = await options.transport.getArchivedChats(200);
@@ -157,7 +157,7 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 	};
 
 	/**
-	 * @description Loads messages for selected chat.
+	 * @description Загружает сообщения выбранного чата.
 	 */
 	const loadSelectedChatMessages = async (params?: {
 		offset?: number;
@@ -210,7 +210,7 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 	};
 
 	/**
-	 * @description Loads previous page (more newer messages).
+	 * @description Загружает предыдущую страницу (более новые сообщения).
 	 */
 	const goToPrevPage = async (): Promise<void> => {
 		if (isLoadingMessages.value || !canGoPrevPage.value) return;
@@ -220,7 +220,7 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 	};
 
 	/**
-	 * @description Loads next page (older messages).
+	 * @description Загружает следующую страницу (более старые сообщения).
 	 */
 	const goToNextPage = async (): Promise<void> => {
 		if (isLoadingMessages.value || !canGoNextPage.value) return;
@@ -230,7 +230,7 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 	};
 
 	/**
-	 * @description Switches to specified page within local pagination (1-based).
+	 * @description Переключает на указанную страницу локальной пагинации (нумерация с 1).
 	 */
 	const goToPage = async (page: number): Promise<void> => {
 		if (isLoadingMessages.value) return;
@@ -240,14 +240,14 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 	};
 
 	/**
-	 * @description Reloads current page for selected chat.
+	 * @description Перезагружает текущую страницу для выбранного чата.
 	 */
 	const reloadCurrentPage = async (): Promise<void> => {
 		await loadSelectedChatMessages();
 	};
 
 	/**
-	 * @description Refreshes the whole screen: chats list and current messages.
+	 * @description Обновляет весь экран: список чатов и текущие сообщения.
 	 */
 	const refreshData = async (): Promise<void> => {
 		isRefreshing.value = true;
@@ -265,7 +265,7 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 	};
 
 	/**
-	 * @description Runs sync for given peer and reloads data.
+	 * @description Запускает синхронизацию для указанного peer и перезагружает данные.
 	 */
 	const handleSync = async (): Promise<void> => {
 		const peer = peerInputValue.value.trim();
@@ -311,8 +311,8 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 	};
 
 	/**
-	 * @description Selects a chat and loads its messages.
-	 * @param {string} chatId - Selected chat identifier.
+	 * @description Выбирает чат и загружает его сообщения.
+	 * @param {string} chatId - Идентификатор выбранного чата.
 	 */
 	const handleChatSelection = async (chatId: string): Promise<void> => {
 		if (selectedChatId.value === chatId) return;
@@ -329,7 +329,7 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 	};
 
 	/**
-	 * @description Deletes a chat and its full local history (SQLite) without changing Telegram.
+	 * @description Удаляет чат и всю локальную историю (SQLite), не затрагивая Telegram.
 	 */
 	const handleDeleteChat = async (chatId: string): Promise<void> => {
 		const trimmed = chatId.trim();
@@ -365,8 +365,8 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 	};
 
 	/**
-	 * @description Manual TG-first backfill: loads older messages via server `/archive/backfill`,
-	 * then reloads current page.
+	 * @description Ручной backfill «сначала Telegram»: догружает старые сообщения через сервер `/archive/backfill`,
+	 * затем перезагружает текущую страницу.
 	 */
 	const handleBackfillOlder = async (): Promise<void> => {
 		if (!selectedChatId.value || isBackfilling.value || isLoadingMessages.value)
@@ -400,7 +400,7 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 	};
 
 	/**
-	 * @description Manual sync new messages for selected chat via forward-sync.
+	 * @description Ручная синхронизация новых сообщений для выбранного чата (forward-sync).
 	 */
 	const handleSyncNewerForSelectedChat = async (): Promise<void> => {
 		if (!selectedChat.value || isSyncing.value) return;
@@ -443,7 +443,7 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 	};
 
 	/**
-	 * @description Formats date for human readable UI.
+	 * @description Форматирует дату для человекочитаемого UI.
 	 */
 	const formatDate = (value?: string | null): string => {
 		if (!value) return 'ещё не было';

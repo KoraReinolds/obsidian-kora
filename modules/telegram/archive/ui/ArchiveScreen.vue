@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * @description Reference feature UI for Telegram archive based on core Vue components.
+ * @description Эталонный UI фичи архива Telegram на базе общих Vue-компонентов.
  */
 import {
 	AppShell,
