@@ -326,21 +326,35 @@ export class SQLiteSemanticRepository {
 			return [];
 		}
 
-		const rows = this.db
-			.prepare(
-				`
-				SELECT c.point_id, c.payload_json, bm25(chunks_fts) AS rank
-				FROM chunks_fts
-				INNER JOIN chunks c ON c.point_id = chunks_fts.point_id
-				WHERE chunks_fts MATCH ?
-				LIMIT ?
-			`
-			)
-			.all(ftsQuery, limit) as Array<{
+		let rows: Array<{
 			point_id: string;
 			payload_json: string;
 			rank: number;
 		}>;
+		try {
+			rows = this.db
+				.prepare(
+					`
+					SELECT c.point_id, c.payload_json, bm25(chunks_fts) AS rank
+					FROM chunks_fts
+					INNER JOIN chunks c ON c.point_id = chunks_fts.point_id
+					WHERE chunks_fts MATCH ?
+					LIMIT ?
+				`
+				)
+				.all(ftsQuery, limit) as Array<{
+				point_id: string;
+				payload_json: string;
+				rank: number;
+			}>;
+		} catch (error) {
+			// eslint-disable-next-line no-console
+			console.error('[semantic-sqlite] FTS query failed', {
+				query: query.slice(0, 200),
+				ftsQuery,
+			});
+			throw error;
+		}
 
 		return rows.map(row => ({
 			qdrantId: row.point_id,
@@ -467,8 +481,8 @@ export class SQLiteSemanticRepository {
 	private buildFtsQuery(query: string): string {
 		return query
 			.split(/\s+/)
-			.map(term => term.trim().replace(/[^\p{L}\p{N}_-]+/gu, ''))
-			.filter(Boolean)
+			.map(term => term.trim().replace(/[^\p{L}\p{N}_]+/gu, ''))
+			.filter(term => /[\p{L}\p{N}]/u.test(term))
 			.map(term => `${term}*`)
 			.join(' OR ');
 	}

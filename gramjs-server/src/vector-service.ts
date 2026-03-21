@@ -262,6 +262,14 @@ class VectorService implements SemanticBackend {
 				id: point.id.toString(),
 				score: point.score,
 				content: point.payload,
+				scoreDetails: {
+					mode: 'vector' as const,
+					vectorScore: point.score,
+					lexicalScore: null,
+					lexicalContribution: null,
+					lexicalBoostWeight: null,
+					combinedScore: point.score,
+				},
 				snippet: generateSnippet(
 					(point.payload as any).content as string,
 					query

@@ -42,10 +42,24 @@ const {
 	isLoading,
 	isLoadingRelated,
 	message,
+	clearMessage,
 	refreshContext,
 	loadRelated,
 	openRelated,
 } = useRelatedChunksScreen({ transport: props.transport });
+
+/**
+ * @description Форматирует score-компоненты для компактных UI chip-ов без ложного
+ * ощущения процентов. После lexical merge итоговый score может быть больше 1.
+ * @param {number | null | undefined} value - Score-компонент или `null`.
+ * @returns {string} Строка с двумя знаками после запятой или `-`.
+ */
+function formatScore(value: number | null | undefined): string {
+	if (typeof value !== 'number' || Number.isNaN(value)) {
+		return '-';
+	}
+	return value.toFixed(2);
+}
 
 /**
  * @description Пишет значения полей в настройки плагина и сохраняет их.
@@ -119,7 +133,13 @@ watch(
 		</template>
 
 		<template #message>
-			<StatusBanner v-if="message" :kind="message.kind" :text="message.text" />
+			<StatusBanner
+				v-if="message"
+				:kind="message.kind"
+				:text="message.text"
+				dismissible
+				@dismiss="clearMessage"
+			/>
 		</template>
 
 		<div
@@ -202,7 +222,23 @@ watch(
 							<SummaryChip
 								variant="warning"
 								size="xs"
-								:text="`${Math.round(item.score * 100)}%`"
+								:text="`score ${formatScore(item.scoreDetails?.combinedScore ?? item.score)}`"
+							/>
+							<SummaryChip
+								v-if="item.scoreDetails?.vectorScore != null"
+								size="xs"
+								:text="`sem ${formatScore(item.scoreDetails?.vectorScore)}`"
+							/>
+							<SummaryChip
+								v-if="item.scoreDetails?.lexicalScore != null"
+								size="xs"
+								variant="accent"
+								:text="`fts ${formatScore(item.scoreDetails?.lexicalScore)}`"
+							/>
+							<SummaryChip
+								v-if="item.scoreDetails?.lexicalContribution != null"
+								size="xs"
+								:text="`boost ${formatScore(item.scoreDetails?.lexicalContribution)}`"
 							/>
 						</template>
 						<template #footer>

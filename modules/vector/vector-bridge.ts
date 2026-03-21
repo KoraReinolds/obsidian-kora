@@ -36,6 +36,12 @@ interface SearchRequest {
 	scoreThreshold?: number;
 	/** Только для semantic backend sqlite: вес FTS в `vectorScore + lexical * weight`. */
 	lexicalBoostWeight?: number;
+	/** Отрицательные фильтры по текущему контексту, чтобы сервер исключал self-match до `limit`. */
+	exclude?: {
+		chunkId?: string;
+		originalId?: string;
+		filePath?: string;
+	};
 }
 
 interface VectorStats {
@@ -54,6 +60,14 @@ export interface SearchResult {
 	score: number;
 	content: any;
 	snippet: string;
+	scoreDetails?: {
+		mode: 'hybrid' | 'vector' | 'lexical_fallback';
+		vectorScore: number | null;
+		lexicalScore: number | null;
+		lexicalContribution: number | null;
+		lexicalBoostWeight: number | null;
+		combinedScore: number;
+	};
 }
 
 export interface VectorStoredContentRecord {

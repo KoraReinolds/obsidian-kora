@@ -29,6 +29,14 @@ export interface RelatedChunkResult {
 	headingsPath: string[];
 	contentRaw: string;
 	score: number;
+	scoreDetails?: {
+		mode: 'hybrid' | 'vector' | 'lexical_fallback';
+		vectorScore: number | null;
+		lexicalScore: number | null;
+		lexicalContribution: number | null;
+		lexicalBoostWeight: number | null;
+		combinedScore: number;
+	};
 	sourceFile: string;
 	position?: {
 		start?: { line: number };
@@ -43,6 +51,7 @@ export interface UnsyncedNoteRef {
 
 export interface ChunkTransportPort {
 	readActiveChunkContext(): Promise<ChunkFileContext | null>;
+	getActiveFilePath(): string | null;
 	getActiveCursorLine(): number;
 	syncContext(context: ChunkFileContext): Promise<void>;
 	isVectorHealthy(): Promise<boolean>;

@@ -22,6 +22,20 @@ export interface ContentData {
 	metadata?: Record<string, any>;
 }
 
+/**
+ * @description Отрицательные фильтры для search pipeline. Нужны, когда UI знает
+ * текущий контекст (например, активную заметку) и хочет исключить его ещё на
+ * сервере до ранжирования и применения `limit`.
+ */
+export interface SearchExcludeOptions {
+	/** Точный `chunkId`, который нужно убрать из выдачи. */
+	chunkId?: string;
+	/** `originalId` всей заметки/документа, который нужно исключить целиком. */
+	originalId?: string;
+	/** Путь файла заметки, который нужно исключить из выдачи. */
+	filePath?: string;
+}
+
 export interface SearchOptions {
 	limit?: number;
 	contentTypes?: string[];
@@ -29,6 +43,8 @@ export interface SearchOptions {
 	scoreThreshold?: number;
 	/** Вес лексического (FTS5) скора при смешивании с косинусом; только `sqlite` backend. */
 	lexicalBoostWeight?: number;
+	/** Исключения по текущему контексту; сейчас используются в `sqlite` backend. */
+	exclude?: SearchExcludeOptions;
 }
 
 export interface StoredContentRecord {
@@ -36,14 +52,39 @@ export interface StoredContentRecord {
 	payload: any;
 }
 
+/**
+ * @description Детализация итогового search score. Нужна UI, чтобы показывать не
+ * только merged значение, но и вклад semantic/lexical частей ранжирования.
+ */
+export interface SearchScoreDetails {
+	/** Режим ранжирования результата: hybrid, vector-only или lexical fallback. */
+	mode: 'hybrid' | 'vector' | 'lexical_fallback';
+	/** Косинусный semantic score; для lexical fallback может быть `null`. */
+	vectorScore: number | null;
+	/** Сырой lexical score из FTS; для vector-only может быть `null`. */
+	lexicalScore: number | null;
+	/** Вклад lexical части в merged score после умножения на weight. */
+	lexicalContribution: number | null;
+	/** Вес lexical буста, использованный при merge. */
+	lexicalBoostWeight: number | null;
+	/** Итоговый score, по которому результат сортировался и фильтровался. */
+	combinedScore: number;
+}
+
+/**
+ * @description Одна строка результата semantic search с payload и подробностями score.
+ */
+export interface SearchResultItem {
+	id: string;
+	score: number;
+	content: any;
+	snippet: string;
+	scoreDetails?: SearchScoreDetails;
+}
+
 export interface SearchResult {
 	query: string;
-	results: Array<{
-		id: string;
-		score: number;
-		content: any;
-		snippet: string;
-	}>;
+	results: SearchResultItem[];
 	total: number;
 	queryEmbeddingInfo: EmbeddingResult;
 }

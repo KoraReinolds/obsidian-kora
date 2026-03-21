@@ -8,6 +8,7 @@ import EmbeddingService from '../embedding-service.js';
 import type {
 	ContentData,
 	SearchOptions,
+	SearchExcludeOptions,
 	SearchResult,
 	SemanticBackend,
 	SemanticBackendConfig,
@@ -175,6 +176,7 @@ export class SQLiteSemanticBackend implements SemanticBackend {
 			filters = {},
 			scoreThreshold = 0.0,
 			lexicalBoostWeight: rawLexicalWeight,
+			exclude = {},
 		} = options;
 
 		const lexicalBoostWeight =
@@ -187,15 +189,22 @@ export class SQLiteSemanticBackend implements SemanticBackend {
 		const queryEmbedding = await this.embeddingService.generateEmbedding(query);
 		const vectorCandidates = this.repository
 			.listVectorCandidates(contentTypes)
-			.filter(candidate => this.matchesFilters(candidate.payload, filters));
+			.filter(candidate => this.matchesFilters(candidate.payload, filters))
+			.filter(
+				candidate =>
+					!this.matchesExclude(candidate.payload, candidate.qdrantId, exclude)
+			);
 		const lexicalMatches = this.repository
-			.findLexicalMatches(query, Math.max(limit * 3, 25))
+			.findLexicalMatches(query, Math.max(limit * 6, 50))
 			.filter(match => {
 				const contentType = String(match.payload?.contentType || '');
 				if (contentTypes.length > 0 && !contentTypes.includes(contentType)) {
 					return false;
 				}
-				return this.matchesFilters(match.payload, filters);
+				if (!this.matchesFilters(match.payload, filters)) {
+					return false;
+				}
+				return !this.matchesExclude(match.payload, match.qdrantId, exclude);
 			});
 
 		const lexicalScoreById = new Map<string, number>();
@@ -210,12 +219,21 @@ export class SQLiteSemanticBackend implements SemanticBackend {
 					candidate.embedding
 				);
 				const lexicalBoost = lexicalScoreById.get(candidate.qdrantId) || 0;
-				const combinedScore = vectorScore + lexicalBoost * lexicalBoostWeight;
+				const lexicalContribution = lexicalBoost * lexicalBoostWeight;
+				const combinedScore = vectorScore + lexicalContribution;
 
 				return {
 					id: candidate.qdrantId,
 					score: combinedScore,
 					content: candidate.payload,
+					scoreDetails: {
+						mode: 'hybrid' as const,
+						vectorScore,
+						lexicalScore: lexicalBoost,
+						lexicalContribution,
+						lexicalBoostWeight,
+						combinedScore,
+					},
 					snippet: generateSnippet(
 						String(candidate.payload?.content || ''),
 						query
@@ -239,6 +257,14 @@ export class SQLiteSemanticBackend implements SemanticBackend {
 			id: match.qdrantId,
 			score: match.lexicalScore,
 			content: match.payload,
+			scoreDetails: {
+				mode: 'lexical_fallback' as const,
+				vectorScore: null,
+				lexicalScore: match.lexicalScore,
+				lexicalContribution: match.lexicalScore,
+				lexicalBoostWeight: lexicalBoostWeight,
+				combinedScore: match.lexicalScore,
+			},
 			snippet: generateSnippet(String(match.payload?.content || ''), query),
 		}));
 
@@ -347,5 +373,81 @@ export class SQLiteSemanticBackend implements SemanticBackend {
 			}
 			return actual === expected;
 		});
+	}
+
+	/**
+	 * @anchor <search_exclude_filter>
+	 *
+	 * @description Проверяет, должен ли текущий payload быть исключён из поисковой
+	 * выдачи по контексту активной заметки. Это переносит self-match фильтрацию с
+	 * клиента на `sqlite` backend, чтобы исключения применялись до ранжирования и
+	 * `limit`, а не уже после ответа `/search`.
+	 * @param {Record<string, any>} payload - Канонический payload записи из semantic index.
+	 * @param {string} pointId - Стабильный point id записи/чанка.
+	 * @param {SearchExcludeOptions} exclude - Отрицательные фильтры текущего контекста.
+	 * @returns {boolean} `true`, если запись нужно убрать из выдачи.
+	 */
+	private matchesExclude(
+		payload: Record<string, any>,
+		pointId: string,
+		exclude: SearchExcludeOptions
+	): boolean {
+		if (!exclude || typeof exclude !== 'object') {
+			return false;
+		}
+
+		const payloadChunkId = this.readPayloadChunkId(payload);
+		if (exclude.chunkId && payloadChunkId === exclude.chunkId) {
+			return true;
+		}
+
+		const payloadOriginalId = this.readPayloadOriginalId(payload);
+		if (exclude.originalId) {
+			if (payloadOriginalId === exclude.originalId) {
+				return true;
+			}
+			if (pointId.startsWith(`${exclude.originalId}#`)) {
+				return true;
+			}
+		}
+
+		const payloadFilePath = this.readPayloadFilePath(payload);
+		if (
+			exclude.filePath &&
+			payloadFilePath &&
+			this.normalizePath(payloadFilePath) ===
+				this.normalizePath(exclude.filePath)
+		) {
+			return true;
+		}
+
+		return false;
+	}
+
+	private readPayloadChunkId(payload: Record<string, any>): string {
+		const chunkId =
+			getNestedValue(payload, 'chunkId') ??
+			getNestedValue(payload, 'meta.chunkId');
+		return typeof chunkId === 'string' ? chunkId : '';
+	}
+
+	private readPayloadOriginalId(payload: Record<string, any>): string {
+		const originalId =
+			getNestedValue(payload, 'originalId') ??
+			getNestedValue(payload, 'meta.originalId');
+		return typeof originalId === 'string' ? originalId : '';
+	}
+
+	private readPayloadFilePath(payload: Record<string, any>): string {
+		const filePath =
+			getNestedValue(payload, 'obsidian.path') ??
+			getNestedValue(payload, 'obsidian.filePath') ??
+			getNestedValue(payload, 'meta.obsidian.path') ??
+			getNestedValue(payload, 'meta.obsidian.filePath');
+		return typeof filePath === 'string' ? filePath : '';
+	}
+
+	private normalizePath(filePath: string): string {
+		return filePath.replace(/\\/g, '/');
 	}
 }

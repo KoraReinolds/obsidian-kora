@@ -35,8 +35,9 @@ export function useRelatedChunksScreen(
 		kind: 'neutral' | 'success' | 'error' | 'warning';
 		text: string;
 	} | null>(null);
-	const pollIntervalMs = Math.max(250, options.pollIntervalMs ?? 700);
+	const pollIntervalMs = Math.max(250, options.pollIntervalMs ?? 250);
 	let timer: number | null = null;
+	let syncInFlight = false;
 
 	const activeChunk = computed(() => {
 		if (!context.value || !activeChunkId.value) return null;
@@ -55,6 +56,7 @@ export function useRelatedChunksScreen(
 		isLoading.value = true;
 		try {
 			context.value = await options.transport.readActiveChunkContext();
+			activeChunkId.value = null;
 			unsyncedNotes.value = await options.transport.getUnsyncedNotes(20);
 			await syncByCursor();
 		} catch (error) {
@@ -72,14 +74,28 @@ export function useRelatedChunksScreen(
 	 * @returns {Promise<void>}
 	 */
 	const syncByCursor = async (): Promise<void> => {
-		if (!context.value) {
+		const activeFilePath = options.transport.getActiveFilePath();
+		if (!activeFilePath) {
+			context.value = null;
 			activeChunkId.value = null;
+			relatedChunks.value = [];
+			return;
+		}
+		if (!context.value || context.value.filePath !== activeFilePath) {
+			context.value = await options.transport.readActiveChunkContext();
+			activeChunkId.value = null;
+		}
+		if (!context.value) {
 			relatedChunks.value = [];
 			return;
 		}
 		const line = options.transport.getActiveCursorLine();
 		const index = findChunkIndexForLine(context.value.chunks as any, line);
-		if (index < 0) return;
+		if (index < 0) {
+			activeChunkId.value = null;
+			relatedChunks.value = [];
+			return;
+		}
 		const nextChunkId = context.value.chunks[index].chunkId;
 		if (nextChunkId === activeChunkId.value) return;
 		activeChunkId.value = nextChunkId;
@@ -131,10 +147,25 @@ export function useRelatedChunksScreen(
 		await options.transport.openRelatedChunk(result);
 	};
 
+	/**
+	 * @description Очищает верхний status banner related chunks экрана.
+	 * Нужен для ручного закрытия ошибок/предупреждений без перезагрузки view.
+	 * @returns {void}
+	 */
+	const clearMessage = (): void => {
+		message.value = null;
+	};
+
 	const startPolling = (): void => {
 		if (timer) window.clearInterval(timer);
 		timer = window.setInterval(() => {
-			void syncByCursor();
+			if (syncInFlight) {
+				return;
+			}
+			syncInFlight = true;
+			void syncByCursor().finally(() => {
+				syncInFlight = false;
+			});
 		}, pollIntervalMs);
 	};
 
@@ -159,6 +190,7 @@ export function useRelatedChunksScreen(
 		isLoading,
 		isLoadingRelated,
 		message,
+		clearMessage,
 		refreshContext,
 		loadRelated,
 		openRelated,

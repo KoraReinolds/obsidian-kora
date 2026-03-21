@@ -17,18 +17,6 @@ import type {
 } from '../ports/chunk-transport-port';
 
 /**
- * @description Сравнение путей vault без учёта `\` vs `/` (Windows).
- * @param {string} a - Путь из контекста редактора.
- * @param {string} b - Путь из payload индекса.
- * @returns {boolean} Совпадение после нормализации.
- */
-function vaultPathsEqual(a: string, b: string): boolean {
-	if (!a || !b) return false;
-	const norm = (p: string) => p.replace(/\\/g, '/');
-	return norm(a) === norm(b);
-}
-
-/**
  * @description Адаптер инфраструктуры Obsidian и vector backend к feature-порту.
  */
 export class ObsidianChunkTransportAdapter implements ChunkTransportPort {
@@ -45,23 +33,7 @@ export class ObsidianChunkTransportAdapter implements ChunkTransportPort {
 	 * @returns {Promise<ChunkFileContext | null>} Контекст или null, если активный файл не markdown.
 	 */
 	async readActiveChunkContext(): Promise<ChunkFileContext | null> {
-		const activeFile = this.app.workspace.getActiveFile();
-		if (
-			activeFile &&
-			activeFile instanceof TFile &&
-			activeFile.extension === 'md'
-		) {
-			this.lastMarkdownFilePath = activeFile.path;
-		}
-
-		const file =
-			activeFile && activeFile instanceof TFile && activeFile.extension === 'md'
-				? activeFile
-				: this.lastMarkdownFilePath
-					? (this.app.vault.getAbstractFileByPath(
-							this.lastMarkdownFilePath
-						) as TFile)
-					: null;
+		const file = this.resolveActiveMarkdownFile();
 		if (!file || !(file instanceof TFile) || file.extension !== 'md') {
 			return null;
 		}
@@ -134,6 +106,16 @@ export class ObsidianChunkTransportAdapter implements ChunkTransportPort {
 			chunks,
 			displayItems,
 		};
+	}
+
+	/**
+	 * @description Возвращает путь текущей markdown-заметки без чтения и chunking.
+	 * Нужен related chunks экрану, чтобы быстро замечать переключение на другой файл
+	 * и обновлять контекст до запроса `/search`.
+	 * @returns {string | null} Путь активной markdown-заметки или `null`.
+	 */
+	getActiveFilePath(): string | null {
+		return this.resolveActiveMarkdownFile()?.path ?? null;
 	}
 
 	/**
@@ -230,11 +212,12 @@ export class ObsidianChunkTransportAdapter implements ChunkTransportPort {
 	}
 
 	/**
-	 * @description Ищет связанные чанки через vector similarity.
+	 * @description Ищет связанные чанки через vector similarity и передаёт
+	 * `exclude`-контекст на сервер, чтобы `sqlite` backend убирал self-match
+	 * ещё до ранжирования и `limit`.
 	 * @param {string} query - Текст текущего чанка.
 	 * @param {{ chunkId?: string; originalId?: string; filePath?: string }} exclude -
-	 * Исключение текущего чанка и всей заметки: по chunkId, originalId, префиксу point id
-	 * (`originalId#chunkId` на сервере) и пути `obsidian.path`.
+	 * Исключение текущего чанка и всей заметки: по chunkId, originalId и пути файла.
 	 * @returns {Promise<RelatedChunkResult[]>}
 	 */
 	async searchRelated(
@@ -251,34 +234,10 @@ export class ObsidianChunkTransportAdapter implements ChunkTransportPort {
 			contentTypes: ['obsidian_note'],
 			scoreThreshold: searchOpts.scoreThreshold,
 			lexicalBoostWeight: searchOpts.lexicalBoostWeight,
+			exclude,
 		});
 
 		return searchResults.results
-			.filter(result => {
-				const content = result.content || {};
-				const resultChunkId = content.chunkId;
-				const resultOriginalId = content.originalId || content.meta?.originalId;
-				const resultPath =
-					content.obsidian?.path || content.meta?.obsidian?.path || '';
-				const pointId = typeof result.id === 'string' ? result.id : '';
-
-				if (exclude.chunkId && resultChunkId === exclude.chunkId) return false;
-
-				if (exclude.originalId) {
-					if (resultOriginalId === exclude.originalId) return false;
-					if (pointId.startsWith(`${exclude.originalId}#`)) return false;
-				}
-
-				if (
-					exclude.filePath &&
-					resultPath &&
-					vaultPathsEqual(exclude.filePath, resultPath)
-				) {
-					return false;
-				}
-
-				return true;
-			})
 			.map(result => {
 				const content = result.content ?? {};
 				const sourceFile =
@@ -289,6 +248,7 @@ export class ObsidianChunkTransportAdapter implements ChunkTransportPort {
 					headingsPath: content.headingsPath || [],
 					contentRaw: content.content || content.contentRaw || '',
 					score: result.score,
+					scoreDetails: result.scoreDetails,
 					sourceFile,
 					position: content.position,
 				} as RelatedChunkResult;
@@ -379,5 +339,38 @@ export class ObsidianChunkTransportAdapter implements ChunkTransportPort {
 			throw new Error('Note has no creation time');
 		}
 		return String(created);
+	}
+
+	/**
+	 * @description Находит markdown-файл, который сейчас следует считать активным для
+	 * related chunks: сначала текущий leaf, затем последний известный markdown путь.
+	 * Это даёт стабильный file context даже когда фокус временно ушёл с редактора на view.
+	 * @returns {TFile | null} Активный markdown-файл или `null`.
+	 */
+	private resolveActiveMarkdownFile(): TFile | null {
+		const activeFile = this.app.workspace.getActiveFile();
+		if (activeFile instanceof TFile && activeFile.extension === 'md') {
+			this.lastMarkdownFilePath = activeFile.path;
+			return activeFile;
+		}
+
+		const activeMarkdownView =
+			this.app.workspace.getActiveViewOfType(MarkdownView);
+		const viewFile = activeMarkdownView?.file;
+		if (viewFile instanceof TFile && viewFile.extension === 'md') {
+			this.lastMarkdownFilePath = viewFile.path;
+			return viewFile;
+		}
+
+		if (this.lastMarkdownFilePath) {
+			const fallback = this.app.vault.getAbstractFileByPath(
+				this.lastMarkdownFilePath
+			);
+			if (fallback instanceof TFile && fallback.extension === 'md') {
+				return fallback;
+			}
+		}
+
+		return null;
 	}
 }
