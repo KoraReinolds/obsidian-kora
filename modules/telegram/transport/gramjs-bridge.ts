@@ -55,7 +55,7 @@ export class GramJSBridge extends BaseHttpClient {
 	async sendMessage(request: SendMessageRequest): Promise<SendMessageResponse> {
 		const result = await this.handleRequest<SendMessageResponse>(
 			'/send_message',
-			{ method: 'POST', body: request },
+			{ method: 'POST', body: request, timeout: 60000 },
 			'Ошибка отправки сообщения'
 		);
 
@@ -75,7 +75,7 @@ export class GramJSBridge extends BaseHttpClient {
 	async editMessage(request: EditMessageRequest): Promise<boolean> {
 		const result = await this.handleRequest(
 			'/edit_message',
-			{ method: 'POST', body: request },
+			{ method: 'POST', body: request, timeout: 60000 },
 			'Ошибка редактирования сообщения'
 		);
 

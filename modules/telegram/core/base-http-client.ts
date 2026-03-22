@@ -4,7 +4,7 @@
  */
 
 import { Notice } from 'obsidian';
-import { TELEGRAM_CONSTANTS } from './constants';
+import { TELEGRAM_CONSTANTS } from '../../../packages/kora-core/src/telegram/core/constants.js';
 
 export interface HttpClientConfig {
 	host?: string;

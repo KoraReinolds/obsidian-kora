@@ -4,15 +4,19 @@
  */
 
 import { App, TFile } from 'obsidian';
-import { TELEGRAM_CONSTANTS } from '../core/constants';
+import {
+	countLinks as countPureLinks,
+	generateTelegramPostUrl as generatePureTelegramPostUrl,
+	parseButtonLineMatches,
+	parseButtonsFromFrontmatter as parseButtonsFromFrontmatterPure,
+	parseMarkdownLinks as parsePureMarkdownLinks,
+	parseObsidianLinkMatches,
+	replaceObsidianLinksWithMarkdown as replacePureObsidianLinksWithMarkdown,
+	type BaseParsedLink,
+	type ParsedMarkdownLink,
+	type ProcessedLink,
+} from '../../../packages/kora-core/src/telegram/links/index.js';
 import { getMarkdownFiles } from '../../obsidian/file-operations';
-
-// Base interface for all parsed links
-export interface BaseParsedLink {
-	start: number;
-	end: number;
-	fullMatch: string;
-}
 
 export interface ParsedObsidianLink extends BaseParsedLink {
 	type: 'obsidian';
@@ -21,19 +25,9 @@ export interface ParsedObsidianLink extends BaseParsedLink {
 	postId?: number;
 }
 
-export interface ParsedMarkdownLink extends BaseParsedLink {
-	type: 'markdown';
-	linkText: string;
-	url: string;
-}
-
 export type ParsedLink = ParsedObsidianLink | ParsedMarkdownLink;
 
-export interface ProcessedLink {
-	fileName: string;
-	displayText: string;
-	telegramUrl: string;
-}
+export type { BaseParsedLink, ParsedMarkdownLink, ProcessedLink };
 
 export class LinkParser {
 	private app: App;
@@ -68,26 +62,11 @@ export class LinkParser {
 	 * Parse Obsidian links [[file|text]] from content
 	 */
 	parseObsidianLinks(content: string): ParsedObsidianLink[] {
-		// First, parse all links to get file names
-		const rawLinks = this.parseWithRegex(
-			content,
-			TELEGRAM_CONSTANTS.REGEX.OBSIDIAN_LINKS,
-			match => ({
-				fileName: match[1],
-				displayText: match[2] || match[1],
-				start: match.index ?? 0,
-				end: (match.index ?? 0) + match[0].length,
-				fullMatch: match[0],
-			})
-		);
+		const rawLinks = parseObsidianLinkMatches(content);
 
-		// Get all unique file names
 		const fileNames = [...new Set(rawLinks.map(link => link.fileName))];
-
-		// Get files in one batch operation
 		const fileMap = this.findFilesByNames(fileNames);
 
-		// Map files back to parsed links
 		return rawLinks.map(link => ({
 			type: 'obsidian' as const,
 			displayText: link.displayText,
@@ -102,40 +81,7 @@ export class LinkParser {
 	 * Parse Markdown links [text](url) from content
 	 */
 	parseMarkdownLinks(content: string): ParsedMarkdownLink[] {
-		return this.parseWithRegex(
-			content,
-			TELEGRAM_CONSTANTS.REGEX.MARKDOWN_LINKS,
-			(match): ParsedMarkdownLink => ({
-				type: 'markdown',
-				linkText: match[1],
-				url: match[2],
-				start: match.index ?? 0,
-				end: (match.index ?? 0) + match[0].length,
-				fullMatch: match[0],
-			})
-		);
-	}
-
-	/**
-	 * Generic regex parser helper
-	 */
-	private parseWithRegex<T>(
-		content: string,
-		regex: RegExp,
-		transformer: (match: RegExpExecArray) => T
-	): T[] {
-		const matches: T[] = [];
-		const globalRegex = new RegExp(
-			regex.source,
-			regex.flags.includes('g') ? regex.flags : regex.flags + 'g'
-		);
-		let match: RegExpExecArray | null;
-
-		while ((match = globalRegex.exec(content)) !== null) {
-			matches.push(transformer(match));
-		}
-
-		return matches;
+		return parsePureMarkdownLinks(content);
 	}
 
 	/**
@@ -145,25 +91,7 @@ export class LinkParser {
 		content: string,
 		processedLinks: ProcessedLink[]
 	): string {
-		const parsedLinks = this.parseObsidianLinks(content);
-		let result = content;
-
-		// Process in reverse order to maintain correct indices
-		const reversedLinks = [...parsedLinks].reverse();
-		const reversedProcessed = [...processedLinks].reverse();
-
-		reversedLinks.forEach((link, index) => {
-			const processedLink = reversedProcessed[index];
-			if (processedLink) {
-				const markdownLink = `[${processedLink.displayText}](${processedLink.telegramUrl})`;
-				result =
-					result.substring(0, link.start) +
-					markdownLink +
-					result.substring(link.end);
-			}
-		});
-
-		return result;
+		return replacePureObsidianLinksWithMarkdown(content, processedLinks);
 	}
 
 	/**
@@ -173,43 +101,29 @@ export class LinkParser {
 	parseButtonLines(
 		lines: string[]
 	): Array<Array<{ text: string; fileName: string; file: TFile | null }>> {
-		const buttonRows: Array<
-			Array<{ text: string; fileName: string; file: TFile | null }>
-		> = [];
+		const buttonRows = parseButtonLineMatches(lines);
+		const fileNames = [
+			...new Set(buttonRows.flat().map(button => button.fileName)),
+		];
+		const fileMap = this.findFilesByNames(fileNames);
 
-		for (const line of lines) {
-			const trimmedLine = line.trim();
-			if (!trimmedLine) continue;
-
-			const parsedLinks = this.parseObsidianLinks(trimmedLine);
-			if (parsedLinks.length > 0) {
-				const rowButtons = parsedLinks.map(link => ({
-					text: link.displayText,
-					fileName: link.file?.name || '',
-					file: link.file,
-				}));
-				buttonRows.push(rowButtons);
-			}
-		}
-
-		return buttonRows;
+		return buttonRows.map(row =>
+			row.map(button => {
+				const file = fileMap.get(button.fileName) || null;
+				return {
+					text: button.text,
+					fileName: file?.name || '',
+					file,
+				};
+			})
+		);
 	}
 
 	/**
 	 * Generate Telegram post URL from channel ID and message ID
 	 */
 	static generateTelegramPostUrl(channelId: string, messageId: number): string {
-		if (TELEGRAM_CONSTANTS.REGEX.NUMERIC_CHANNEL_ID.test(channelId)) {
-			let numericId = `${channelId}`;
-			if (numericId.startsWith('-100')) {
-				numericId = numericId.slice(4); // Remove '-100' prefix
-			} else if (numericId.startsWith('-')) {
-				numericId = numericId.slice(1); // Remove just '-' prefix
-			}
-			return `https://t.me/c/${numericId}/${messageId}`;
-		} else {
-			throw new Error('Unknown channel format');
-		}
+		return generatePureTelegramPostUrl(channelId, messageId);
 	}
 
 	/**
@@ -217,10 +131,7 @@ export class LinkParser {
 	 * Parses [[filename]] format from frontmatter
 	 */
 	parseButtonsFromFrontmatter(frontmatterValue: string): string | null {
-		const match = frontmatterValue.match(
-			TELEGRAM_CONSTANTS.REGEX.BUTTONS_FRONTMATTER
-		);
-		return match ? match[1] : null;
+		return parseButtonsFromFrontmatterPure(frontmatterValue);
 	}
 
 	/**
@@ -231,14 +142,7 @@ export class LinkParser {
 		markdown: number;
 		total: number;
 	} {
-		const obsidianCount = this.parseObsidianLinks(content).length;
-		const markdownCount = this.parseMarkdownLinks(content).length;
-
-		return {
-			obsidian: obsidianCount,
-			markdown: markdownCount,
-			total: obsidianCount + markdownCount,
-		};
+		return countPureLinks(content);
 	}
 
 	/**

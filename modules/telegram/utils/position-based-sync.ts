@@ -97,6 +97,7 @@ export class PositionBasedSync {
 					if (syncResult.success && syncResult.messageId) {
 						// Update post ID at this position
 						postIds[i] = syncResult.messageId;
+						link.postId = syncResult.messageId;
 
 						if (syncResult.wasUpdated) {
 							result.updated++;
@@ -151,8 +152,7 @@ export class PositionBasedSync {
 			if (!file) throw new Error('File not found');
 
 			// Get note content
-			const content =
-				(await this.vaultOps.getFileContent(file)) + Math.random();
+			const content = await this.vaultOps.getFileContent(file);
 
 			// Format message for Telegram with source context
 			const conversionResult = await this.messageFormatter.formatMarkdownNote({

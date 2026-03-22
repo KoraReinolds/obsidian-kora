@@ -4,6 +4,7 @@
  */
 // @ts-ignore\nconst TelegramBot = require('node-telegram-bot-api');
 import TelegramBot from 'node-telegram-bot-api';
+import { fetch as undiciFetch, ProxyAgent } from 'undici';
 import TelegramClientStrategy, {
 	type TelegramConfig,
 	type UserInfo,
@@ -40,13 +41,15 @@ class BotStrategy extends TelegramClientStrategy {
 		console.log('[BotStrategy] Initializing bot client...');
 		console.log('[BotStrategy] Bot token available:', !!this.config.botToken);
 
-		this.client = new TelegramBot(this.config.botToken, { polling: false });
+		this.client = {
+			bot: new TelegramBot(this.config.botToken, { polling: false }),
+			disconnect: async () => undefined,
+		};
 
+		const me = await this.getMe();
 		this.isConnected = true;
-
-		const me = await this.client.getMe();
 		console.log(
-			`[BotStrategy] Bot connected successfully: @${me.username} (${me.first_name})`
+			`[BotStrategy] Bot connected successfully: @${me.username} (${me.firstName})`
 		);
 
 		return me;
@@ -148,7 +151,11 @@ class BotStrategy extends TelegramClientStrategy {
 				);
 			}
 
-			const result = await this.client.sendMessage(peer, message, opts);
+			const result = await this.callBotApi<any>('sendMessage', {
+				chat_id: peer,
+				text: message,
+				...opts,
+			});
 
 			console.log('[BotStrategy] Message sent successfully in bot mode');
 			return {
@@ -226,9 +233,10 @@ class BotStrategy extends TelegramClientStrategy {
 				);
 			}
 
-			const result = await this.client.editMessageText(text, {
+			const result = await this.callBotApi<any>('editMessageText', {
 				chat_id: peer,
 				message_id: messageId,
+				text,
 				...opts,
 			});
 
@@ -320,7 +328,11 @@ class BotStrategy extends TelegramClientStrategy {
 				opts.parse_mode = options.parseMode;
 			}
 
-			const result = await this.client.sendDocument(peer, options.file, opts);
+			const result = await this.client.bot.sendDocument(
+				peer,
+				options.file,
+				opts
+			);
 
 			console.log('[BotStrategy] File sent successfully in bot mode');
 			return {
@@ -345,6 +357,52 @@ class BotStrategy extends TelegramClientStrategy {
 
 			throw error;
 		}
+	}
+
+	async getMe(): Promise<UserInfo> {
+		const me = await this.callBotApi<any>('getMe');
+		return {
+			id: me.id,
+			username: me.username,
+			firstName: me.first_name,
+			lastName: undefined,
+		};
+	}
+
+	private async callBotApi<T>(
+		method: string,
+		payload?: Record<string, unknown>
+	): Promise<T> {
+		const token = this.config.botToken;
+		if (!token) {
+			throw new Error('Bot token is required');
+		}
+
+		const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+		const response = await undiciFetch(
+			`https://api.telegram.org/bot${token}/${method}`,
+			{
+				method: payload ? 'POST' : 'GET',
+				headers: payload
+					? {
+							'Content-Type': 'application/json',
+						}
+					: undefined,
+				body: payload ? JSON.stringify(payload) : undefined,
+				dispatcher: proxyUrl ? new ProxyAgent(proxyUrl) : undefined,
+			}
+		);
+
+		const data = (await response.json()) as {
+			ok?: boolean;
+			description?: string;
+			result?: T;
+		};
+		if (!response.ok || !data.ok) {
+			throw new Error(data.description || `Bot API ${method} failed`);
+		}
+
+		return data.result as T;
 	}
 }
 

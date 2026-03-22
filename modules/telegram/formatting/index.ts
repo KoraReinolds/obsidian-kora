@@ -6,7 +6,12 @@ export {
 	InlineFormatter,
 	type FormattingMatch,
 	type ProcessedFormatting,
-} from './inline-formatter';
+	MarkdownToTelegramConverter,
+	markdownToTelegramConverter,
+	type ConversionOptions,
+	type ConversionResult,
+	type TelegramMessageEntity,
+} from '../../../packages/kora-core/src/telegram/formatting/index.js';
 export {
 	LinkParser,
 	type ParsedLink,
@@ -15,16 +20,8 @@ export {
 	type ProcessedLink,
 } from './link-parser';
 export {
-	MarkdownToTelegramConverter,
-	markdownToTelegramConverter,
-	type ConversionOptions,
-	type ConversionResult,
-	type TelegramMessageEntity,
-} from './markdown-to-telegram-converter';
-export {
 	TelegramMessageFormatter,
 	type EmojiMapping,
 	type MessageEntity,
-	type InlineButton,
 } from './telegram-message-formatter';
 export { ObsidianTelegramFormatter } from './obsidian-telegram-formatter';

@@ -11,5 +11,5 @@ export {
 	TelegramValidator,
 	type ValidationResult,
 	type ValidationOptions,
-} from './validator';
+} from '../../../packages/kora-core/src/telegram/utils/index.js';
 export { PositionBasedSync, type SyncResult } from './position-based-sync';

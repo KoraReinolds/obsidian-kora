@@ -7,5 +7,5 @@ export {
 	type FormattingPattern,
 	type SupportedImageFormat,
 	type MarkdownV2EscapeChar,
-} from './constants';
+} from '../../../packages/kora-core/src/telegram/core/index.js';
 export { BaseHttpClient, type HttpClientConfig } from './base-http-client';

@@ -4,11 +4,14 @@
 
 import { App, TFile } from 'obsidian';
 import { FileParser, BaseFileData, ValidationResult } from './base-file-parser';
+import { type ParsedObsidianLink } from '../formatting/link-parser';
+import {
+	parseChannelFileData,
+	validateChannelFileData,
+	type ChannelFileData as CoreChannelFileData,
+} from '../../../packages/kora-core/src/telegram/parsing/index.js';
 
-export interface ChannelFileData extends BaseFileData {
-	channelId: string;
-	postIds: number[];
-}
+export type ChannelFileData = CoreChannelFileData<TFile, ParsedObsidianLink>;
 
 export class ChannelFileParser extends FileParser<ChannelFileData> {
 	static channelMap: Record<string, ChannelFileData> = {};
@@ -20,55 +23,15 @@ export class ChannelFileParser extends FileParser<ChannelFileData> {
 	protected async parseSpecific(
 		baseData: BaseFileData
 	): Promise<ChannelFileData> {
-		// Extract channel-specific data from frontmatter
-		const channelId = this.extractFrontmatterValue(
-			baseData.frontmatter,
-			'channel_id',
-			''
-		);
-		const postIds = this.extractFrontmatterValue(
-			baseData.frontmatter,
-			'post_ids',
-			[]
-		);
+		const data = parseChannelFileData(baseData);
 
-		baseData.links.forEach((link, index) => {
-			link.postId = postIds[index];
-		});
-
-		const data = {
-			...baseData,
-			channelId,
-			postIds,
-		};
-
-		ChannelFileParser.channelMap[channelId] = data;
+		ChannelFileParser.channelMap[data.channelId] = data;
 
 		return data;
 	}
 
 	protected validateSpecific(baseData: BaseFileData): ValidationResult {
-		const { errors, warnings } = this.validateFrontmatterFields(
-			baseData.frontmatter,
-			[
-				{ field: 'channel_id', required: true, expectedType: 'string' },
-				{ field: 'post_ids', required: false, expectedType: 'array' },
-			]
-		);
-
-		// Additional channel-specific validation
-		if (
-			baseData.frontmatter.channel_id &&
-			!baseData.frontmatter.channel_id.toString().trim()
-		) {
-			errors.push('channel_id cannot be empty');
-		}
-
-		return {
-			isValid: errors.length === 0,
-			errors,
-			warnings,
-		};
+		return validateChannelFileData(baseData);
 	}
 
 	protected getFileType(): string {

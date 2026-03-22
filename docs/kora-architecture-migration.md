@@ -317,8 +317,39 @@
 
 ### PR 4
 
+Статус: частично выполнено.
+
 - выделить `packages/kora-core/src/telegram`
 - перенести formatting/parsing
+
+Фактически сделано:
+
+- создан `packages/kora-core/src/telegram/**`
+- в `kora-core` вынесен чистый foundation Telegram-логики:
+  - `core/constants`
+  - `utils/validator`
+  - `formatting/inline-formatter`
+  - `formatting/markdown-to-telegram-converter`
+- в `kora-core` вынесены pure helper-функции для ссылок:
+  - `links/link-parser`
+  - `generateTelegramPostUrl`
+  - разбор markdown/obsidian links без `App` и `TFile`
+- в `kora-core` вынесен pure parsing helper-слой:
+  - `parsing/base-file-parser`
+  - `parsing/channel-file-parser`
+  - `parsing/post-file-parser`
+  - frontmatter validation/extraction без зависимости на Obsidian runtime
+- `TelegramMessageFormatter` больше не зависит от `LinkParser` и file lookup, но сам пока оставлен в plugin-слое как compatibility-обертка
+- старые пути в `modules/telegram/**` оставлены как compatibility shims там, где это безопасно
+- `FileParser`, `ChannelFileParser`, `PostFileParser` сохранены как Obsidian-adapter-классы поверх shared parsing helpers
+- в adapter-слое возвращена минимальная compatibility-совместимость `PostFileParser` для старых вызовов
+- host-specific код (`LinkParser` как Obsidian-adapter, `ObsidianTelegramFormatter`, adapter-часть `parsing/**`) пока оставлен в plugin-слое
+
+Почему не весь PR 4 сразу:
+
+- текущие adapter-классы `parsing/**` и adapter-часть `LinkParser` завязаны на `obsidian`, `TFile`, vault operations и file lookup
+- перенос их "как есть" в shared package привёл бы к ложной архитектуре, где `kora-core` продолжает зависеть от Obsidian runtime
+- для полного переноса `parsing` нужен отдельный шаг: сначала отделить pure parsing/link model от file-system и vault adapter-слоя
 
 ### PR 5
 

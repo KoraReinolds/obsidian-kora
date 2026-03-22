@@ -2,7 +2,7 @@
  * Утилиты для работы с изображениями в Telegram
  */
 
-import { TelegramValidator } from './validator';
+import { TelegramValidator } from '../../../packages/kora-core/src/telegram/utils/validator.js';
 
 /**
  * Интерфейс информации об изображении

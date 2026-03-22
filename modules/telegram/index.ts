@@ -23,5 +23,4 @@ export * from './parsing';
 
 // Backward compatibility exports (using new components)
 export { ObsidianTelegramFormatter as MessageFormatter } from './formatting/obsidian-telegram-formatter';
-import { LinkParser } from './formatting/link-parser';
-export const generateTelegramPostUrl = LinkParser.generateTelegramPostUrl;
+export { generateTelegramPostUrl } from '../../packages/kora-core/src/telegram/links/index.js';

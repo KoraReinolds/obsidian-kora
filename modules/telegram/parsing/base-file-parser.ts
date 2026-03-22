@@ -5,19 +5,17 @@
 import { App, TFile } from 'obsidian';
 import { VaultOperations, FrontmatterUtils } from '../../obsidian';
 import { LinkParser, ParsedObsidianLink } from '../formatting/link-parser';
+import {
+	extractFrontmatterValue,
+	stripFrontmatter,
+	validateFrontmatterField,
+	validateFrontmatterFields,
+	type BaseFileData as CoreBaseFileData,
+	type FileValidationResult,
+} from '../../../packages/kora-core/src/telegram/parsing/index.js';
 
-export interface BaseFileData {
-	file: TFile;
-	content: string;
-	frontmatter: Record<string, any>;
-	links: ParsedObsidianLink[];
-}
-
-export interface ValidationResult {
-	isValid: boolean;
-	errors: string[];
-	warnings: string[];
-}
+export type BaseFileData = CoreBaseFileData<TFile, ParsedObsidianLink>;
+export type ValidationResult = FileValidationResult;
 
 export abstract class FileParser<T extends BaseFileData = BaseFileData> {
 	protected app: App;
@@ -26,22 +24,30 @@ export abstract class FileParser<T extends BaseFileData = BaseFileData> {
 	protected linkParser: LinkParser;
 
 	// File and parsed data stored after successful initialization
-	private file: TFile;
+	private file: TFile | null;
 	private data: T | null = null;
 	private _isValid = false;
 
-	constructor(app: App, file: TFile) {
+	constructor(app: App, file?: TFile) {
 		this.app = app;
 		this.vaultOps = new VaultOperations(app);
 		this.frontmatterUtils = new FrontmatterUtils(app);
 		this.linkParser = new LinkParser(app);
-		this.file = file;
+		this.file = file ?? null;
 	}
 
-	async parse(): Promise<T | null> {
+	async parse(file?: TFile): Promise<T | null> {
+		const targetFile = file ?? this.file;
+		if (!targetFile) {
+			this._isValid = false;
+			this.data = null;
+			return null;
+		}
+
+		this.file = targetFile;
+
 		try {
-			// Constructor calls parse immediately
-			await this.parseFile();
+			await this.parseFile(targetFile);
 			this._isValid = true;
 			return this.data;
 		} catch (error) {
@@ -50,11 +56,14 @@ export abstract class FileParser<T extends BaseFileData = BaseFileData> {
 		}
 	}
 
-	private async parseFile(): Promise<void> {
-		// Get base data
-		const baseData = await this.getBaseFileData();
+	async isValidFile(file?: TFile): Promise<boolean> {
+		const parsed = await this.parse(file);
+		return parsed !== null;
+	}
 
-		// Validate first
+	private async parseFile(file: TFile): Promise<void> {
+		const baseData = await this.getBaseFileData(file);
+
 		const validation = this.validateSpecific(baseData);
 		if (!validation.isValid) {
 			throw new Error(
@@ -62,7 +71,6 @@ export abstract class FileParser<T extends BaseFileData = BaseFileData> {
 			);
 		}
 
-		// Parse and store
 		this.data = await this.parseSpecific(baseData);
 	}
 
@@ -88,13 +96,14 @@ export abstract class FileParser<T extends BaseFileData = BaseFileData> {
 	/**
 	 * Get common file data that all parsers need
 	 */
-	protected async getBaseFileData(): Promise<BaseFileData> {
-		const content = await this.vaultOps.getFileContent(this.file);
-		const frontmatter = await this.frontmatterUtils.getFrontmatter(this.file);
-		const links = this.linkParser.parseObsidianLinks(content);
+	protected async getBaseFileData(file: TFile): Promise<BaseFileData> {
+		const content = await this.vaultOps.getFileContent(file);
+		const frontmatter = await this.frontmatterUtils.getFrontmatter(file);
+		const contentWithoutFrontmatter = stripFrontmatter(content);
+		const links = this.linkParser.parseObsidianLinks(contentWithoutFrontmatter);
 
 		return {
-			file: this.file,
+			file,
 			content,
 			frontmatter,
 			links,
@@ -110,25 +119,7 @@ export abstract class FileParser<T extends BaseFileData = BaseFileData> {
 		required = false,
 		expectedType?: string
 	): { isValid: boolean; error?: string } {
-		if (!(field in frontmatter)) {
-			if (required) {
-				return { isValid: false, error: `Missing required field: ${field}` };
-			}
-			return { isValid: true };
-		}
-
-		const value = frontmatter[field];
-		if (expectedType) {
-			const actualType = Array.isArray(value) ? 'array' : typeof value;
-			if (actualType !== expectedType) {
-				return {
-					isValid: false,
-					error: `Field ${field} should be ${expectedType}, got ${actualType}`,
-				};
-			}
-		}
-
-		return { isValid: true };
+		return validateFrontmatterField(frontmatter, field, required, expectedType);
 	}
 
 	protected validateFrontmatterFields(
@@ -139,23 +130,7 @@ export abstract class FileParser<T extends BaseFileData = BaseFileData> {
 			expectedType?: string;
 		}[]
 	): { errors: string[]; warnings: string[] } {
-		const errors: string[] = [];
-		const warnings: string[] = [];
-
-		for (const validation of fieldValidations) {
-			const result = this.validateFrontmatterField(
-				frontmatter,
-				validation.field,
-				validation.required,
-				validation.expectedType
-			);
-
-			if (!result.isValid && result.error) {
-				errors.push(result.error);
-			}
-		}
-
-		return { errors, warnings };
+		return validateFrontmatterFields(frontmatter, fieldValidations);
 	}
 
 	/**
@@ -166,7 +141,7 @@ export abstract class FileParser<T extends BaseFileData = BaseFileData> {
 		key: string,
 		defaultValue: V
 	): V {
-		return frontmatter[key] !== undefined ? frontmatter[key] : defaultValue;
+		return extractFrontmatterValue(frontmatter, key, defaultValue);
 	}
 
 	/**
@@ -184,6 +159,10 @@ export abstract class FileParser<T extends BaseFileData = BaseFileData> {
 	 * Get the file this parser instance was created for
 	 */
 	getFile(): TFile {
+		if (!this.file) {
+			throw new Error('Parser file is not set');
+		}
+
 		return this.file;
 	}
 }

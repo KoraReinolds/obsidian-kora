@@ -23,6 +23,7 @@
 		"input": "^1.0.1",
 		"openai": "^4.68.4",
 		"telegram": "^2.22.2",
+		"undici": "^7.24.5",
 		"uuid": "^11.1.0"
 	},
 	"devDependencies": {

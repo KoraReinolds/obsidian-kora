@@ -47,7 +47,6 @@ export class ObsidianTelegramFormatter {
 		this.vaultOperations = new VaultOperations(app);
 		this.channelConfigService = channelConfigService;
 		this.telegramFormatter = new TelegramMessageFormatter(
-			app,
 			customEmojis,
 			useCustomEmojis
 		);
@@ -193,9 +192,13 @@ export class ObsidianTelegramFormatter {
 			//
 			const channel = ChannelFileParser.channelMap[channelId];
 
-			const messageId = channel.links.find(
+			const linkIndex = channel.links.findIndex(
 				link => link.file?.name === file.name
-			)?.postId;
+			);
+			const messageId =
+				linkIndex >= 0
+					? (channel.postIds[linkIndex] ?? channel.links[linkIndex]?.postId)
+					: undefined;
 
 			if (!messageId) {
 				throw new Error(

@@ -20,10 +20,9 @@ import {
  */
 export function registerEditMessageRoute(app: Express): void {
 	app.post('/edit_message', async (req: Request, res: Response) => {
-		const strategy = await initClient();
-		const mode = strategy.getMode();
-
 		try {
+			const strategy = await initClient();
+			const mode = strategy.getMode();
 			const requestData: EditMessageRequest = req.body;
 			const {
 				peer,
@@ -90,11 +89,28 @@ export function registerEditMessageRoute(app: Express): void {
 		} catch (error: unknown) {
 			// eslint-disable-next-line no-console
 			console.error('[edit_message] Error:', error);
-			res.status(200).json({
-				success: true,
-				message: 'Message the same',
+			const mode = req.body?.mode || null;
+			const errorMessage =
+				error instanceof Error ? error.message : String(error);
+			const isNotModifiedError =
+				/MESSAGE_NOT_MODIFIED|message (content )?is (the )?same|message is not modified/i.test(
+					errorMessage
+				);
+
+			if (isNotModifiedError) {
+				res.status(200).json({
+					success: true,
+					message: 'Message the same',
+					mode,
+					result: null,
+				});
+				return;
+			}
+
+			res.status(500).json({
+				success: false,
+				error: errorMessage,
 				mode,
-				result: null,
 			});
 		}
 	});
