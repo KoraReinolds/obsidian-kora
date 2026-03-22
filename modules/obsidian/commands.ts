@@ -15,7 +15,7 @@ import { FrontmatterUtils, VaultOperations } from '.';
 import { DuplicateTimeFixer } from '../utils';
 import { RELATED_CHUNKS_VIEW_TYPE } from '../chunking/ui/related-chunks-view';
 import { SEMANTIC_INSPECTOR_VIEW_TYPE } from '../semantic-inspector';
-import type { KoraMcpPluginSettings as KoraPluginSettings } from '../../main';
+import type { KoraMcpPluginSettings as KoraPluginSettings } from '../../plugin-settings';
 
 export class PluginCommands {
 	private app: App;

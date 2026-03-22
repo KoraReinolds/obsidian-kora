@@ -361,12 +361,15 @@
 Фактически сделано:
 
 - создан `apps/obsidian-plugin/src/main.ts` как новый plugin entrypoint
+- создан `apps/obsidian-plugin/src/plugin-settings.ts` для plugin settings/types и default settings
 - `esbuild.config.mjs` теперь собирает plugin из `apps/obsidian-plugin/src/main.ts`
 - output по-прежнему остается совместимым с Obsidian:
   - root `main.js`
   - root `styles.css`
   - root `manifest.json`
 - root `main.ts` превращен в compatibility shim, который re-export-ит новый app entrypoint
+- создан root `plugin-settings.ts` как compatibility shim поверх нового app-level settings entrypoint
+- type-only зависимости plugin-модулей на `main` частично переведены на `plugin-settings.ts`
 - обратные импорты `KoraPlugin` из root `main.ts` переведены в type-only там, где это было нужно, чтобы не создать runtime-cycle
 
 Что пока сознательно не делалось:
@@ -374,6 +377,7 @@
 - `modules/**` физически не переносились в `apps/obsidian-plugin/src`
 - CSS source-файлы и merge-логика пока не переносились
 - `vitest` include/coverage пока не перенастраивались на `apps/**`
+- классы, которым реально нужен тип `KoraPlugin`, пока продолжают использовать root `main.ts` shim
 
 ## Как вести рефакторинг
 

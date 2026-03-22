@@ -20,135 +20,18 @@ import { McpServerManager } from '../../../modules/mcp';
 import {
 	UIPluginManager,
 	UIPluginSettingsTab,
-	DEFAULT_UI_PLUGIN_SETTINGS,
 } from '../../../modules/ui-plugins';
 import { McpServerSettingTab } from '../../../modules/mcp/settings-tab';
 import { TelegramSettingTab } from '../../../modules/telegram/ui/settings-tab';
 import { VectorSettingTab } from '../../../modules/vector/settings-tab';
-import type { EmojiMapping } from '../../../modules/telegram';
-import type { VectorSettingsInterface } from '../../../modules/vector';
-import type { UIPluginSettings } from '../../../modules/ui-plugins';
-import { defaultVectorSettings } from '../../../modules/vector';
 import { PluginCommands, VaultOperations } from '../../../modules/obsidian';
 import { DailyContentInjector } from '../../../modules/daily-notes';
+import {
+	DEFAULT_SETTINGS,
+	type KoraMcpPluginSettings,
+} from './plugin-settings';
 
-export interface TelegramChannelConfig {
-	name: string;
-	channelId: string;
-}
-
-export interface TelegramFolderConfig {
-	folder: string;
-	channels: TelegramChannelConfig[];
-}
-
-export interface TelegramSettings {
-	customEmojis?: EmojiMapping[];
-	useCustomEmojis?: boolean;
-	disableWebPagePreview?: boolean;
-	folderConfigs: TelegramFolderConfig[];
-}
-
-/**
- * @description Настройки MVP архива Telegram в плагине: включение UI, путь БД на сервере,
- * адрес userbot-сервера, peer и лимиты по умолчанию.
- */
-export interface ArchiveSettings {
-	enableArchive: boolean;
-	serverHost: string;
-	serverPort: number;
-	databasePath: string;
-	defaultPeer: string;
-	defaultSyncLimit: number;
-	recentMessagesLimit: number;
-}
-
-export interface KoraMcpPluginSettings {
-	port: number;
-	telegram: TelegramSettings;
-	gramjs?: {
-		mode?: 'bot' | 'userbot';
-		apiId?: number;
-		apiHash?: string;
-		stringSession?: string;
-		botToken?: string;
-		chatId?: string;
-	};
-	archiveSettings: ArchiveSettings;
-	vectorSettings: VectorSettingsInterface;
-	uiPlugins: UIPluginSettings;
-}
-
-const DEFAULT_SETTINGS: KoraMcpPluginSettings = {
-	port: 8123,
-	telegram: {
-		customEmojis: [
-			{
-				standard: 'рџ—ї',
-				customId: '5346283626868812660',
-				description: 'Moai',
-			},
-			{
-				standard: 'рџ§ ',
-				customId: '5346180109567028520',
-				description: 'Brain',
-			},
-			{
-				standard: 'вњ…',
-				customId: '5345939909226034997',
-				description: 'Check',
-			},
-			{
-				standard: 'вќ“',
-				customId: '5346065137587482787',
-				description: 'Question',
-			},
-			{
-				standard: 'рџ›‘',
-				customId: '5345787871678723001',
-				description: 'Stop',
-			},
-			{ standard: 'вћ•', customId: '5345922583327962454', description: 'Plus' },
-			{
-				standard: 'вќ¤пёЏ',
-				customId: '5345784989755668154',
-				description: 'Heart',
-			},
-			{
-				standard: 'рџ“‚',
-				customId: '5346104226084844010',
-				description: 'Folder',
-			},
-			{
-				standard: 'рџ’ѕ',
-				customId: '5346103010609101716',
-				description: 'Floppy',
-			},
-			{ standard: 'рџ«‚', customId: '5346048443049607054', description: 'Hug' },
-			{ standard: 'рџ—є', customId: '5346278150785497951', description: 'Map' },
-		],
-		useCustomEmojis: false,
-		disableWebPagePreview: true,
-		folderConfigs: [],
-	},
-	gramjs: {
-		apiId: 0,
-		apiHash: '',
-		stringSession: '',
-		chatId: '',
-	},
-	archiveSettings: {
-		enableArchive: true,
-		serverHost: '127.0.0.1',
-		serverPort: 8125,
-		databasePath: 'data/telegram-archive.sqlite',
-		defaultPeer: '',
-		defaultSyncLimit: 200,
-		recentMessagesLimit: 50,
-	},
-	vectorSettings: defaultVectorSettings,
-	uiPlugins: DEFAULT_UI_PLUGIN_SETTINGS,
-};
+export * from './plugin-settings';
 
 export default class KoraPlugin extends Plugin {
 	settings: KoraMcpPluginSettings;
@@ -322,7 +205,7 @@ export default class KoraPlugin extends Plugin {
 		}
 
 		if (!data.uiPlugins) {
-			data.uiPlugins = DEFAULT_UI_PLUGIN_SETTINGS;
+			data.uiPlugins = DEFAULT_SETTINGS.uiPlugins;
 		}
 
 		if (!data.archiveSettings) {

@@ -12,7 +12,7 @@ import {
 } from '../formatting';
 import { ChannelFileParser, PostFileParser } from '../parsing';
 import { ChannelConfigService } from './channel-config-service';
-import type { KoraMcpPluginSettings } from '../../../main';
+import type { KoraMcpPluginSettings } from '../../../plugin-settings';
 
 export interface SyncResult {
 	success: boolean;

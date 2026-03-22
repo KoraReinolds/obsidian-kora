@@ -9,7 +9,7 @@ import type {
 	KoraMcpPluginSettings,
 	TelegramFolderConfig,
 	TelegramChannelConfig,
-} from '../../../main';
+} from '../../../plugin-settings';
 
 /**
  * Configuration for a Telegram channel (new format)

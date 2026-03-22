@@ -20,7 +20,10 @@ import {
 	ChannelConfigService,
 	ChannelConfig,
 } from '../telegram/utils/channel-config-service';
-import type { KoraMcpPluginSettings, TelegramFolderConfig } from '../../main';
+import type {
+	KoraMcpPluginSettings,
+	TelegramFolderConfig,
+} from '../../plugin-settings';
 
 // ============================================================================
 // CONFIGURATION INTERFACES
