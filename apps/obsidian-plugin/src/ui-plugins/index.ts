@@ -2,6 +2,7 @@ export { UIPluginManager } from './ui-plugin-manager';
 export { UIPluginRenderer } from './ui-plugin-renderer';
 export { UIManager } from './ui-manager';
 export { NoteUISystem } from './note-ui-system';
+export { UIPluginSettingsTab } from '../settings/ui-plugin-settings-tab';
 export {
 	ConfigModal,
 	type ConfigModalOptions,

@@ -9,7 +9,7 @@ import {
 } from './views';
 import { ArchiveBridge, GramJSBridge } from '../../../modules/telegram';
 import { VectorBridge } from '../../../modules/vector';
-import { McpServerManager } from '../../../modules/mcp';
+import { McpServerManager } from './mcp';
 import { PluginCommands, VaultOperations } from './obsidian';
 import { DailyContentInjector } from '../../../modules/daily-notes';
 import {
