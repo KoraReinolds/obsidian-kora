@@ -1,8 +1,8 @@
 import type { EmojiMapping } from '../../../modules/telegram';
 import type { VectorSettingsInterface } from '../../../modules/vector';
-import type { UIPluginSettings } from '../../../modules/ui-plugins';
+import type { UIPluginSettings } from './ui-plugins';
 import { defaultVectorSettings } from '../../../modules/vector';
-import { DEFAULT_UI_PLUGIN_SETTINGS } from '../../../modules/ui-plugins';
+import { DEFAULT_UI_PLUGIN_SETTINGS } from './ui-plugins';
 
 export interface TelegramChannelConfig {
 	name: string;
@@ -56,57 +56,57 @@ export const DEFAULT_SETTINGS: KoraMcpPluginSettings = {
 	telegram: {
 		customEmojis: [
 			{
-				standard: 'СЂСџвЂ”С—',
+				standard: '🗿',
 				customId: '5346283626868812660',
 				description: 'Moai',
 			},
 			{
-				standard: 'СЂСџВ§В ',
+				standard: '🧠',
 				customId: '5346180109567028520',
 				description: 'Brain',
 			},
 			{
-				standard: 'РІСљвЂ¦',
+				standard: '✅',
 				customId: '5345939909226034997',
 				description: 'Check',
 			},
 			{
-				standard: 'РІСњвЂњ',
+				standard: '❓',
 				customId: '5346065137587482787',
 				description: 'Question',
 			},
 			{
-				standard: 'СЂСџвЂєвЂ',
+				standard: '🛑',
 				customId: '5345787871678723001',
 				description: 'Stop',
 			},
 			{
-				standard: 'РІС›вЂў',
+				standard: '➕',
 				customId: '5345922583327962454',
 				description: 'Plus',
 			},
 			{
-				standard: 'РІСњВ¤РїС‘РЏ',
+				standard: '❤️',
 				customId: '5345784989755668154',
 				description: 'Heart',
 			},
 			{
-				standard: 'СЂСџвЂњвЂљ',
+				standard: '📂',
 				customId: '5346104226084844010',
 				description: 'Folder',
 			},
 			{
-				standard: 'СЂСџвЂ™С•',
+				standard: '💾',
 				customId: '5346103010609101716',
 				description: 'Floppy',
 			},
 			{
-				standard: 'СЂСџВ«вЂљ',
+				standard: '🫂',
 				customId: '5346048443049607054',
 				description: 'Hug',
 			},
 			{
-				standard: 'СЂСџвЂ”С”',
+				standard: '🗺️',
 				customId: '5346278150785497951',
 				description: 'Map',
 			},

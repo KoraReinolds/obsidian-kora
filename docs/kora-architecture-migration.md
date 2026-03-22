@@ -371,6 +371,20 @@
 - создан root `plugin-settings.ts` как compatibility shim поверх нового app-level settings entrypoint
 - type-only зависимости plugin-модулей на `main` частично переведены на `plugin-settings.ts`
 - обратные импорты `KoraPlugin` из root `main.ts` переведены в type-only там, где это было нужно, чтобы не создать runtime-cycle
+- настроечные вкладки плагина вынесены в `apps/obsidian-plugin/src/settings`, а старые пути оставлены как re-export shim-ы
+- plugin-only `ItemView`-адаптеры вынесены в `apps/obsidian-plugin/src/views`, а старые пути оставлены как re-export shim-ы
+- plugin-only orchestration из `modules/obsidian` частично вынесен в `apps/obsidian-plugin/src/obsidian`:
+  - `PluginCommands`
+  - `VaultOperations`
+  - `TextInputSuggest`
+  - `ConfigurableSuggester` / `SuggesterFactory`
+- runtime-кластер `modules/ui-plugins` частично вынесен в `apps/obsidian-plugin/src/ui-plugins`:
+  - `types`
+  - `ui-plugin-manager`
+  - `ui-plugin-renderer`
+  - `note-ui-system`
+  - `ui-manager`
+- старые пути в `modules/obsidian/**` и `modules/ui-plugins/**` для вынесенных файлов сохранены как compatibility shim-ы
 
 Что пока сознательно не делалось:
 

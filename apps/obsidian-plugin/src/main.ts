@@ -8,7 +8,6 @@ import {
 	ArchiveView,
 } from './views';
 import { ArchiveBridge, GramJSBridge } from '../../../modules/telegram';
-import { UIManager } from '../../../modules/ui-plugins';
 import { VectorBridge } from '../../../modules/vector';
 import { McpServerManager } from '../../../modules/mcp';
 import { PluginCommands, VaultOperations } from './obsidian';
@@ -24,7 +23,7 @@ import {
 	UIPluginSettingsTab,
 	VectorSettingTab,
 } from './settings';
-import { UIPluginManager } from '../../../modules/ui-plugins';
+import { UIManager, UIPluginManager } from './ui-plugins';
 
 export * from './plugin-settings';
 
@@ -115,7 +114,7 @@ export default class KoraPlugin extends Plugin {
 		this.addRibbonIcon('search', 'Open Semantic Inspector', () => {
 			this.activateSemanticInspectorView();
 		});
-		this.addRibbonIcon('database', 'РћС‚РєСЂС‹С‚СЊ Р°СЂС…РёРІ Telegram', () => {
+		this.addRibbonIcon('database', 'Открыть архив Telegram', () => {
 			this.activateArchiveView();
 		});
 

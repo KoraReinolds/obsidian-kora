@@ -211,12 +211,12 @@ export class TelegramSettingTab extends PluginSettingTab {
 
 		if (currentMode === 'bot') {
 			containerEl.createEl('div', {
-				text: 'вљ пёЏ Bot mode limitations: Bots cannot send messages to users directly and have limited access to chat history.',
+				text: 'Important: Bot mode limitations. Bots cannot send messages to users directly and have limited access to chat history.',
 				cls: 'setting-item-description',
 			});
 		} else {
 			containerEl.createEl('div', {
-				text: "вљ пёЏ Userbot mode: Uses your personal Telegram account. Use responsibly and respect Telegram's terms.",
+				text: "Important: Userbot mode uses your personal Telegram account. Use responsibly and respect Telegram's terms.",
 				cls: 'setting-item-description',
 			});
 		}

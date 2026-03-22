@@ -168,7 +168,7 @@ export class VectorSettingTab extends PluginSettingTab {
 			const response = await fetch('http://127.0.0.1:8124/vector_health');
 			const healthData = await response.json();
 			if (healthData.status === 'healthy') {
-				buttonEl.textContent = 'РІСљвЂ¦ Connected';
+				buttonEl.textContent = 'Connected';
 				buttonEl.setAttribute('style', 'background-color:#4ade80;');
 				const infoEl = buttonEl.parentElement?.createDiv('vector-test-result');
 				if (infoEl) {
@@ -187,7 +187,7 @@ export class VectorSettingTab extends PluginSettingTab {
 				throw new Error(healthData.error || 'Vector service unhealthy');
 			}
 		} catch (error) {
-			buttonEl.textContent = 'РІСњРЉ Failed';
+			buttonEl.textContent = 'Failed';
 			buttonEl.setAttribute('style', 'background-color:#ef4444;');
 			const errorEl = buttonEl.parentElement?.createDiv('vector-test-error');
 			if (errorEl) {

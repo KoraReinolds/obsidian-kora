@@ -1,7 +1,7 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import type KoraPlugin from '../main';
-import type { UIPlugin, UIButton } from '../../../../modules/ui-plugins/types';
-import { FolderSuggest } from '../../../../modules/obsidian/suggester-modal';
+import type { UIPlugin, UIButton } from '../ui-plugins/types';
+import { FolderSuggest } from '../obsidian/suggester-modal';
 import {
 	ConfigModal,
 	type FieldConfig,
@@ -23,19 +23,17 @@ export class UIPluginSettingsTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		containerEl.createEl('h2', { text: 'UI РџР»Р°РіРёРЅС‹' });
+		containerEl.createEl('h2', { text: 'UI Плагины' });
 		containerEl.createEl('p', {
-			text: 'РќР°СЃС‚СЂРѕР№С‚Рµ РєРЅРѕРїРєРё РґР»СЏ Р·Р°РјРµС‚РѕРє РІ РѕРїСЂРµРґРµР»РµРЅРЅС‹С… РїР°РїРєР°С…. РљРЅРѕРїРєРё Р±СѓРґСѓС‚ РІС‹РїРѕР»РЅСЏС‚СЊ РєРѕРјР°РЅРґС‹ Obsidian.',
+			text: 'Настройте кнопки для заметок в определенных папках. Кнопки будут выполнять команды Obsidian.',
 			cls: 'setting-item-description',
 		});
 
 		new Setting(containerEl)
-			.setName('Р”РѕР±Р°РІРёС‚СЊ UI РїР»Р°РіРёРЅ')
-			.setDesc(
-				'РЎРѕР·РґР°С‚СЊ РЅРѕРІС‹Р№ РЅР°Р±РѕСЂ РєРЅРѕРїРѕРє РґР»СЏ РїР°РїРѕРє'
-			)
+			.setName('Добавить UI плагин')
+			.setDesc('Создать новый набор кнопок для папок')
 			.addButton(cb =>
-				cb.setButtonText('+ РџР»Р°РіРёРЅ').onClick(() => this.addPlugin())
+				cb.setButtonText('+ Плагин').onClick(() => this.addPlugin())
 			);
 
 		if (!this.plugin.settings.uiPlugins.plugins) {
@@ -51,12 +49,12 @@ export class UIPluginSettingsTab extends PluginSettingTab {
 		const setting = new Setting(this.containerEl);
 
 		setting
-			.setName('UI РџР»Р°РіРёРЅ')
-			.setDesc('РќР°СЃС‚СЂРѕР№РєРё РїР»Р°РіРёРЅР°')
+			.setName('UI Плагин')
+			.setDesc('Настройки плагина')
 			.addText(text => {
 				text
 					.setValue(plugin.name)
-					.setPlaceholder('РќР°Р·РІР°РЅРёРµ РїР»Р°РіРёРЅР°')
+					.setPlaceholder('Название плагина')
 					.onChange(value => {
 						plugin.name = value;
 						this.saveSettings();
@@ -64,7 +62,7 @@ export class UIPluginSettingsTab extends PluginSettingTab {
 			})
 			.addText(text => {
 				text
-					.setPlaceholder('РџР°РїРєРё С‡РµСЂРµР· Р·Р°РїСЏС‚СѓСЋ')
+					.setPlaceholder('Папки через запятую')
 					.setValue(plugin.folderPatterns.join(', '))
 					.onChange(value => {
 						plugin.folderPatterns = value
@@ -82,11 +80,11 @@ export class UIPluginSettingsTab extends PluginSettingTab {
 				});
 			})
 			.addButton(cb =>
-				cb.setButtonText('+ РљРЅРѕРїРєР°').onClick(() => this.addButton(plugin))
+				cb.setButtonText('+ Кнопка').onClick(() => this.addButton(plugin))
 			)
 			.addButton(cb =>
 				cb
-					.setButtonText('РЈРґР°Р»РёС‚СЊ')
+					.setButtonText('Удалить')
 					.setWarning()
 					.onClick(() => {
 						this.plugin.settings.uiPlugins.plugins.splice(index, 1);
@@ -110,7 +108,7 @@ export class UIPluginSettingsTab extends PluginSettingTab {
 
 		const commandName = button.commandId
 			? this.getCommandName(button.commandId)
-			: 'РљРѕРјР°РЅРґР° РЅРµ РІС‹Р±СЂР°РЅР°';
+			: 'Команда не выбрана';
 
 		let description = commandName;
 		if (
@@ -120,20 +118,20 @@ export class UIPluginSettingsTab extends PluginSettingTab {
 			const argsList = Object.entries(button.commandArguments)
 				.map(([key, value]) => `${key}: ${value}`)
 				.join(', ');
-			description += ` | РђСЂРіСѓРјРµРЅС‚С‹: ${argsList}`;
+			description += ` | Аргументы: ${argsList}`;
 		}
 
 		setting
-			.setName(button.label || 'Р‘РµР· РЅР°Р·РІР°РЅРёСЏ')
+			.setName(button.label || 'Без названия')
 			.setDesc(description)
 			.addExtraButton(btn => {
 				btn.setIcon('pencil');
-				btn.setTooltip('Р РµРґР°РєС‚РёСЂРѕРІР°С‚СЊ РєРЅРѕРїРєСѓ');
+				btn.setTooltip('Редактировать кнопку');
 				btn.onClick(() => this.editButton(plugin, button, buttonIndex));
 			})
 			.addExtraButton(btn => {
 				btn.setIcon('trash');
-				btn.setTooltip('РЈРґР°Р»РёС‚СЊ РєРЅРѕРїРєСѓ');
+				btn.setTooltip('Удалить кнопку');
 				btn.onClick(() => {
 					plugin.buttons.splice(buttonIndex, 1);
 					this.saveSettings();
@@ -150,7 +148,7 @@ export class UIPluginSettingsTab extends PluginSettingTab {
 	private getCommandName(commandId: string): string {
 		// @ts-ignore
 		const command = this.app.commands.commands[commandId];
-		return command ? command.name : 'РќРµРёР·РІРµСЃС‚РЅР°СЏ РєРѕРјР°РЅРґР°';
+		return command ? command.name : 'Неизвестная команда';
 	}
 
 	private addPlugin(): void {
@@ -175,35 +173,35 @@ export class UIPluginSettingsTab extends PluginSettingTab {
 		const fields: FieldConfig[] = [
 			{
 				key: 'label',
-				label: 'РќР°Р·РІР°РЅРёРµ РєРЅРѕРїРєРё',
+				label: 'Название кнопки',
 				type: 'text',
-				placeholder: 'Р’РІРµРґРёС‚Рµ РЅР°Р·РІР°РЅРёРµ РєРЅРѕРїРєРё',
+				placeholder: 'Введите название кнопки',
 				required: true,
 			},
 			{
 				key: 'commandId',
-				label: 'РљРѕРјР°РЅРґР°',
+				label: 'Команда',
 				type: 'command',
-				description: 'РљРѕРјР°РЅРґР° Obsidian РґР»СЏ РІС‹РїРѕР»РЅРµРЅРёСЏ',
+				description: 'Команда Obsidian для выполнения',
 			},
 			{
 				key: 'order',
-				label: 'РџРѕСЂСЏРґРѕРє',
+				label: 'Порядок',
 				type: 'number',
 				placeholder: '0',
-				description: 'РџРѕСЂСЏРґРѕРє РѕС‚РѕР±СЂР°Р¶РµРЅРёСЏ РєРЅРѕРїРєРё',
+				description: 'Порядок отображения кнопки',
 			},
 			{
 				key: 'commandArguments',
-				label: 'РђСЂРіСѓРјРµРЅС‚С‹ РєРѕРјР°РЅРґС‹',
+				label: 'Аргументы команды',
 				type: 'keyvalue',
 				description:
-					'РђСЂРіСѓРјРµРЅС‚С‹ РґР»СЏ РїРµСЂРµРґР°С‡Рё РІ РєРѕРјР°РЅРґСѓ РІ С„РѕСЂРјР°С‚Рµ РєР»СЋС‡: Р·РЅР°С‡РµРЅРёРµ',
+					'Аргументы для передачи в команду в формате ключ: значение',
 			},
 		];
 
 		const modal = new ConfigModal({
-			title: 'Р РµРґР°РєС‚РёСЂРѕРІР°С‚СЊ РєРЅРѕРїРєСѓ',
+			title: 'Редактировать кнопку',
 			fields,
 			initialValues: {
 				label: button.label || '',

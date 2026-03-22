@@ -15,24 +15,22 @@ export class ArchiveSettingTab extends PluginSettingTab {
 		super(app, plugin);
 		this.plugin = plugin;
 		this.id = 'kora-archive-settings';
-		this.name = '- Kora: РђСЂС…РёРІ';
+		this.name = '- Kora: Архив';
 	}
 
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		containerEl.createEl('h2', { text: 'РђСЂС…РёРІ Telegram' });
+		containerEl.createEl('h2', { text: 'Архив Telegram' });
 		containerEl.createEl('p', {
-			text: 'SQLite-Р°СЂС…РёРІ РѕР±СЃР»СѓР¶РёРІР°РµС‚ gramjs-server; РґР»СЏ С‡С‚РµРЅРёСЏ РёСЃС‚РѕСЂРёРё РѕР±С‹С‡РЅРѕ РЅСѓР¶РµРЅ userbot-РїСЂРѕС†РµСЃСЃ.',
+			text: 'SQLite-архив обслуживает gramjs-server; для чтения истории обычно нужен userbot-процесс.',
 			cls: 'setting-item-description',
 		});
 
 		new Setting(containerEl)
-			.setName('Р’РєР»СЋС‡РёС‚СЊ UI Р°СЂС…РёРІР°')
-			.setDesc(
-				'РџРѕРєР°Р·С‹РІР°С‚СЊ РєРѕРјР°РЅРґС‹ Р°СЂС…РёРІР° Рё СЂР°Р·СЂРµС€РёС‚СЊ РІС‹Р·РѕРІС‹ РјРѕСЃС‚Р° РёР· Obsidian'
-			)
+			.setName('Включить UI архива')
+			.setDesc('Показывать команды архива и разрешить вызовы моста из Obsidian')
 			.addToggle(toggle =>
 				toggle
 					.setValue(this.plugin.settings.archiveSettings.enableArchive)
@@ -43,9 +41,9 @@ export class ArchiveSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName('РҐРѕСЃС‚ СЃРµСЂРІРµСЂР° Р°СЂС…РёРІР°')
+			.setName('Хост сервера архива')
 			.setDesc(
-				'РҐРѕСЃС‚ gramjs-server, РєРѕС‚РѕСЂС‹Р№ РѕР±СЃР»СѓР¶РёРІР°РµС‚ Р°СЂС…РёРІ. РћР±С‹С‡РЅРѕ СЌС‚Рѕ userbot-РїСЂРѕС†РµСЃСЃ.'
+				'Хост gramjs-server, который обслуживает архив. Обычно это userbot-процесс.'
 			)
 			.addText(text =>
 				text
@@ -59,9 +57,9 @@ export class ArchiveSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName('РџРѕСЂС‚ СЃРµСЂРІРµСЂР° Р°СЂС…РёРІР°')
+			.setName('Порт сервера архива')
 			.setDesc(
-				'РџРѕСЂС‚ gramjs-server РґР»СЏ Р°СЂС…РёРІР°. Р”Р»СЏ userbot РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ 8125.'
+				'Порт gramjs-server для архива. Для userbot по умолчанию используется 8125.'
 			)
 			.addText(text =>
 				text
@@ -77,9 +75,9 @@ export class ArchiveSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName('РџСѓС‚СЊ Рє С„Р°Р№Р»Сѓ Р‘Р” Р°СЂС…РёРІР°')
+			.setName('Путь к файлу БД архива')
 			.setDesc(
-				'РџСѓС‚СЊ Рє SQLite РЅР° РјР°С€РёРЅРµ, РіРґРµ Р·Р°РїСѓС‰РµРЅ gramjs-server. РћС‚РЅРѕСЃРёС‚РµР»СЊРЅС‹Рµ РїСѓС‚Рё вЂ” РѕС‚ РїР°РїРєРё gramjs-server.'
+				'Путь к SQLite на машине, где запущен gramjs-server. Относительные пути - от папки gramjs-server.'
 			)
 			.addText(text =>
 				text
@@ -92,13 +90,11 @@ export class ArchiveSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName('РџРµРµСЂ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ')
-			.setDesc(
-				'РџСЂРµРґР·Р°РїРѕР»РЅРµРЅРЅС‹Р№ peer РґР»СЏ РєРѕРјР°РЅРґ СЃРёРЅРєР° Рё РґР»СЏ РІРёРґР° В«РђСЂС…РёРІВ»'
-			)
+			.setName('Peer по умолчанию')
+			.setDesc('Предзаполненный peer для команд синка и для вида «Архив»')
 			.addText(text =>
 				text
-					.setPlaceholder('@channel РёР»Рё -100123456789')
+					.setPlaceholder('@channel или -100123456789')
 					.setValue(this.plugin.settings.archiveSettings.defaultPeer)
 					.onChange(async value => {
 						this.plugin.settings.archiveSettings.defaultPeer = value;
@@ -107,9 +103,9 @@ export class ArchiveSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName('Р›РёРјРёС‚ СЃРёРЅРєР° РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ')
+			.setName('Лимит синка по умолчанию')
 			.setDesc(
-				'РЎРєРѕР»СЊРєРѕ СЃРѕРѕР±С‰РµРЅРёР№ Р·Р° РѕРґРёРЅ РїСЂРѕРіРѕРЅ СЃРёРЅС…СЂРѕРЅРёР·Р°С†РёРё Р·Р°Р±РёСЂР°С‚СЊ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ'
+				'Сколько сообщений за один прогон синхронизации забирать по умолчанию'
 			)
 			.addText(text =>
 				text
@@ -127,9 +123,9 @@ export class ArchiveSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName('РќРµРґР°РІРЅРёРµ СЃРѕРѕР±С‰РµРЅРёСЏ РІРѕ view')
+			.setName('Недавние сообщения во view')
 			.setDesc(
-				'РЎРєРѕР»СЊРєРѕ РїРѕСЃР»РµРґРЅРёС… Р°СЂС…РёРІРЅС‹С… СЃРѕРѕР±С‰РµРЅРёР№ РїРѕРґРіСЂСѓР¶Р°С‚СЊ Р·Р° РѕРґРёРЅ Р·Р°РїСЂРѕСЃ РІРѕ view'
+				'Сколько последних архивных сообщений подгружать за один запрос во view'
 			)
 			.addText(text =>
 				text
@@ -147,13 +143,13 @@ export class ArchiveSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName('РџСЂРѕРІРµСЂРёС‚СЊ РїРѕРґРєР»СЋС‡РµРЅРёРµ Рє Р°СЂС…РёРІСѓ')
+			.setName('Проверить подключение к архиву')
 			.setDesc(
-				'РџСЂРѕРІРµСЂСЏРµС‚, РѕС‚РІРµС‡Р°РµС‚ Р»Рё userbot-СЃРµСЂРІРµСЂ Р°СЂС…РёРІР° РїРѕ РЅР°СЃС‚СЂРѕРµРЅРЅРѕРјСѓ С…РѕСЃС‚Сѓ Рё РїРѕСЂС‚Сѓ.'
+				'Проверяет, отвечает ли userbot-сервер архива по настроенному хосту и порту.'
 			)
 			.addButton(button =>
 				button
-					.setButtonText('РџСЂРѕРІРµСЂРёС‚СЊ')
+					.setButtonText('Проверить')
 					.setCta()
 					.onClick(async () => {
 						const bridge =
@@ -161,9 +157,7 @@ export class ArchiveSettingTab extends PluginSettingTab {
 							(this.plugin as any).archiveBridge;
 
 						if (!bridge) {
-							new Notice(
-								'РњРѕСЃС‚ Р°СЂС…РёРІР° РЅРµ РёРЅРёС†РёР°Р»РёР·РёСЂРѕРІР°РЅ'
-							);
+							new Notice('Мост архива не инициализирован');
 							return;
 						}
 
