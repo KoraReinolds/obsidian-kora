@@ -2,10 +2,7 @@ import { App, PluginSettingTab, Setting } from 'obsidian';
 import type KoraPlugin from '../main';
 import type { UIPlugin, UIButton } from '../ui-plugins/types';
 import { FolderSuggest } from '../obsidian/suggester-modal';
-import {
-	ConfigModal,
-	type FieldConfig,
-} from '../../../../modules/ui-plugins/config-modal';
+import { ConfigModal, type FieldConfig } from '../ui-plugins/config-modal';
 
 export class UIPluginSettingsTab extends PluginSettingTab {
 	private plugin: KoraPlugin;
