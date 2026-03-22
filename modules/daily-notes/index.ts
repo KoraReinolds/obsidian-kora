@@ -1,1 +1,1 @@
-export { DailyContentInjector } from './daily-content-injector';
+export { DailyContentInjector } from '../../apps/obsidian-plugin/src/daily-notes';
