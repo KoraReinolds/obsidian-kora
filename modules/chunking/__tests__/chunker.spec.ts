@@ -26,7 +26,8 @@ describe('chunkNote', () => {
 		expect(texts).toContain('Olive oil is healthy.');
 		expect(texts).toContain('Eggs are complete.');
 		const fats = chunks.find(c => c.contentRaw.includes('Olive oil'));
-		expect(fats.headingsPath).toEqual(['Food', 'Fats']);
+		expect(fats).toBeTruthy();
+		expect(fats?.headingsPath).toEqual(['Food', 'Fats']);
 	});
 
 	it('does not mix content across headings', () => {
