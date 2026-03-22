@@ -353,8 +353,27 @@
 
 ### PR 5
 
+Статус: частично выполнено.
+
 - перенести plugin source в `apps/obsidian-plugin/src`
 - обновить build-скрипты
+
+Фактически сделано:
+
+- создан `apps/obsidian-plugin/src/main.ts` как новый plugin entrypoint
+- `esbuild.config.mjs` теперь собирает plugin из `apps/obsidian-plugin/src/main.ts`
+- output по-прежнему остается совместимым с Obsidian:
+  - root `main.js`
+  - root `styles.css`
+  - root `manifest.json`
+- root `main.ts` превращен в compatibility shim, который re-export-ит новый app entrypoint
+- обратные импорты `KoraPlugin` из root `main.ts` переведены в type-only там, где это было нужно, чтобы не создать runtime-cycle
+
+Что пока сознательно не делалось:
+
+- `modules/**` физически не переносились в `apps/obsidian-plugin/src`
+- CSS source-файлы и merge-логика пока не переносились
+- `vitest` include/coverage пока не перенастраивались на `apps/**`
 
 ## Как вести рефакторинг
 

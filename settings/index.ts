@@ -5,7 +5,7 @@
  * Assembles modular settings sections: server, telegram, GramJS, custom emojis.
  */
 import { App, PluginSettingTab } from 'obsidian';
-import KoraPlugin from '../main';
+import type KoraPlugin from '../main';
 
 /**
  * Settings tab for the MCP plugin, assembling all modular sections.

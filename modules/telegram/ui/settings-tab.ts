@@ -1,4 +1,4 @@
-import KoraPlugin from '../../../main';
+import type KoraPlugin from '../../../main';
 import { App, PluginSettingTab, Setting, Notice } from 'obsidian';
 
 export class TelegramSettingTab extends PluginSettingTab {
