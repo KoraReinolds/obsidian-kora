@@ -5,7 +5,7 @@
  */
 
 import { Notice } from 'obsidian';
-import { chunkNote } from '../chunking/index.js';
+import { chunkNote } from '../../packages/kora-core/src/chunking/index.js';
 
 interface VectorBridgeConfig {
 	host: string;

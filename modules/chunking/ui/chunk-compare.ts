@@ -3,7 +3,7 @@
  * @description Сравнение чанков: загрузка ранее проиндексированного контента через VectorBridge и inline-diff.
  */
 
-import type { Chunk } from '..';
+import type { Chunk } from '../../../packages/kora-core/src/chunking/model/types.js';
 import type { VectorBridge } from '../../vector';
 import { renderInlineDiff } from './inline-diff';
 

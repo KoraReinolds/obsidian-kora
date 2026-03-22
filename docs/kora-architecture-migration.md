@@ -300,9 +300,20 @@
 
 ### PR 3
 
+Статус: выполнено.
+
 - выделить `packages/kora-core/src/chunking`
 - перенести туда model/ports для chunking
 - оставить Obsidian adapter в plugin
+
+Фактически сделано:
+
+- создан `packages/kora-core/src/chunking/**`
+- `modules/chunking/model/**` для pure chunking-логики вынесен в `kora-core`
+- `modules/chunking/ports/chunk-transport-port.ts` вынесен в `kora-core`
+- `modules/chunking/index.ts` превращён в compatibility shim поверх `kora-core` и локальных Obsidian-адаптеров
+- Obsidian-specific файлы (`adapters`, `obsidian-cache`, UI) оставлены в plugin-слое
+- несколько локальных импортов `Chunk`/`chunkNote` переведены на новый shared entrypoint, чтобы убрать лишнюю связность через старый barrel
 
 ### PR 4
 

@@ -4,7 +4,7 @@
  */
 
 import { App, MarkdownView } from 'obsidian';
-import type { Chunk } from '..';
+import type { Chunk } from '../../../packages/kora-core/src/chunking/model/types.js';
 
 /**
  * @description Находит индекс чанка, содержащего строку курсора.

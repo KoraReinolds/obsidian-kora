@@ -3,7 +3,7 @@
  * Description: Render chunk list and allow active item highlighting; includes per-item diff mount containers.
  */
 
-import type { Chunk } from '..';
+import type { Chunk } from '../../../packages/kora-core/src/chunking/model/types.js';
 
 /**
  * References to the rendered list and item nodes.

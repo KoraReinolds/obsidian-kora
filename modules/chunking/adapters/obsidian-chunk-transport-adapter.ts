@@ -4,7 +4,10 @@
  * @description Адаптер Obsidian и VectorBridge для Vue-экранов chunking.
  */
 import { App, MarkdownView, TFile } from 'obsidian';
-import { chunkNote, type Chunk } from '..';
+import {
+	chunkNote,
+	type Chunk,
+} from '../../../packages/kora-core/src/chunking/index.js';
 import { getMarkdownFiles } from '../../obsidian';
 import type { VectorBridge, VectorSearchOptionsProvider } from '../../vector';
 import { loadBaselineForChunksByOriginalId } from '../ui/chunk-compare';
