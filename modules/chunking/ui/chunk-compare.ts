@@ -80,7 +80,7 @@ export async function loadBaselineForChunksByOriginalId(
 		const content = payload.content || payload.text || '';
 		if (chunkId) {
 			baselineByChunkId.set(String(chunkId), String(content));
-			storedPointIdByChunkId.set(String(chunkId), p.qdrantId);
+			storedPointIdByChunkId.set(String(chunkId), p.pointId);
 		}
 	}
 

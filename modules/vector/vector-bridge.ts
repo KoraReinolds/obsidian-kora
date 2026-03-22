@@ -69,7 +69,7 @@ export interface SearchResult {
 }
 
 export interface VectorStoredContentRecord {
-	qdrantId: string;
+	pointId: string;
 	payload: any;
 }
 
@@ -298,8 +298,7 @@ export class VectorBridge {
 	}
 
 	/**
-	 * @description Удаляет несколько чанков по id (авто-различение `chunkId` и `qdrantId`).
-	 * Если id похожи на UUID (с дефисами), считаются `qdrantId`; иначе — `chunkId`.
+	 * @description Удаляет несколько чанков по `chunkId`.
 	 * @param {string[]} ids - Список идентификаторов.
 	 * @returns {Promise<{ deleted: number; failed: string[] }>} Счётчик удалённых и список неудачных id.
 	 */

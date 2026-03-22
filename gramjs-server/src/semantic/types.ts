@@ -46,7 +46,7 @@ export interface SearchOptions {
 }
 
 export interface StoredContentRecord {
-	qdrantId: string;
+	pointId: string;
 	payload: any;
 }
 
@@ -90,7 +90,6 @@ export interface SearchResult {
 export interface VectorizeResult {
 	id: string;
 	pointId?: string;
-	qdrantId?: string;
 	status: 'created' | 'updated' | 'unchanged' | 'error';
 	embeddingInfo?: EmbeddingResult;
 	existing?: boolean;

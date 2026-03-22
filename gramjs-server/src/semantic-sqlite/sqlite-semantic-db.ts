@@ -103,8 +103,7 @@ export class SQLiteSemanticDatabase {
 	}
 
 	/**
-	 * @description Разрешает путь к semantic SQLite-файлу. Отдельный файл упрощает shadow
-	 * режим и последующее удаление Qdrant без смешивания с Telegram archive schema.
+	 * @description Разрешает путь к semantic SQLite-файлу.
 	 * @param {string | undefined} configuredPath - Путь из runtime-конфига.
 	 * @returns {string} Абсолютный путь к SQLite-файлу.
 	 */

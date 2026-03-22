@@ -32,11 +32,11 @@ export class SQLiteSemanticRepository {
 	/**
 	 * @description Вставляет или обновляет каноническую запись и embedding в одной транзакции (upsert).
 	 * @param {SQLiteSemanticUpsertRecord} record - Нормализованная запись semantic index-а.
-	 * @returns {{ status: 'created' | 'updated' | 'unchanged'; qdrantId: string; existing: boolean }} Результат upsert-а.
+	 * @returns {{ status: 'created' | 'updated' | 'unchanged'; pointId: string; existing: boolean }} Результат upsert-а.
 	 */
 	upsertRecord(record: SQLiteSemanticUpsertRecord): {
 		status: 'created' | 'updated' | 'unchanged';
-		qdrantId: string;
+		pointId: string;
 		existing: boolean;
 	} {
 		const existing = this.db
@@ -52,7 +52,7 @@ export class SQLiteSemanticRepository {
 		if (existing?.content_hash === record.contentHash) {
 			return {
 				status: 'unchanged',
-				qdrantId: record.pointId,
+				pointId: record.pointId,
 				existing: true,
 			};
 		}
@@ -152,7 +152,7 @@ export class SQLiteSemanticRepository {
 
 		return {
 			status: existing ? 'updated' : 'created',
-			qdrantId: record.pointId,
+			pointId: record.pointId,
 			existing: !!existing,
 		};
 	}
@@ -256,7 +256,7 @@ export class SQLiteSemanticRepository {
 			.filter(record =>
 				values.includes(String(this.getNestedValue(record.payload, key)))
 			)
-			.map(record => record.qdrantId);
+			.map(record => record.pointId);
 
 		return this.deleteByPointIds(ids);
 	}
@@ -264,11 +264,11 @@ export class SQLiteSemanticRepository {
 	/**
 	 * @description Возвращает кандидатов для vector similarity.
 	 * @param {string[]} [contentTypes=[]] - Ограничение по типам контента.
-	 * @returns {Array<{ qdrantId: string; payload: any; embedding: number[] }>} Кандидаты с embeddings.
+	 * @returns {Array<{ pointId: string; payload: any; embedding: number[] }>} Кандидаты с embeddings.
 	 */
 	listVectorCandidates(
 		contentTypes: string[] = []
-	): Array<{ qdrantId: string; payload: any; embedding: number[] }> {
+	): Array<{ pointId: string; payload: any; embedding: number[] }> {
 		const rows =
 			contentTypes.length > 0
 				? (this.db
@@ -300,7 +300,7 @@ export class SQLiteSemanticRepository {
 					}>);
 
 		return rows.map(row => ({
-			qdrantId: row.point_id,
+			pointId: row.point_id,
 			payload: this.safeJsonParse(row.payload_json, {}),
 			embedding: this.safeJsonParse(row.embedding_json, []),
 		}));
@@ -311,12 +311,12 @@ export class SQLiteSemanticRepository {
 	 * пустой массив; ошибка SQL не маскируется.
 	 * @param {string} query - Поисковый запрос.
 	 * @param {number} limit - Максимум результатов.
-	 * @returns {Array<{ qdrantId: string; payload: any; lexicalScore: number }>}
+	 * @returns {Array<{ pointId: string; payload: any; lexicalScore: number }>}
 	 */
 	findLexicalMatches(
 		query: string,
 		limit: number
-	): Array<{ qdrantId: string; payload: any; lexicalScore: number }> {
+	): Array<{ pointId: string; payload: any; lexicalScore: number }> {
 		if (!query.trim()) {
 			return [];
 		}
@@ -358,7 +358,7 @@ export class SQLiteSemanticRepository {
 		}
 
 		return rows.map(row => ({
-			qdrantId: row.point_id,
+			pointId: row.point_id,
 			payload: this.safeJsonParse(row.payload_json, {}),
 			lexicalScore: this.rankToScore(row.bm25_rank),
 		}));
@@ -449,7 +449,6 @@ export class SQLiteSemanticRepository {
 	private getDirectColumnForKey(key: string): string | null {
 		switch (key) {
 			case 'id':
-			case 'qdrantId':
 			case 'pointId':
 				return 'point_id';
 			case 'originalId':
@@ -468,7 +467,7 @@ export class SQLiteSemanticRepository {
 		payloadJson: string
 	): StoredContentRecord {
 		return {
-			qdrantId: pointId,
+			pointId,
 			payload: this.safeJsonParse(payloadJson, {}),
 		};
 	}

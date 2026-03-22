@@ -83,7 +83,6 @@ export function buildSemanticPayload(
 
 /**
  * @description Создаёт сниппет вокруг наиболее релевантного куска текста.
- * Одинаково используется Qdrant и SQLite backend-ами для единообразного UI.
  * @param {string} content - Полный текст документа.
  * @param {string} query - Поисковый запрос пользователя.
  * @param {number} [maxLength=200] - Максимальная длина сниппета.

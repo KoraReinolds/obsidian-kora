@@ -288,7 +288,7 @@ export class ObsidianSemanticInspectorTransportAdapter
 		const contentType = this.readString(payload.contentType, payload.type);
 
 		return {
-			pointId: String(item.qdrantId ?? ''),
+			pointId: String(item.pointId ?? ''),
 			originalId: originalId || fallbackOriginalId,
 			chunkId: chunkId || 'unknown',
 			contentType: contentType || 'unknown',
@@ -347,7 +347,7 @@ export class ObsidianSemanticInspectorTransportAdapter
 			return candidate.results.length;
 		}
 
-		if (candidate.id || candidate.qdrantId || candidate.pointId) {
+		if (candidate.id || candidate.pointId) {
 			return 1;
 		}
 

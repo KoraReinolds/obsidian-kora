@@ -112,7 +112,6 @@ export class SQLiteSemanticBackend implements SemanticBackend {
 		return {
 			id,
 			pointId: id,
-			qdrantId: upsertResult.qdrantId,
 			status: upsertResult.status,
 			embeddingInfo: embeddingResult,
 			existing: upsertResult.existing,
@@ -190,7 +189,7 @@ export class SQLiteSemanticBackend implements SemanticBackend {
 			.filter(candidate => this.matchesFilters(candidate.payload, filters))
 			.filter(
 				candidate =>
-					!this.matchesExclude(candidate.payload, candidate.qdrantId, exclude)
+					!this.matchesExclude(candidate.payload, candidate.pointId, exclude)
 			);
 		const lexicalMatches = this.repository
 			.findLexicalMatches(query, Math.max(limit * 6, 50))
@@ -202,12 +201,12 @@ export class SQLiteSemanticBackend implements SemanticBackend {
 				if (!this.matchesFilters(match.payload, filters)) {
 					return false;
 				}
-				return !this.matchesExclude(match.payload, match.qdrantId, exclude);
+				return !this.matchesExclude(match.payload, match.pointId, exclude);
 			});
 
 		const lexicalScoreById = new Map<string, number>();
 		for (const match of lexicalMatches) {
-			lexicalScoreById.set(match.qdrantId, match.lexicalScore);
+			lexicalScoreById.set(match.pointId, match.lexicalScore);
 		}
 
 		const vectorResults = vectorCandidates
@@ -216,12 +215,12 @@ export class SQLiteSemanticBackend implements SemanticBackend {
 					queryEmbedding.embedding,
 					candidate.embedding
 				);
-				const lexicalBoost = lexicalScoreById.get(candidate.qdrantId) || 0;
+				const lexicalBoost = lexicalScoreById.get(candidate.pointId) || 0;
 				const lexicalContribution = lexicalBoost * lexicalBoostWeight;
 				const combinedScore = vectorScore + lexicalContribution;
 
 				return {
-					id: candidate.qdrantId,
+					id: candidate.pointId,
 					score: combinedScore,
 					content: candidate.payload,
 					scoreDetails: {
@@ -252,7 +251,7 @@ export class SQLiteSemanticBackend implements SemanticBackend {
 		}
 
 		const fallbackResults = lexicalMatches.slice(0, limit).map(match => ({
-			id: match.qdrantId,
+			id: match.pointId,
 			score: match.lexicalScore,
 			content: match.payload,
 			scoreDetails: {
