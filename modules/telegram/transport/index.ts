@@ -1,6 +1,2 @@
-/**
- * Network transport components
- */
-
-export { GramJSBridge } from './gramjs-bridge';
-export { ArchiveBridge } from './archive-bridge';
+export { GramJSBridge } from '../../../apps/obsidian-plugin/src/telegram/transport/gramjs-bridge';
+export { ArchiveBridge } from '../../../apps/obsidian-plugin/src/telegram/transport/archive-bridge';

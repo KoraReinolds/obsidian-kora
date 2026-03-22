@@ -4,7 +4,7 @@
  */
 
 import { TFile, WorkspaceLeaf, App } from 'obsidian';
-import { VectorBridge } from '../../../../modules/vector';
+import { VectorBridge } from '../vector';
 import { UIPluginRenderer } from './ui-plugin-renderer';
 import type { KoraMcpPluginSettings } from '../plugin-settings';
 import type { UIPluginManager } from './ui-plugin-manager';

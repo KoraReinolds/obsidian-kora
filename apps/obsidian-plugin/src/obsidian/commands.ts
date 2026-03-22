@@ -6,11 +6,11 @@
 import { App, Notice, Command } from 'obsidian';
 import {
 	ARCHIVE_VIEW_TYPE,
-	GramJSBridge,
 	ChannelConfigService,
 	ObsidianTelegramFormatter,
 	PositionBasedSync,
 } from '../../../../modules/telegram';
+import { GramJSBridge } from '../telegram';
 import { FrontmatterUtils } from '../../../../modules/obsidian/frontmatter-utils';
 import { DuplicateTimeFixer } from '../../../../modules/utils';
 import { RELATED_CHUNKS_VIEW_TYPE } from '../views/related-chunks-view';

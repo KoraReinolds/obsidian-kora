@@ -1,7 +1,7 @@
 import type { EmojiMapping } from '../../../modules/telegram';
-import type { VectorSettingsInterface } from '../../../modules/vector';
+import type { VectorSettingsInterface } from './vector';
 import type { UIPluginSettings } from './ui-plugins';
-import { defaultVectorSettings } from '../../../modules/vector';
+import { defaultVectorSettings } from './vector';
 import { DEFAULT_UI_PLUGIN_SETTINGS } from './ui-plugins';
 
 export interface TelegramChannelConfig {

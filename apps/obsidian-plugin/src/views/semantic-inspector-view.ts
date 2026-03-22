@@ -13,8 +13,8 @@ import {
 	mountVueInObsidian,
 	unmountVueInObsidian,
 } from '../../../../modules/hosts/obsidian';
-import type { VectorSearchOptionsProvider } from '../../../../modules/vector';
-import { VectorBridge } from '../../../../modules/vector';
+import type { VectorSearchOptionsProvider } from '../vector';
+import { VectorBridge } from '../vector';
 import { ObsidianSemanticInspectorTransportAdapter } from '../../../../modules/semantic-inspector/adapters/obsidian-semantic-inspector-transport-adapter';
 import SemanticInspectorScreen from '../../../../modules/semantic-inspector/ui/SemanticInspectorScreen.vue';
 

@@ -5,10 +5,7 @@
  */
 import { App as ObsidianApp, ItemView, WorkspaceLeaf } from 'obsidian';
 import type { App as VueApp } from 'vue';
-import type {
-	VectorBridge,
-	VectorSearchOptionsProvider,
-} from '../../../../modules/vector';
+import type { VectorBridge, VectorSearchOptionsProvider } from '../vector';
 import {
 	mountVueInObsidian,
 	unmountVueInObsidian,

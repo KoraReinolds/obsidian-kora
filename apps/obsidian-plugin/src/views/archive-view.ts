@@ -8,7 +8,7 @@
 import { ItemView, WorkspaceLeaf } from 'obsidian';
 import type { App } from 'vue';
 import type KoraPlugin from '../main';
-import { ArchiveBridge } from '../../../../modules/telegram/transport/archive-bridge';
+import { ArchiveBridge } from '../telegram';
 import {
 	ArchiveScreen,
 	createArchiveBridgeAdapter,

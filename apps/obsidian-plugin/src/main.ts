@@ -7,8 +7,8 @@ import {
 	ARCHIVE_VIEW_TYPE,
 	ArchiveView,
 } from './views';
-import { ArchiveBridge, GramJSBridge } from '../../../modules/telegram';
-import { VectorBridge } from '../../../modules/vector';
+import { ArchiveBridge, GramJSBridge } from './telegram';
+import { VectorBridge } from './vector';
 import { McpServerManager } from './mcp';
 import { PluginCommands, VaultOperations } from './obsidian';
 import { DailyContentInjector } from './daily-notes';

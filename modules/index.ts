@@ -8,9 +8,6 @@ export * from './obsidian';
 // Core shared layers
 export * from './core';
 
-// Feature modules
-export * from './features';
-
 // Host adapters
 export * from './hosts';
 
