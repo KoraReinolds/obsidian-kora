@@ -7,7 +7,7 @@ import type { Express, Request, Response } from 'express';
 import type {
 	ArchiveBackfillRequest,
 	ArchiveBackfillResponse,
-} from '../../../telegram-types.js';
+} from '../../../packages/contracts/src/telegram.js';
 import { getArchiveSyncService } from '../services/archive-service-singleton.js';
 
 /**

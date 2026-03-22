@@ -6,7 +6,10 @@
  */
 
 import { computed, ref } from 'vue';
-import type { ArchiveChat, ArchiveMessage } from '../../../../telegram-types';
+import type {
+	ArchiveChat,
+	ArchiveMessage,
+} from '../../../../packages/contracts/src/telegram';
 import { useFilterQuery, useScreenMessage } from '../../../core/ui-vue';
 import type { ArchiveTransportPort } from '../ports/archive-transport-port';
 

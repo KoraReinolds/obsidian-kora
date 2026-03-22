@@ -16,6 +16,6 @@
 		"resolveJsonModule": true,
 		"typeRoots": ["./types", "./node_modules/@types"]
 	},
-	"include": ["src/**/*", "types/**/*", "../telegram-types.ts"],
+	"include": ["src/**/*", "types/**/*", "../packages/contracts/src/**/*"],
 	"exclude": ["node_modules", "dist"]
 }

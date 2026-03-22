@@ -9,7 +9,7 @@ import {
 	initClient,
 	getCurrentStrategy,
 } from '../services/strategy-service.js';
-import type { ChannelsResponse } from '../../../telegram-types.js';
+import type { ChannelsResponse } from '../../../packages/contracts/src/telegram.js';
 
 export function registerChannelRoutes(app: Express): void {
 	app.get('/channels', async (req: Request, res: Response) => {

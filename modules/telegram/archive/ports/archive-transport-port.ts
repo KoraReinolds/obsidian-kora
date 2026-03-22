@@ -12,7 +12,7 @@ import type {
 	ArchiveSyncRequest,
 	ArchiveSyncResult,
 	GetArchivedMessagesRequest,
-} from '../../../../telegram-types';
+} from '../../../../packages/contracts/src/telegram';
 
 /**
  * @description Набор операций транспорта, необходимых экрану архива.

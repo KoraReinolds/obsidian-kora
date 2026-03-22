@@ -4,7 +4,7 @@
  */
 
 import type { Express, Request, Response } from 'express';
-import type { ArchiveMessagesResponse } from '../../../telegram-types.js';
+import type { ArchiveMessagesResponse } from '../../../packages/contracts/src/telegram.js';
 import { getArchiveRepository } from '../services/archive-service-singleton.js';
 
 /**

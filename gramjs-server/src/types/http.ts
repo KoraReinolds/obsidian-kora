@@ -2,7 +2,7 @@
  * Types: Shared HTTP request options and Telegram message/file options.
  * Everything here is strictly related to API shape and reused by routes.
  *
- * @deprecated Use types from '../../../telegram-types.js' instead for consistency
+ * @deprecated Use types from '../../../packages/contracts/src/telegram.js' instead for consistency
  */
 
 // Re-export from root telegram types for backward compatibility
@@ -24,4 +24,4 @@ export type {
 	ConfigResponse,
 	UserInfo,
 	HealthResponse,
-} from '../../../telegram-types.js';
+} from '../../../packages/contracts/src/telegram.js';

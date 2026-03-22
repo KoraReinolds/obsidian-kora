@@ -11,7 +11,7 @@ import type {
 	ArchiveChat,
 	ArchiveMessage,
 	ArchiveSyncState,
-} from '../../../telegram-types.js';
+} from '../../../packages/contracts/src/telegram.js';
 import type {
 	ArchiveChatRecord,
 	ArchiveMessageRecord,

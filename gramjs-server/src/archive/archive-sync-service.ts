@@ -12,7 +12,7 @@
 import type {
 	ArchiveBackfillResult,
 	ArchiveSyncResult,
-} from '../../../telegram-types.js';
+} from '../../../packages/contracts/src/telegram.js';
 import { initClient } from '../services/strategy-service.js';
 import { ArchiveNormalizer } from './archive-normalizer.js';
 import { ArchiveRepository } from './archive-repository.js';

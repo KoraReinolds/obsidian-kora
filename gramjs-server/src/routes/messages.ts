@@ -6,7 +6,7 @@
 import type { Express, Request, Response } from 'express';
 import { initClient } from '../services/strategy-service.js';
 import { formatTelegramMessage } from '../utils/format.js';
-import type { MessagesResponse } from '../../../telegram-types.js';
+import type { MessagesResponse } from '../../../packages/contracts/src/telegram.js';
 
 /**
  * JSDoc: Registers GET /messages endpoint.

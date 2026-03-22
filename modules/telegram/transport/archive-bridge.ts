@@ -28,7 +28,7 @@ import type {
 	GetArchivedMessagesRequest,
 	GramJSConfig,
 	GramJSBridgeConfig,
-} from '../../../telegram-types';
+} from '../../../packages/contracts/src/telegram';
 
 /**
  * @description HTTP-клиент на стороне Obsidian: чтение архива и запуск синка.

@@ -9,7 +9,7 @@ import { initClient } from '../services/strategy-service.js';
 import type {
 	SendFileRequest,
 	SendMessageResponse,
-} from '../../../telegram-types.js';
+} from '../../../packages/contracts/src/telegram.js';
 
 /**
  * JSDoc: Registers POST /send_file endpoint.

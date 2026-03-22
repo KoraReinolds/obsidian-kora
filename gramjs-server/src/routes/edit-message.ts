@@ -9,7 +9,7 @@ import type {
 	MessageOptions,
 	EditMessageRequest,
 	SendMessageResponse,
-} from '../../../telegram-types.js';
+} from '../../../packages/contracts/src/telegram.js';
 import {
 	processMessage,
 	validateMessageParams,

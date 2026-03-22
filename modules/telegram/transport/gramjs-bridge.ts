@@ -22,7 +22,7 @@ import type {
 	GramJSConfig,
 	ConfigResponse,
 	UserInfo,
-} from '../../../telegram-types';
+} from '../../../packages/contracts/src/telegram';
 
 export class GramJSBridge extends BaseHttpClient {
 	constructor(config: Partial<GramJSBridgeConfig> = {}) {
