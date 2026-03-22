@@ -16,7 +16,6 @@
 		"auth": "node dist/gramjs-server/src/gramjs-auth.js"
 	},
 	"dependencies": {
-		"@qdrant/js-client-rest": "^1.15.0",
 		"better-sqlite3": "^12.8.0",
 		"cors": "^2.8.5",
 		"dotenv": "^17.2.0",

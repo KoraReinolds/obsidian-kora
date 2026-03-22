@@ -9,7 +9,7 @@ import { loadGramJsEnv } from './env-loader.js';
 loadGramJsEnv();
 
 export type TelegramMode = 'bot' | 'userbot';
-export type SemanticBackendType = 'qdrant' | 'sqlite';
+export type SemanticBackendType = 'sqlite';
 
 export interface ServerConfig {
 	apiId: number | undefined;
@@ -33,9 +33,7 @@ let configState: ServerConfig = {
 	stringSession: process.env.TELEGRAM_SESSION,
 	botToken: process.env.TELEGRAM_BOT_TOKEN,
 	archiveDatabasePath: process.env.ARCHIVE_DB_PATH,
-	semanticBackend:
-		(process.env.SEMANTIC_BACKEND as SemanticBackendType | undefined) ||
-		'qdrant',
+	semanticBackend: 'sqlite',
 	semanticDatabasePath: process.env.SEMANTIC_DB_PATH,
 	openaiApiKey: process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY,
 	embeddingModel: process.env.EMBEDDING_MODEL || 'text-embedding-3-small',

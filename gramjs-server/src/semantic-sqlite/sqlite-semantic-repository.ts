@@ -393,7 +393,6 @@ export class SQLiteSemanticRepository {
 
 		return {
 			backend: 'sqlite',
-			collection: this.options.databasePath,
 			totalPoints: Number(row?.count || 0),
 			vectorSize,
 			contentTypeBreakdown,

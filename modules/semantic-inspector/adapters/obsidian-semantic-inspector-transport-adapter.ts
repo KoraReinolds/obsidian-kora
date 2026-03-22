@@ -314,9 +314,7 @@ export class ObsidianSemanticInspectorTransportAdapter
 		return {
 			status: health.status ?? 'error',
 			backend: health.backend ?? stats?.backend ?? null,
-			collection: health.collection ?? stats?.collection ?? null,
 			databasePath: health.databasePath ?? stats?.databasePath ?? null,
-			qdrantUrl: health.qdrantUrl ?? stats?.qdrantUrl ?? null,
 			embeddingModel: health.embeddingModel ?? null,
 			embeddingBaseUrl: health.embeddingBaseUrl ?? null,
 			totalPoints:

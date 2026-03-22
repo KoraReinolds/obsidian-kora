@@ -30,9 +30,7 @@ export interface SemanticInspectorScreenModelOptions {
 const EMPTY_STATUS: SemanticInspectorBackendStatus = {
 	status: 'unavailable',
 	backend: null,
-	collection: null,
 	databasePath: null,
-	qdrantUrl: null,
 	embeddingModel: null,
 	embeddingBaseUrl: null,
 	totalPoints: 0,

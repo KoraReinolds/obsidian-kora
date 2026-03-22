@@ -379,7 +379,7 @@ export default class KoraPlugin extends Plugin {
 			apiHash: this.settings.gramjs.apiHash,
 			stringSession: this.settings.gramjs.stringSession,
 			archiveDatabasePath: this.settings.archiveSettings.databasePath,
-			semanticBackend: this.settings.vectorSettings.semanticBackend,
+			semanticBackend: 'sqlite' as const,
 			semanticDatabasePath: this.settings.vectorSettings.semanticDatabasePath,
 			openaiApiKey: this.settings.vectorSettings.openaiApiKey,
 			embeddingModel: this.settings.vectorSettings.embeddingModel,
@@ -427,7 +427,7 @@ export default class KoraPlugin extends Plugin {
 
 			await this.archiveBridge.updateArchiveServerConfig({
 				archiveDatabasePath: this.settings.archiveSettings.databasePath,
-				semanticBackend: this.settings.vectorSettings.semanticBackend,
+				semanticBackend: 'sqlite',
 				semanticDatabasePath: this.settings.vectorSettings.semanticDatabasePath,
 				openaiApiKey: this.settings.vectorSettings.openaiApiKey,
 				embeddingModel: this.settings.vectorSettings.embeddingModel,

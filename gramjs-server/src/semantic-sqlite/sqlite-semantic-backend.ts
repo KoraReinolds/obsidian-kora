@@ -37,8 +37,6 @@ export class SQLiteSemanticBackend implements SemanticBackend {
 	constructor(config: SemanticBackendConfig = {}) {
 		this.config = {
 			backend: 'sqlite',
-			qdrantUrl: '',
-			collectionName: 'semantic-index.sqlite',
 			vectorSize: config.vectorSize || 1536,
 			openaiApiKey:
 				config.openaiApiKey ||
@@ -336,7 +334,6 @@ export class SQLiteSemanticBackend implements SemanticBackend {
 			return {
 				status: 'healthy',
 				backend: 'sqlite',
-				collection: this.database.getDatabasePath(),
 				databasePath: this.database.getDatabasePath(),
 				embeddingModel: this.embeddingService.getModelInfo().model,
 				embeddingBaseUrl: String(this.config.embeddingBaseUrl),

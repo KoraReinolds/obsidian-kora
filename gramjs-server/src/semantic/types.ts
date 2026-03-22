@@ -1,11 +1,9 @@
 import type { EmbeddingResult } from '../embedding-service.js';
 
-export type SemanticBackendType = 'qdrant' | 'sqlite';
+export type SemanticBackendType = 'sqlite';
 
 export interface SemanticBackendConfig {
 	backend?: SemanticBackendType;
-	qdrantUrl?: string;
-	collectionName?: string;
 	vectorSize?: number;
 	openaiApiKey?: string;
 	embeddingModel?: string;
@@ -101,22 +99,18 @@ export interface VectorizeResult {
 
 export interface SemanticStats {
 	backend: SemanticBackendType;
-	collection: string;
 	totalPoints: number;
 	vectorSize: number;
 	contentTypeBreakdown: Record<string, number>;
 	status: string;
-	qdrantUrl?: string;
 	databasePath?: string;
 }
 
 export interface SemanticHealthCheck {
 	status: 'healthy' | 'unhealthy';
 	backend: SemanticBackendType;
-	collection?: string;
 	stats?: SemanticStats;
 	error?: string;
-	qdrantUrl?: string;
 	databasePath?: string;
 	embeddingModel?: string;
 	embeddingBaseUrl?: string;

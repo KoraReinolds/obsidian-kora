@@ -213,11 +213,6 @@ const backendVariant = computed<
 						icon="file-text"
 					/>
 					<SummaryChip
-						v-if="screen.backendStatus.value.qdrantUrl"
-						:text="`qdrant: ${screen.backendStatus.value.qdrantUrl}`"
-						icon="globe"
-					/>
-					<SummaryChip
 						v-for="chip in screen.breakdownChips.value"
 						:key="chip"
 						:text="chip"

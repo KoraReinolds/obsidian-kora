@@ -19,7 +19,7 @@ export class VectorSettingTab extends PluginSettingTab {
 
 		containerEl.createEl('h2', { text: 'Vector Search Settings' });
 		containerEl.createEl('p', {
-			text: 'Configure semantic search storage and the OpenAI-compatible embeddings endpoint used for indexing.',
+			text: 'Configure the SQLite semantic index and the OpenAI-compatible embeddings endpoint used for indexing.',
 			cls: 'setting-item-description',
 		});
 
@@ -44,69 +44,18 @@ export class VectorSettingTab extends PluginSettingTab {
 			return;
 		}
 
-		containerEl.createEl('h3', { text: 'Semantic Backend' });
 		new Setting(containerEl)
-			.setName('Backend')
-			.setDesc(
-				'Choose which semantic storage backend GramJS server should use.'
-			)
-			.addDropdown(dropdown =>
-				dropdown
-					.addOption('qdrant', 'Qdrant')
-					.addOption('sqlite', 'SQLite')
-					.setValue(this.plugin.settings.vectorSettings.semanticBackend)
+			.setName('SQLite database path')
+			.setDesc('Path to semantic index SQLite file on the GramJS server host.')
+			.addText(text =>
+				text
+					.setPlaceholder('data/semantic-index.sqlite')
+					.setValue(this.plugin.settings.vectorSettings.semanticDatabasePath)
 					.onChange(async value => {
-						this.plugin.settings.vectorSettings.semanticBackend = value as
-							| 'qdrant'
-							| 'sqlite';
+						this.plugin.settings.vectorSettings.semanticDatabasePath = value;
 						await this.plugin.saveSettings();
-						this.display();
 					})
 			);
-
-		if (this.plugin.settings.vectorSettings.semanticBackend === 'sqlite') {
-			new Setting(containerEl)
-				.setName('SQLite database path')
-				.setDesc(
-					'Path to semantic index SQLite file on the GramJS server host.'
-				)
-				.addText(text =>
-					text
-						.setPlaceholder('data/semantic-index.sqlite')
-						.setValue(this.plugin.settings.vectorSettings.semanticDatabasePath)
-						.onChange(async value => {
-							this.plugin.settings.vectorSettings.semanticDatabasePath = value;
-							await this.plugin.saveSettings();
-						})
-				);
-		} else {
-			containerEl.createEl('h3', { text: 'Qdrant Vector Database' });
-			new Setting(containerEl)
-				.setName('Qdrant URL')
-				.setDesc('URL of your Qdrant vector database instance')
-				.addText(text =>
-					text
-						.setPlaceholder('http://localhost:6333')
-						.setValue(this.plugin.settings.vectorSettings.qdrantUrl)
-						.onChange(async value => {
-							this.plugin.settings.vectorSettings.qdrantUrl = value;
-							await this.plugin.saveSettings();
-						})
-				);
-
-			new Setting(containerEl)
-				.setName('Collection name')
-				.setDesc('Name of the Qdrant collection to store vectors')
-				.addText(text =>
-					text
-						.setPlaceholder('kora_content')
-						.setValue(this.plugin.settings.vectorSettings.qdrantCollection)
-						.onChange(async value => {
-							this.plugin.settings.vectorSettings.qdrantCollection = value;
-							await this.plugin.saveSettings();
-						})
-				);
-		}
 
 		containerEl.createEl('h3', { text: 'Embeddings Provider' });
 		new Setting(containerEl)
@@ -188,7 +137,7 @@ export class VectorSettingTab extends PluginSettingTab {
 		const testContainer = containerEl.createDiv('vector-test-container');
 		new Setting(testContainer)
 			.setName('Test vector services')
-			.setDesc('Test the currently selected semantic backend and embeddings')
+			.setDesc('Test SQLite semantic storage and embeddings configuration')
 			.addButton(button =>
 				button
 					.setButtonText('Test Connection')
@@ -204,9 +153,6 @@ export class VectorSettingTab extends PluginSettingTab {
 			text: 'You can also set these environment variables in the GramJS server:',
 		});
 		envHelp.createEl('ul').innerHTML = `
-		  <li><code>QDRANT_URL</code> - Qdrant database URL</li>
-		  <li><code>QDRANT_COLLECTION</code> - Collection name</li>
-		  <li><code>SEMANTIC_BACKEND</code> - qdrant or sqlite</li>
 		  <li><code>SEMANTIC_DB_PATH</code> - SQLite path for semantic backend</li>
 		  <li><code>OPENROUTER_API_KEY</code> or <code>OPENAI_API_KEY</code> - embeddings API key</li>
 		  <li><code>OPENROUTER_BASE_URL</code> or <code>OPENAI_BASE_URL</code> - embeddings endpoint base URL</li>
@@ -222,21 +168,17 @@ export class VectorSettingTab extends PluginSettingTab {
 			const response = await fetch('http://127.0.0.1:8124/vector_health');
 			const healthData = await response.json();
 			if (healthData.status === 'healthy') {
-				buttonEl.textContent = '✅ Connected';
+				buttonEl.textContent = 'вњ… Connected';
 				buttonEl.setAttribute('style', 'background-color:#4ade80;');
 				const infoEl = buttonEl.parentElement?.createDiv('vector-test-result');
 				if (infoEl) {
-					const endpointInfo = healthData.databasePath
-						? `<strong>SQLite DB:</strong> ${healthData.databasePath}<br>`
-						: `<strong>Qdrant URL:</strong> ${healthData.qdrantUrl}<br>`;
 					infoEl.innerHTML = `
 					  <div style="margin-top: 8px; padding: 8px; background: #f0f9ff; border-radius: 4px;">
 					    <strong>Vector Service Status:</strong> ${healthData.status}<br>
-					    <strong>Backend:</strong> ${healthData.backend || 'qdrant'}<br>
-					    ${endpointInfo}
+					    <strong>Backend:</strong> ${healthData.backend || 'sqlite'}<br>
+					    <strong>SQLite DB:</strong> ${healthData.databasePath || 'n/a'}<br>
 					    <strong>Embeddings Endpoint:</strong> ${healthData.embeddingBaseUrl || 'n/a'}<br>
 					    <strong>Embeddings Model:</strong> ${healthData.embeddingModel || 'n/a'}<br>
-					    <strong>Collection:</strong> ${healthData.collection}<br>
 					    <strong>Total Points:</strong> ${healthData.stats?.totalPoints || 0}
 					  </div>
 					`;
@@ -245,14 +187,14 @@ export class VectorSettingTab extends PluginSettingTab {
 				throw new Error(healthData.error || 'Vector service unhealthy');
 			}
 		} catch (error) {
-			buttonEl.textContent = '❌ Failed';
+			buttonEl.textContent = 'вќЊ Failed';
 			buttonEl.setAttribute('style', 'background-color:#ef4444;');
 			const errorEl = buttonEl.parentElement?.createDiv('vector-test-error');
 			if (errorEl) {
 				errorEl.innerHTML = `
 				  <div style="margin-top: 8px; padding: 8px; background: #fef2f2; border-radius: 4px; color: #dc2626;">
 				    <strong>Error:</strong> ${(error as Error).message}<br>
-				    <small>Make sure GramJS server is running and the selected semantic backend is configured correctly.</small>
+				    <small>Make sure GramJS server is running and the SQLite semantic backend is configured correctly.</small>
 				  </div>
 				`;
 			}

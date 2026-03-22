@@ -45,14 +45,12 @@ interface SearchRequest {
 }
 
 interface VectorStats {
-	collection: string;
 	totalPoints: number;
 	vectorSize: number;
 	contentTypeBreakdown: Record<string, number>;
 	status: string;
-	backend?: 'qdrant' | 'sqlite';
+	backend?: 'sqlite';
 	databasePath?: string;
-	qdrantUrl?: string;
 }
 
 export interface SearchResult {
@@ -77,10 +75,8 @@ export interface VectorStoredContentRecord {
 
 export interface VectorHealthResponse {
 	status: 'healthy' | 'unhealthy' | 'unavailable' | 'error';
-	backend?: 'qdrant' | 'sqlite';
-	collection?: string;
+	backend?: 'sqlite';
 	databasePath?: string;
-	qdrantUrl?: string;
 	embeddingModel?: string;
 	embeddingBaseUrl?: string;
 	stats?: VectorStats;
@@ -314,10 +310,7 @@ export class VectorBridge {
 			return { deleted: 0, failed: [] };
 		}
 
-		// Auto-detect ID type: UUID format for qdrantId, otherwise chunkId
-		const firstId = ids[0];
-		const isQdrantId = firstId.includes('-') && firstId.length > 10; // Simple UUID detection
-		const by = isQdrantId ? 'qdrantId' : 'chunkId';
+		const by = 'chunkId';
 
 		try {
 			const qs = new URLSearchParams({
@@ -454,15 +447,13 @@ export class VectorBridge {
 
 			if (!isHealthy) {
 				new Notice(
-					'Vector service недоступен. Убедитесь, что GramJS server запущен с настроенными Qdrant и OpenAI.'
+					'Vector service недоступен. Убедитесь, что GramJS server запущен с настроенным SQLite backend и OpenAI.'
 				);
 				return false;
 			}
 
 			const stats = await this.getStats();
-			new Notice(
-				`Vector service готов: ${stats.totalPoints} документов в коллекции ${stats.collection}`
-			);
+			new Notice(`Vector service готов: ${stats.totalPoints} документов`);
 			return true;
 		} catch (error) {
 			console.error('Error testing vector connection:', error);

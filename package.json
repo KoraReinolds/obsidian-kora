@@ -48,7 +48,6 @@
 	},
 	"dependencies": {
 		"@modelcontextprotocol/sdk": "^1.12.3",
-		"@qdrant/js-client-rest": "^1.15.0",
 		"@tailwindcss/postcss": "^4.2.2",
 		"@vue/compiler-sfc": "^3.5.30",
 		"autoprefixer": "^10.4.27",

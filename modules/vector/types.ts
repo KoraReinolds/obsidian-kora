@@ -1,8 +1,6 @@
 export interface VectorSettingsInterface {
-	semanticBackend: 'qdrant' | 'sqlite';
+	semanticBackend: 'sqlite';
 	semanticDatabasePath: string;
-	qdrantUrl: string;
-	qdrantCollection: string;
 	openaiApiKey: string;
 	embeddingBaseUrl: string;
 	embeddingModel: string;
@@ -25,10 +23,8 @@ export interface VectorSearchRuntimeOptions {
 export type VectorSearchOptionsProvider = () => VectorSearchRuntimeOptions;
 
 export const defaultVectorSettings: VectorSettingsInterface = {
-	semanticBackend: 'qdrant',
+	semanticBackend: 'sqlite',
 	semanticDatabasePath: 'data/semantic-index.sqlite',
-	qdrantUrl: 'http://localhost:6333',
-	qdrantCollection: 'kora_content',
 	openaiApiKey: '',
 	embeddingBaseUrl: 'https://openrouter.ai/api/v1',
 	embeddingModel: 'text-embedding-3-small',

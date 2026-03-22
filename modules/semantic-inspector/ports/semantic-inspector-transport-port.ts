@@ -14,10 +14,8 @@ import type {
 /**
  * @typedef {Object} SemanticInspectorBackendStatus
  * @property {'healthy' | 'unhealthy' | 'unavailable' | 'error'} status - Текущее состояние здоровья бэкенда по данным рантайм-сервиса.
- * @property {string | null} backend - Имя активного семантического бэкенда (`sqlite` или `qdrant`), если доступно.
- * @property {string | null} collection - Идентификатор коллекции/таблицы для бэкенда, если сервер его отдаёт.
+ * @property {string | null} backend - Имя активного семантического бэкенда (`sqlite`), если доступно.
  * @property {string | null} databasePath - Путь к файлу SQLite для диагностики в рантайме.
- * @property {string | null} qdrantUrl - Endpoint Qdrant для совместимости и отладки.
  * @property {string | null} embeddingModel - Активная модель эмбеддингов, используемая рантайм-сервисом.
  * @property {string | null} embeddingBaseUrl - Текущий endpoint провайдера эмбеддингов.
  * @property {number} totalPoints - Общее число проиндексированных записей по статистике рантайма.
@@ -30,9 +28,7 @@ import type {
 export interface SemanticInspectorBackendStatus {
 	status: 'healthy' | 'unhealthy' | 'unavailable' | 'error';
 	backend: string | null;
-	collection: string | null;
 	databasePath: string | null;
-	qdrantUrl: string | null;
 	embeddingModel: string | null;
 	embeddingBaseUrl: string | null;
 	totalPoints: number;
@@ -128,7 +124,7 @@ export interface SemanticInspectorTransportPort {
 	/**
 	 * @async
 	 * @description Читает статус рантайм-бэкенда у активного в данный момент семантического сервиса.
-	 * Проверяет реальный рантайм-бэкенд (`sqlite`/`qdrant`) и путь хранения
+	 * Проверяет реальный рантайм-бэкенд (`sqlite`) и путь хранения
 	 * вместо опоры на сохранённые настройки плагина.
 	 * @returns {Promise<SemanticInspectorBackendStatus>} Нормализованный статус рантайма для заголовка инспектора.
 	 */

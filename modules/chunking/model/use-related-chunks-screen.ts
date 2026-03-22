@@ -114,7 +114,7 @@ export function useRelatedChunksScreen(
 			if (!healthy) {
 				message.value = {
 					kind: 'warning',
-					text: 'Vector service unavailable. Запустите gramjs-server с Qdrant/OpenAI.',
+					text: 'Vector service unavailable. Запустите gramjs-server и проверьте SQLite semantic backend.',
 				};
 				relatedChunks.value = [];
 				return;

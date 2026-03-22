@@ -20,7 +20,6 @@ export function registerConfigRoutes(app: Express): void {
 			const previousConfig = getConfig();
 			const prevMode = previousConfig.mode;
 			const prevArchiveDatabasePath = previousConfig.archiveDatabasePath;
-			const prevSemanticBackend = previousConfig.semanticBackend;
 			const prevSemanticDatabasePath = previousConfig.semanticDatabasePath;
 			const {
 				mode,
@@ -29,7 +28,6 @@ export function registerConfigRoutes(app: Express): void {
 				apiHash,
 				stringSession,
 				archiveDatabasePath,
-				semanticBackend,
 				semanticDatabasePath,
 				openaiApiKey,
 				embeddingModel,
@@ -44,7 +42,7 @@ export function registerConfigRoutes(app: Express): void {
 				apiHash,
 				stringSession,
 				archiveDatabasePath,
-				semanticBackend: semanticBackend ?? previousConfig.semanticBackend,
+				semanticBackend: 'sqlite',
 				semanticDatabasePath,
 				openaiApiKey,
 				embeddingModel,
@@ -60,7 +58,6 @@ export function registerConfigRoutes(app: Express): void {
 			}
 
 			if (
-				prevSemanticBackend !== parsed.semanticBackend ||
 				prevSemanticDatabasePath !== parsed.semanticDatabasePath ||
 				previousConfig.openaiApiKey !== parsed.openaiApiKey ||
 				previousConfig.embeddingModel !== parsed.embeddingModel ||
