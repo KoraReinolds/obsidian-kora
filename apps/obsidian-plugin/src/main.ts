@@ -2,34 +2,29 @@ import { Plugin, TFile, WorkspaceLeaf } from 'obsidian';
 import {
 	RELATED_CHUNKS_VIEW_TYPE,
 	RelatedChunksView,
-} from '../../../modules/chunking/ui/related-chunks-view';
-import {
 	SEMANTIC_INSPECTOR_VIEW_TYPE,
 	SemanticInspectorView,
-} from '../../../modules/semantic-inspector';
-import {
 	ARCHIVE_VIEW_TYPE,
-	ArchiveBridge,
-	ArchiveSettingTab,
 	ArchiveView,
-	GramJSBridge,
-} from '../../../modules/telegram';
+} from './views';
+import { ArchiveBridge, GramJSBridge } from '../../../modules/telegram';
 import { UIManager } from '../../../modules/ui-plugins';
 import { VectorBridge } from '../../../modules/vector';
 import { McpServerManager } from '../../../modules/mcp';
-import {
-	UIPluginManager,
-	UIPluginSettingsTab,
-} from '../../../modules/ui-plugins';
-import { McpServerSettingTab } from '../../../modules/mcp/settings-tab';
-import { TelegramSettingTab } from '../../../modules/telegram/ui/settings-tab';
-import { VectorSettingTab } from '../../../modules/vector/settings-tab';
-import { PluginCommands, VaultOperations } from '../../../modules/obsidian';
+import { PluginCommands, VaultOperations } from './obsidian';
 import { DailyContentInjector } from '../../../modules/daily-notes';
 import {
 	DEFAULT_SETTINGS,
 	type KoraMcpPluginSettings,
 } from './plugin-settings';
+import {
+	ArchiveSettingTab,
+	McpServerSettingTab,
+	TelegramSettingTab,
+	UIPluginSettingsTab,
+	VectorSettingTab,
+} from './settings';
+import { UIPluginManager } from '../../../modules/ui-plugins';
 
 export * from './plugin-settings';
 
