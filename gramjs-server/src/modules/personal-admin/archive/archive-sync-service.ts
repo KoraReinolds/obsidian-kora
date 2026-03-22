@@ -1,5 +1,5 @@
 /**
- * @module archive/archive-sync-service
+ * @module modules/personal-admin/archive/archive-sync-service
  *
  * @description Координирует загрузку истории Telegram в SQLite. Сервис держит синк
  * идемпотентным и инкрементальным, чтобы последующие AI-слои могли считать SQLite
@@ -12,8 +12,8 @@
 import type {
 	ArchiveBackfillResult,
 	ArchiveSyncResult,
-} from '../../../packages/contracts/src/telegram.js';
-import { initClient } from '../services/strategy-service.js';
+} from '../../../../../packages/contracts/src/telegram.js';
+import { initClient } from '../../../services/strategy-service.js';
 import { ArchiveNormalizer } from './archive-normalizer.js';
 import { ArchiveRepository } from './archive-repository.js';
 import type {

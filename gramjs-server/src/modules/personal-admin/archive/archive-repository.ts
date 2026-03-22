@@ -1,5 +1,5 @@
 /**
- * @module archive/archive-repository
+ * @module modules/personal-admin/archive/archive-repository
  *
  * @description Инкапсулирует весь доступ к SQLite архива Telegram: синхронизация,
  * HTTP-маршруты и будущие AI-слои опираются на один контракт данных, а не на
@@ -11,7 +11,7 @@ import type {
 	ArchiveChat,
 	ArchiveMessage,
 	ArchiveSyncState,
-} from '../../../packages/contracts/src/telegram.js';
+} from '../../../../../packages/contracts/src/telegram.js';
 import type {
 	ArchiveChatRecord,
 	ArchiveMessageRecord,

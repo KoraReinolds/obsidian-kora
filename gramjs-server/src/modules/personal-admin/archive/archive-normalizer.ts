@@ -1,5 +1,5 @@
 /**
- * @module archive/archive-normalizer
+ * @module modules/personal-admin/archive/archive-normalizer
  *
  * @description Преобразует объекты GramJS в стабильные записи архива, пригодные
  * для SQLite. Нормализатор убирает из хранилища «сырые» особенности Telegram и

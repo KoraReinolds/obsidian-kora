@@ -1,5 +1,5 @@
 /**
- * @module archive/archive-db
+ * @module modules/personal-admin/archive/archive-db
  *
  * @description Владеет подключением SQLite к архиву Telegram. Архив — локальный
  * канонический источник данных без потерь, от которого позже читают AI-слои;

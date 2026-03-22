@@ -271,14 +271,32 @@
 
 ### PR 1
 
+Статус: выполнено.
+
 - создать `packages/contracts`
 - перенести `telegram-types.ts`
 - поправить импорты plugin/server
 
+Фактически сделано:
+
+- канонический файл контрактов создан в `packages/contracts/src/telegram.ts`
+- старый `telegram-types.ts` оставлен как compatibility shim
+- plugin и server переведены на импорт из `packages/contracts`
+
 ### PR 2
+
+Статус: выполнено.
 
 - внутри `gramjs-server/src` создать `modules/publish`, `modules/personal-admin`, `modules/runtime`
 - разложить по ним routes/services без изменения поведения
+
+Фактически сделано:
+
+- `publish` выделен в `gramjs-server/src/modules/publish/**`
+- `personal-admin` выделен в `gramjs-server/src/modules/personal-admin/**`
+- `runtime` выделен в `gramjs-server/src/modules/runtime/**`
+- `server.ts` теперь регистрирует модули через `registerPublishRoutes`, `registerRuntimeRoutes`, `registerPersonalAdminRoutes`
+- старые пути в `routes/**` и `services/**` сохранены как compatibility shims там, где это нужно для безопасного перехода
 
 ### PR 3
 

@@ -26,26 +26,14 @@ import express from 'express';
 import cors from 'cors';
 
 // Route registrars
+import { registerPersonalAdminRoutes } from './modules/personal-admin/routes/index.js';
+import { registerPublishRoutes } from './modules/publish/routes/index.js';
+import { registerRuntimeRoutes } from './modules/runtime/routes/index.js';
 import { registerHealthRoutes } from './routes/health.js';
 import { registerMeRoutes } from './routes/me.js';
 import { registerChannelRoutes } from './routes/channels.js';
 import { registerMessageRoutes } from './routes/messages.js';
 import { registerConfigRoutes } from './routes/config.js';
-import { registerVectorizeRoute } from './routes/vectorize.js';
-import { registerVectorizeMessagesRoute } from './routes/vectorize_messages.js';
-import { registerSearchRoute } from './routes/search.js';
-import { registerContentRoutes } from './routes/content.js';
-import { registerVectorStatsRoute } from './routes/vector_stats.js';
-import { registerVectorHealthRoute } from './routes/vector_health.js';
-import { registerSendMessageRoute } from './routes/send-message.js';
-import { registerEditMessageRoute } from './routes/edit-message.js';
-import { registerSendFileRoute } from './routes/send-file.js';
-import { registerArchiveSyncRoutes } from './routes/archive-sync.js';
-import { registerArchiveBackfillRoutes } from './routes/archive-backfill.js';
-import { registerArchiveChatRoutes } from './routes/archive-chats.js';
-import { registerArchiveMessageRoutes } from './routes/archive-messages.js';
-import { registerArchiveSyncStateRoutes } from './routes/archive-sync-state.js';
-import { registerArchiveSingleMessageRoutes } from './routes/archive-message.js';
 
 // Services
 import { getConfig } from './services/config-service.js';
@@ -59,29 +47,17 @@ app.use(express.json());
 
 // Core routes
 registerHealthRoutes(app);
-registerSendMessageRoute(app);
-registerEditMessageRoute(app);
-registerSendFileRoute(app);
+registerPublishRoutes(app);
 registerMeRoutes(app);
 registerChannelRoutes(app);
 registerMessageRoutes(app);
 registerConfigRoutes(app);
 
 // Vector routes
-registerVectorizeRoute(app);
-registerVectorizeMessagesRoute(app);
-registerSearchRoute(app);
-registerContentRoutes(app);
-registerVectorStatsRoute(app);
-registerVectorHealthRoute(app);
+registerRuntimeRoutes(app);
 
 // Archive routes
-registerArchiveSyncRoutes(app);
-registerArchiveBackfillRoutes(app);
-registerArchiveChatRoutes(app);
-registerArchiveMessageRoutes(app);
-registerArchiveSyncStateRoutes(app);
-registerArchiveSingleMessageRoutes(app);
+registerPersonalAdminRoutes(app);
 
 // Graceful shutdown
 attachGracefulShutdown();

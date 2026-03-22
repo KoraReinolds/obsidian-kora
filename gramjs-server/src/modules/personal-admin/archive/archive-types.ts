@@ -1,5 +1,5 @@
 /**
- * @module archive/archive-types
+ * @module modules/personal-admin/archive/archive-types
  * @description Внутренние типы подсистемы архива Telegram. Описывают нормализованные
  * записи в SQLite до появления AI-слоёв (окна, суммаризации, векторы), производных
  * от архива.
