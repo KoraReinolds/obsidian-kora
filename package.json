@@ -6,11 +6,11 @@
 	"type": "module",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
-		"watch:mcp": "nodemon --watch ./mcp-server.ts --ext ts --exec 'bun build ./mcp-server.ts --outdir=./build --target=bun'",
-		"gramjs-auth": "cd gramjs-server && npm run build && npm run auth",
-		"gramjs-server": "cd gramjs-server && npm run build && npm start",
-		"gramjs-dev": "cd gramjs-server && npm run dev:dual",
-		"dev-all": "concurrently \"npm run dev\" \"npm run watch:mcp\" \"npm run gramjs-dev\" --names \"obsidian,mcp,gramjs\" --prefix-colors \"blue,green,yellow\"",
+		"watch:mcp": "nodemon --watch ./mcp-server.ts --watch ./apps/obsidian-plugin/src/mcp --ext ts --exec \"bun build ./mcp-server.ts --outdir=./build --target=bun\"",
+		"kora-auth": "cd kora-server && npm run build && npm run auth",
+		"kora-server": "cd kora-server && npm run build && npm start",
+		"kora-dev": "cd kora-server && npm run dev:dual",
+		"dev-all": "concurrently \"npm run dev\" \"npm run watch:mcp\" \"npm run kora-dev\" --names \"obsidian,mcp,kora\" --prefix-colors \"blue,green,yellow\"",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"lint": "eslint . --ext .ts,.js",
 		"lint:fix": "eslint . --ext .ts,.js --fix",
@@ -79,7 +79,7 @@
 		],
 		"exclude": [
 			"mcp-obsidian/**",
-			"gramjs-server/**"
+			"kora-server/**"
 		],
 		"environment": "node",
 		"coverage": {

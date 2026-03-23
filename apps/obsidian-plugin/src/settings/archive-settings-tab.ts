@@ -24,7 +24,7 @@ export class ArchiveSettingTab extends PluginSettingTab {
 
 		containerEl.createEl('h2', { text: 'Архив Telegram' });
 		containerEl.createEl('p', {
-			text: 'SQLite-архив обслуживает gramjs-server; для чтения истории обычно нужен userbot-процесс.',
+			text: 'SQLite-архив обслуживает kora-server; для чтения истории обычно нужен userbot-процесс.',
 			cls: 'setting-item-description',
 		});
 
@@ -43,7 +43,7 @@ export class ArchiveSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Хост сервера архива')
 			.setDesc(
-				'Хост gramjs-server, который обслуживает архив. Обычно это userbot-процесс.'
+				'Хост kora-server, который обслуживает архив. Обычно это userbot-процесс.'
 			)
 			.addText(text =>
 				text
@@ -59,7 +59,7 @@ export class ArchiveSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Порт сервера архива')
 			.setDesc(
-				'Порт gramjs-server для архива. Для userbot по умолчанию используется 8125.'
+				'Порт kora-server для архива. Для userbot по умолчанию используется 8125.'
 			)
 			.addText(text =>
 				text
@@ -77,7 +77,7 @@ export class ArchiveSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Путь к файлу БД архива')
 			.setDesc(
-				'Путь к SQLite на машине, где запущен gramjs-server. Относительные пути - от папки gramjs-server.'
+				'Путь к SQLite на машине, где запущен kora-server. Относительные пути - от папки kora-server.'
 			)
 			.addText(text =>
 				text

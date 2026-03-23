@@ -10,7 +10,7 @@ import { getCurrentStrategy, disconnectStrategy } from './strategy-service.js';
 export function attachGracefulShutdown(): void {
 	process.on('SIGINT', async () => {
 		// eslint-disable-next-line no-console
-		console.log('Shutting down GramJS server...');
+		console.log('Shutting down Kora server...');
 		const strategy = getCurrentStrategy();
 		if (strategy) {
 			try {

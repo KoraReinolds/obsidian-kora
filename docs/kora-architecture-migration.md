@@ -71,11 +71,11 @@
 
 ### Почти готовые кандидаты на `Kora Server`
 
-- `gramjs-server/src/routes/**`
-- `gramjs-server/src/services/**`
-- `gramjs-server/src/strategies/**`
-- `gramjs-server/src/archive/**`
-- `gramjs-server/src/semantic-sqlite/**`
+- `kora-server/src/routes/**`
+- `kora-server/src/services/**`
+- `kora-server/src/strategies/**`
+- `kora-server/src/archive/**`
+- `kora-server/src/semantic-sqlite/**`
 
 ### Уже просится в shared contracts
 
@@ -145,9 +145,9 @@
   - `modules/telegram/transport/archive-bridge.ts`
   - `modules/vector/vector-bridge.ts`
 
-### `apps/kora-server`
+### `kora-server`
 
-Сюда переезжает текущий `gramjs-server/**`, но внутри делится на модули:
+Сюда переезжает текущий `kora-server/**`, но внутри делится на модули:
 
 - `src/modules/publish`
   - публикация заметок
@@ -201,7 +201,7 @@
 
 Не делать второй сервер. Только навести порядок внутри текущего.
 
-Сделать в `gramjs-server`:
+Сделать в `kora-server`:
 
 - `src/modules/publish/**`
 - `src/modules/personal-admin/**`
@@ -249,7 +249,7 @@
 
 Репозиторий сейчас лежит внутри `.obsidian/plugins/obsidian-kora`. Поэтому физический переезд исходников допустим, пока итоговые артефакты продолжают собираться в корень плагина.
 
-### Этап 5. Переименовать `gramjs-server` в `apps/kora-server`
+### Этап 5. Переименовать `kora-server` в `kora-server`
 
 Делать только после этапов 1-3.
 
@@ -287,14 +287,14 @@
 
 Статус: выполнено.
 
-- внутри `gramjs-server/src` создать `modules/publish`, `modules/personal-admin`, `modules/runtime`
+- внутри `kora-server/src` создать `modules/publish`, `modules/personal-admin`, `modules/runtime`
 - разложить по ним routes/services без изменения поведения
 
 Фактически сделано:
 
-- `publish` выделен в `gramjs-server/src/modules/publish/**`
-- `personal-admin` выделен в `gramjs-server/src/modules/personal-admin/**`
-- `runtime` выделен в `gramjs-server/src/modules/runtime/**`
+- `publish` выделен в `kora-server/src/modules/publish/**`
+- `personal-admin` выделен в `kora-server/src/modules/personal-admin/**`
+- `runtime` выделен в `kora-server/src/modules/runtime/**`
 - `server.ts` теперь регистрирует модули через `registerPublishRoutes`, `registerRuntimeRoutes`, `registerPersonalAdminRoutes`
 - старые пути в `routes/**` и `services/**` сохранены как compatibility shims там, где это нужно для безопасного перехода
 

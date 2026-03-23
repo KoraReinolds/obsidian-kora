@@ -29,8 +29,8 @@ mcp-obsidian
 build
 
 .env
-/gramjs-server/dist
+/kora-server/dist
 
 # Local/runtime data (sessions, caches — не в репозиторий)
-gramjs-server/data/
+kora-server/data/
 data/

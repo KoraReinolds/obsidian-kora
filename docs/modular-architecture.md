@@ -40,9 +40,9 @@ This document describes the modular architecture of the Kora MCP plugin, designe
 
 ### `modules/gramjs-bridge.ts`
 
-- **Purpose**: HTTP client for GramJS server communication
+- **Purpose**: HTTP client for Kora server communication
 - **Responsibilities**:
-  - Send HTTP requests to GramJS server
+  - Send HTTP requests to Kora server
   - Handle server responses and errors
   - Provide typed interfaces for GramJS operations
 - **Dependencies**: None (standalone HTTP client)

@@ -46,7 +46,7 @@ export class VectorSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('SQLite database path')
-			.setDesc('Path to semantic index SQLite file on the GramJS server host.')
+			.setDesc('Path to semantic index SQLite file on the Kora server host.')
 			.addText(text =>
 				text
 					.setPlaceholder('data/semantic-index.sqlite')
@@ -150,7 +150,7 @@ export class VectorSettingTab extends PluginSettingTab {
 		containerEl.createEl('h3', { text: 'Environment Variables' });
 		const envHelp = containerEl.createDiv('vector-env-help');
 		envHelp.createEl('p', {
-			text: 'You can also set these environment variables in the GramJS server:',
+			text: 'You can also set these environment variables in the Kora server:',
 		});
 		envHelp.createEl('ul').innerHTML = `
 		  <li><code>SEMANTIC_DB_PATH</code> - SQLite path for semantic backend</li>
@@ -194,7 +194,7 @@ export class VectorSettingTab extends PluginSettingTab {
 				errorEl.innerHTML = `
 				  <div style="margin-top: 8px; padding: 8px; background: #fef2f2; border-radius: 4px; color: #dc2626;">
 				    <strong>Error:</strong> ${(error as Error).message}<br>
-				    <small>Make sure GramJS server is running and the SQLite semantic backend is configured correctly.</small>
+				    <small>Make sure Kora server is running and the SQLite semantic backend is configured correctly.</small>
 				  </div>
 				`;
 			}

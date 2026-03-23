@@ -1,12 +1,12 @@
 /**
  * @module services/config-service
- * @description Хранит runtime-конфигурацию сервера GramJS: геттеры/сеттеры и простую
+ * @description Хранит runtime-конфигурацию Kora server: геттеры/сеттеры и простую
  * структуру для проверки полноты настроек.
  */
 
-import { loadGramJsEnv } from './env-loader.js';
+import { loadKoraServerEnv } from './env-loader.js';
 
-loadGramJsEnv();
+loadKoraServerEnv();
 
 export type TelegramMode = 'bot' | 'userbot';
 export type SemanticBackendType = 'sqlite';

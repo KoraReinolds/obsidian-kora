@@ -1,4 +1,4 @@
-// Global type definitions for gramjs-server
+// Global type definitions for kora-server
 
 declare module 'input' {
 	function question(query: string): Promise<string>;

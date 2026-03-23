@@ -217,7 +217,7 @@ export class ArchiveBridge extends BaseHttpClient {
 		try {
 			const reachable = await this.isServerReachable();
 			if (!reachable) {
-				new Notice('GramJS сервер архива недоступен.');
+				new Notice('Kora сервер архива недоступен.');
 				return false;
 			}
 

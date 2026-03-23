@@ -1,0 +1,38 @@
+{
+	"name": "kora-server",
+	"version": "1.0.0",
+	"description": "Kora server runtime for Obsidian Kora plugin",
+	"type": "module",
+	"main": "dist/kora-server/src/server.js",
+	"scripts": {
+		"build": "tsc",
+		"dev": "tsc-watch --noClear --onSuccess \"npm run start\"",
+		"dev:userbot": "tsc-watch --noClear --onSuccess \"npm run start:userbot\"",
+		"dev:dual": "tsc-watch --noClear --onSuccess \"npm run start:dual\"",
+		"watch": "tsc --watch",
+		"start": "node dist/kora-server/src/server.js",
+		"start:userbot": "node dist/kora-server/src/server.js --port=8125 --mode=userbot",
+		"start:dual": "concurrently \"node dist/kora-server/src/server.js --port=8124 --mode=bot\" \"node dist/kora-server/src/server.js --port=8125 --mode=userbot\" --names \"bot,userbot\" --prefix-colors \"magenta,green\"",
+		"auth": "node dist/kora-server/src/kora-auth.js"
+	},
+	"dependencies": {
+		"better-sqlite3": "^12.8.0",
+		"cors": "^2.8.5",
+		"dotenv": "^17.2.0",
+		"express": "^4.18.2",
+		"input": "^1.0.1",
+		"openai": "^4.68.4",
+		"telegram": "^2.22.2",
+		"undici": "^7.24.5",
+		"uuid": "^11.1.0"
+	},
+	"devDependencies": {
+		"@types/cors": "^2.8.17",
+		"@types/express": "^4.17.21",
+		"@types/node": "^20.10.0",
+		"@types/uuid": "^9.0.7",
+		"concurrently": "^9.2.0",
+		"tsc-watch": "^7.2.0",
+		"typescript": "^5.3.2"
+	}
+}

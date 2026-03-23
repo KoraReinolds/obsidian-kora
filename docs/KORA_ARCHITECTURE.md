@@ -81,16 +81,16 @@ flowchart TB
 
     Root --> Apps["apps"]
     Root --> Packages["packages"]
-    Root --> Server["gramjs-server"]
+    Root --> Server["kora-server"]
     Root --> Docs["docs"]
 
     Apps --> PluginApp["apps/obsidian-plugin/src<br/>main.ts, plugin-settings.ts, settings, views, obsidian, vector, daily-notes, ui-plugins"]
     PluginApp --> PluginFeatures["features/**, telegram/**, mcp/**, ui-vue/**"]
     Packages --> CorePkg["packages/kora-core/src<br/>chunking, telegram pure logic, shared ports/helpers, tests"]
     Packages --> ContractsPkg["packages/contracts/src<br/>telegram contracts"]
-    Server --> PublishMod["gramjs-server/src/modules/publish"]
-    Server --> PersonalMod["gramjs-server/src/modules/personal-admin"]
-    Server --> RuntimeMod["gramjs-server/src/modules/runtime"]
+    Server --> PublishMod["kora-server/src/modules/publish"]
+    Server --> PersonalMod["kora-server/src/modules/personal-admin"]
+    Server --> RuntimeMod["kora-server/src/modules/runtime"]
     Docs --> ArchitectureDoc["docs/KORA_ARCHITECTURE.md"]
 ```
 
@@ -103,7 +103,7 @@ flowchart TB
 - `apps/obsidian-plugin/src/ui-vue/**` — общий Vue UI-кит плагина.
 - `packages/kora-core/src` — канонический shared/core код: pure chunking, pure Telegram logic, форматирование, парсинг, links, utils и тесты core-логики.
 - `packages/contracts/src` — канонические shared contracts.
-- `gramjs-server/src/modules/*` — канонический server-side код.
+- `kora-server/src/modules/*` — канонический server-side код.
 - root `modules/**` больше не является архитектурным слоем и не содержит канонического кода.
 
 ## Итог phaseout `modules/**`
@@ -115,7 +115,7 @@ flowchart TB
 - общий Vue UI-kit перенесен в `apps/obsidian-plugin/src/ui-vue/**`.
 - shared chunking logic и его тесты живут в `packages/kora-core/src/chunking/**`.
 - shared pure Telegram logic живет в `packages/kora-core/src/telegram/**`.
-- server-side `gramjs-server/src/modules/**` остается отдельным серверным слоем и не связан с удаленным root `modules/**`.
+- server-side `kora-server/src/modules/**` остается отдельным серверным слоем и не связан с удаленным root `modules/**`.
 - Если в рабочем дереве локально еще существует пустая директория `modules/`, это больше не часть архитектуры и ее можно удалить без дополнительной миграции кода.
 
 ## Что сознательно не зафиксировано как реализованное

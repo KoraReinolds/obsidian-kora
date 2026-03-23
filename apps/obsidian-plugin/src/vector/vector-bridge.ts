@@ -438,7 +438,7 @@ export class VectorBridge {
 
 			if (!isHealthy) {
 				new Notice(
-					'Vector service недоступен. Убедитесь, что GramJS server запущен с настроенным SQLite backend и OpenAI.'
+					'Vector service недоступен. Убедитесь, что Kora server запущен с настроенным SQLite backend и OpenAI.'
 				);
 				return false;
 			}

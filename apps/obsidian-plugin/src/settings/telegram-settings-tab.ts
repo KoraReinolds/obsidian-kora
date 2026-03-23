@@ -42,15 +42,15 @@ export class TelegramSettingTab extends PluginSettingTab {
 	}
 
 	private renderGramJs(containerEl: HTMLElement) {
-		containerEl.createEl('h2', { text: 'GramJS Settings' });
+		containerEl.createEl('h2', { text: 'Kora Server Settings' });
 
 		const gram = this.plugin.settings.gramjs || {};
 		this.plugin.settings.gramjs = gram;
 
 		new Setting(containerEl)
-			.setName('GramJS Mode')
+			.setName('Runtime Mode')
 			.setDesc(
-				'Choose between bot mode (BotFather bot) or userbot mode (personal account)'
+				'Choose between bot mode (BotFather bot) or userbot mode (personal account) for Kora server'
 			)
 			.addDropdown(dropdown =>
 				dropdown
@@ -123,7 +123,7 @@ export class TelegramSettingTab extends PluginSettingTab {
 		if (currentMode === 'userbot') {
 			new Setting(containerEl)
 				.setName('Session String')
-				.setDesc('GramJS session string (generated after first login)')
+				.setDesc('Telegram session string (generated after first login)')
 				.addTextArea(text =>
 					text
 						.setPlaceholder('1BVtsOLABu...')
@@ -163,12 +163,12 @@ export class TelegramSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName('Test GramJS Connection')
-			.setDesc('Test connection to GramJS server')
+			.setName('Test Kora Server Connection')
+			.setDesc('Test connection to Kora server')
 			.addButton(button =>
 				button
 					.setButtonText('Test Connection')
-					.setTooltip('Test GramJS server connection')
+					.setTooltip('Test Kora server connection')
 					.onClick(async () => {
 						const bridge =
 							this.plugin.getGramJSBridge?.() ||
@@ -176,13 +176,13 @@ export class TelegramSettingTab extends PluginSettingTab {
 						if (bridge) {
 							await bridge.testConnection();
 						} else {
-							new Notice('GramJS bridge not initialized');
+							new Notice('Kora server bridge not initialized');
 						}
 					})
 			);
 
 		containerEl.createEl('div', {
-			text: `To use GramJS in ${currentMode} mode, you need to:`,
+			text: `To use Kora server in ${currentMode} mode, you need to:`,
 			cls: 'setting-item-description',
 		});
 		const infoList = containerEl.createEl('ol');
@@ -203,7 +203,7 @@ export class TelegramSettingTab extends PluginSettingTab {
 		}
 		infoList.createEl('li', { text: 'Install dependencies: npm install' });
 		infoList.createEl('li', {
-			text: 'Start GramJS server: npm run gramjs-server',
+			text: 'Start Kora server: npm run kora-server',
 		});
 		infoList.createEl('li', {
 			text: 'Configure settings above and test connection',

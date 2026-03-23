@@ -1,4 +1,4 @@
-// Global type declarations for gramjs-server
+// Global type declarations for kora-server
 
 declare module 'node-telegram-bot-api' {
 	interface TelegramBot {

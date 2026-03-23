@@ -6,10 +6,10 @@ This document describes the SQLite-based semantic search flow used by Kora.
 
 1. SQLite semantic index path configured in plugin settings or via `SEMANTIC_DB_PATH`
 2. OpenAI-compatible embeddings API key set in plugin settings or environment
-3. GramJS server started with vector services enabled
+3. Kora server started with vector services enabled
 
 ```bash
-npm run gramjs-server
+npm run kora-server
 ```
 
 ## Environment Variables

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * GramJS Authentication Script
+ * Kora Server Authentication Script
  * Run this script once to generate a session string for your userbot
  */
 
@@ -10,7 +10,7 @@ import { StringSession } from 'telegram/sessions/index.js';
 import { createInterface } from 'readline';
 import type { Interface } from 'readline';
 
-// Your API credentials (same as in gramjs-server.js)
+// Your API credentials for Kora server runtime
 const API_ID = 27782052;
 const API_HASH = '68a4d2fd1466ab6faccfb81bd4b68255';
 
@@ -30,7 +30,7 @@ function askQuestion(question: string): Promise<string> {
 }
 
 async function authenticate(): Promise<void> {
-	console.log('🚀 GramJS Authentication Setup');
+	console.log('🚀 Kora Server Authentication Setup');
 	console.log('===============================');
 
 	// Start with empty session
@@ -85,12 +85,12 @@ async function authenticate(): Promise<void> {
 		console.log('\n📝 Next steps:');
 		console.log('1. Copy the session string above');
 		console.log(
-			'2. Update gramjs-server.js CONFIG.stringSession with this value'
+			'2. Set TELEGRAM_SESSION in kora-server/.env or sync it from plugin settings'
 		);
 		console.log(
 			'3. Or set environment variable: TELEGRAM_SESSION="your_session_string"'
 		);
-		console.log('4. Run: npm run gramjs-server');
+		console.log('4. Run: npm run kora-server');
 
 		await client.disconnect();
 	} catch (error: any) {

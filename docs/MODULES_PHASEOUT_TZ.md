@@ -9,7 +9,7 @@
 - `apps/obsidian-plugin/src/**` — канонический plugin/app слой
 - `packages/kora-core/src/**` — shared core
 - `packages/contracts/src/**` — shared contracts
-- `gramjs-server/src/**` — server runtime
+- `kora-server/src/**` — server runtime
 - `modules/**` — смешанный слой:
   - часть файлов уже удалена как промежуточные compatibility shims
   - часть top-level `index.ts` оставлена как совместимые entrypoint/barrel-файлы
@@ -35,7 +35,7 @@
 - весь plugin-only код живет в `apps/obsidian-plugin/src/**`
 - весь shared pure code живет в `packages/kora-core/src/**`
 - все shared contracts живут в `packages/contracts/src/**`
-- весь server-only код живет в `gramjs-server/src/**` или в будущем в `apps/kora-server/src/**`
+- весь server-only код живет в `kora-server/src/**` или в будущем в `kora-server/src/**`
 - директория `modules/**` либо полностью удалена, либо сведена к временному пустому слою, который можно удалить без дополнительных переносов
 
 ## Что не входит в задачу
@@ -54,7 +54,7 @@ flowchart TB
 
     Root --> Apps["apps"]
     Root --> Packages["packages"]
-    Root --> Server["gramjs-server"]
+    Root --> Server["kora-server"]
     Root --> Docs["docs"]
 
     Apps --> PluginApp["apps/obsidian-plugin/src"]
@@ -63,8 +63,8 @@ flowchart TB
     Packages --> CorePkg["packages/kora-core/src"]
     Packages --> ContractsPkg["packages/contracts/src"]
 
-    Server --> ServerModules["gramjs-server/src/modules"]
-    Server --> ServerInfra["gramjs-server/src/services / infra"]
+    Server --> ServerModules["kora-server/src/modules"]
+    Server --> ServerInfra["kora-server/src/services / infra"]
 
     Docs --> Architecture["docs/KORA_ARCHITECTURE.md"]
     Docs --> TZ["docs/MODULES_PHASEOUT_TZ.md"]
@@ -106,7 +106,7 @@ packages/
     src/
       telegram.ts
 
-gramjs-server/
+kora-server/
   src/
     modules/
       publish/
@@ -129,7 +129,7 @@ docs/
   - да: переносить в `packages/kora-core/src/**`
   - нет: проверять, относится ли код к серверу
 - `Этот код нужен только серверу, Telegram runtime, sqlite, jobs, API routes?`
-  - да: держать в `gramjs-server/src/**`
+  - да: держать в `kora-server/src/**`
 
 ## Предлагаемые фазы следующей сессии
 
@@ -187,7 +187,7 @@ docs/
 
 - plugin runtime pieces — в `apps/obsidian-plugin/src/mcp/**`
 - shared contracts/helpers — в `packages/**`
-- серверные/endpoint-oriented части — оставить в своем явном слое до появления отдельного `apps/kora-server`
+- серверные/endpoint-oriented части — оставить в своем явном слое до появления отдельного `kora-server`
 
 Критерий успеха этой фазы:
 

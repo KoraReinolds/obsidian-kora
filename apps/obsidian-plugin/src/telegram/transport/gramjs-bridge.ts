@@ -37,7 +37,7 @@ export class GramJSBridge extends BaseHttpClient {
 	}
 
 	/**
-	 * @description Проверяет, запущен ли сервер GramJS.
+	 * @description Проверяет, запущен ли Kora server.
 	 * @returns {Promise<boolean>}
 	 */
 	async isServerRunning(): Promise<boolean> {
@@ -45,7 +45,7 @@ export class GramJSBridge extends BaseHttpClient {
 	}
 
 	/**
-	 * @description Отправляет текст через GramJS с поддержкой MarkdownV2.
+	 * @description Отправляет текст через Kora server с поддержкой MarkdownV2.
 	 * @param {SendMessageRequest} request - Параметры отправки.
 	 * @returns {Promise<SendMessageResponse>}
 	 */
@@ -67,7 +67,7 @@ export class GramJSBridge extends BaseHttpClient {
 	}
 
 	/**
-	 * @description Редактирует существующее сообщение через GramJS.
+	 * @description Редактирует существующее сообщение через Kora server.
 	 * @param {EditMessageRequest} request - Параметры редактирования.
 	 * @returns {Promise<boolean>}
 	 */
@@ -82,7 +82,7 @@ export class GramJSBridge extends BaseHttpClient {
 	}
 
 	/**
-	 * @description Отправляет файл через GramJS.
+	 * @description Отправляет файл через Kora server.
 	 * @param {SendFileRequest} request - Параметры отправки.
 	 * @returns {Promise<boolean>}
 	 */
@@ -97,7 +97,7 @@ export class GramJSBridge extends BaseHttpClient {
 	}
 
 	/**
-	 * @description Возвращает данные текущего пользователя GramJS.
+	 * @description Возвращает данные текущего пользователя Kora server.
 	 * @returns {Promise<UserInfo>}
 	 */
 	async getMe(): Promise<UserInfo> {
@@ -150,7 +150,7 @@ export class GramJSBridge extends BaseHttpClient {
 	}
 
 	/**
-	 * @description Обновляет runtime-конфигурацию сервера GramJS.
+	 * @description Обновляет runtime-конфигурацию Kora server.
 	 * @param {GramJSConfig} config - Новая конфигурация.
 	 * @returns {Promise<boolean>}
 	 */
@@ -158,7 +158,7 @@ export class GramJSBridge extends BaseHttpClient {
 		const data = await this.handleRequest<ConfigResponse>(
 			'/config',
 			{ method: 'POST', body: config },
-			'Ошибка обновления конфигурации GramJS'
+			'Ошибка обновления конфигурации Kora server'
 		);
 
 		if (data) {
@@ -170,25 +170,27 @@ export class GramJSBridge extends BaseHttpClient {
 	}
 
 	/**
-	 * @description Проверяет подключение к серверу GramJS и показывает Notice.
+	 * @description Проверяет подключение к Kora server и показывает Notice.
 	 * @returns {Promise<boolean>}
 	 */
 	async testConnection(): Promise<boolean> {
 		try {
 			const isRunning = await this.isServerRunning();
 			if (!isRunning) {
-				new Notice(
-					'GramJS сервер не запущен. Запустите: npm run gramjs-server'
-				);
+				new Notice('Kora сервер не запущен. Запустите: npm run kora-server');
 				return false;
 			}
 
 			const userInfo = await this.getMe();
-			new Notice(`GramJS подключен как: @${userInfo.username}`);
+			new Notice(
+				`Telegram подключен через Kora server как: @${userInfo.username}`
+			);
 			return true;
 		} catch (error) {
-			console.error('Error testing GramJS connection:', error);
-			new Notice(`Ошибка подключения к GramJS: ${(error as Error).message}`);
+			console.error('Error testing Kora server connection:', error);
+			new Notice(
+				`Ошибка подключения к Kora server: ${(error as Error).message}`
+			);
 			return false;
 		}
 	}

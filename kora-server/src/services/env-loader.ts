@@ -1,7 +1,7 @@
 /**
  * @module services/env-loader
- * @description Загружает `.env` для gramjs-server из корня пакета, даже когда код
- * исполняется из `dist/gramjs-server/src`. Это устраняет рассинхрон между dev/runtime
+ * @description Загружает `.env` для kora-server из корня пакета, даже когда код
+ * исполняется из `dist/kora-server/src`. Это устраняет рассинхрон между dev/runtime
  * и гарантирует, что bot/userbot процессы видят один и тот же файл окружения.
  */
 
@@ -11,12 +11,12 @@ import { fileURLToPath } from 'node:url';
 import { config as configDotenv } from 'dotenv';
 
 /**
- * @description Ищет корень пакета gramjs-server по наличию `package.json`, затем
+ * @description Ищет корень пакета kora-server по наличию `package.json`, затем
  * best-effort загружает `.env` из этой директории. Повторный вызов безопасен:
  * dotenv не затирает уже установленные переменные без override.
  * @returns {string | null} Путь к найденному `.env` или null, если файл отсутствует.
  */
-export function loadGramJsEnv(): string | null {
+export function loadKoraServerEnv(): string | null {
 	const currentFile = fileURLToPath(import.meta.url);
 	let currentDir = path.dirname(currentFile);
 

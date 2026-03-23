@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 
 /**
- * Entry: GramJS Server
+ * Entry: Kora Server
  * Minimal Express bootstrap that wires modular routes and services.
  * Supports both bot and userbot modes via command line arguments.
  */
 
 // Load environment variables ASAP from the package root, not from dist/
-import { loadGramJsEnv } from './services/env-loader.js';
+import { loadKoraServerEnv } from './services/env-loader.js';
 
-loadGramJsEnv();
+loadKoraServerEnv();
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -66,7 +66,7 @@ app.listen(PORT, '127.0.0.1', () => {
 	const cfg = getConfig();
 
 	// eslint-disable-next-line no-console
-	console.log(`GramJS server running on http://127.0.0.1:${PORT}`);
+	console.log(`Kora server running on http://127.0.0.1:${PORT}`);
 	// eslint-disable-next-line no-console
 	console.log(`Mode: ${cfg.mode}`);
 	// eslint-disable-next-line no-console

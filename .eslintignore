@@ -3,5 +3,5 @@ node_modules/
 main.js
 
 build/
-gramjs-server/dist/
+kora-server/dist/
 mcp-obsidian/

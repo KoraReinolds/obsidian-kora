@@ -61,7 +61,7 @@ export default class KoraPlugin extends Plugin {
 		});
 		this.vectorBridge = new VectorBridge();
 
-		await this.syncGramJSConfig();
+		await this.syncKoraServerConfig();
 
 		this.vaultOps = new VaultOperations(this.app);
 		// this.dailyContentInjector = new DailyContentInjector(this.app);
@@ -229,13 +229,13 @@ export default class KoraPlugin extends Plugin {
 			host: this.settings.archiveSettings.serverHost,
 			port: this.settings.archiveSettings.serverPort,
 		});
-		await this.syncGramJSConfig();
+		await this.syncKoraServerConfig();
 	}
 
 	/**
-	 * @description Синхронизирует конфигурацию GramJS и archive runtime с настройками плагина.
+	 * @description Синхронизирует конфигурацию Kora server и archive runtime с настройками плагина.
 	 */
-	private async syncGramJSConfig() {
+	private async syncKoraServerConfig() {
 		if (!this.settings.gramjs) {
 			return;
 		}
@@ -258,27 +258,29 @@ export default class KoraPlugin extends Plugin {
 			const isRunning = await this.gramjsBridge.isServerRunning();
 			if (!isRunning) {
 				console.log(
-					'[syncGramJSConfig] GramJS server not running, skipping sync'
+					'[syncKoraServerConfig] Kora server not running, skipping sync'
 				);
 				return;
 			}
 
 			await this.gramjsBridge.updateGramJSConfig(configPayload);
 
-			console.log('[syncGramJSConfig] Configuration synced with GramJS server');
+			console.log(
+				'[syncKoraServerConfig] Configuration synced with Kora server'
+			);
 		} catch (error) {
 			console.error(
-				'[syncGramJSConfig] Failed to sync with GramJS server:',
+				'[syncKoraServerConfig] Failed to sync with Kora server:',
 				error
 			);
 		}
 
 		try {
 			const archiveServerConfig = this.archiveBridge?.getConfig();
-			const gramJsServerConfig = this.gramjsBridge?.getConfig();
+			const koraServerConfig = this.gramjsBridge?.getConfig();
 			const archiveServerIsPrimary =
-				archiveServerConfig?.host === gramJsServerConfig?.host &&
-				archiveServerConfig?.port === gramJsServerConfig?.port;
+				archiveServerConfig?.host === koraServerConfig?.host &&
+				archiveServerConfig?.port === koraServerConfig?.port;
 
 			if (archiveServerIsPrimary) {
 				return;
@@ -288,7 +290,7 @@ export default class KoraPlugin extends Plugin {
 				await this.archiveBridge.isServerReachable();
 			if (!isArchiveServerRunning) {
 				console.log(
-					'[syncGramJSConfig] Archive server not running, skipping archive sync'
+					'[syncKoraServerConfig] Archive server not running, skipping archive sync'
 				);
 				return;
 			}
@@ -302,11 +304,11 @@ export default class KoraPlugin extends Plugin {
 				embeddingBaseUrl: this.settings.vectorSettings.embeddingBaseUrl,
 			});
 			console.log(
-				'[syncGramJSConfig] Configuration synced with archive server'
+				'[syncKoraServerConfig] Configuration synced with archive server'
 			);
 		} catch (error) {
 			console.error(
-				'[syncGramJSConfig] Failed to sync with archive server:',
+				'[syncKoraServerConfig] Failed to sync with archive server:',
 				error
 			);
 		}

@@ -23,7 +23,7 @@ McpToolsGenerator.registerAllTools(server, KORA_URL);
 const summary = McpToolsGenerator.getEndpointsSummary();
 console.error(`[kora] Registered ${summary.length} MCP tools:`, summary);
 
-// Note: GramJS functionality is now handled by the separate gramjs-server process
+// Note: Telegram runtime functionality is now handled by the separate kora-server process
 // and accessed through the HTTP bridge in the main plugin
 
 async function main() {

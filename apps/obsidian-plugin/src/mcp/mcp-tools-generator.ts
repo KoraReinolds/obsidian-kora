@@ -1,8 +1,11 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { z, type ZodRawShape } from 'zod';
-import { ALL_ENDPOINTS } from './endpoints';
-import type { McpEndpointDefinition } from './endpoints';
 import { getMcpUrl, MCP_CONFIG } from './config';
+import {
+	MCP_TOOL_DEFINITIONS,
+	callMcpTool,
+	getToolInputRawShape,
+	type McpToolDefinition,
+} from './tool-definitions';
 
 export class McpToolsGenerator {
 	/**
@@ -15,8 +18,8 @@ export class McpToolsGenerator {
 	static registerAllTools(server: McpServer, baseUrl?: string): void {
 		const url = baseUrl || getMcpUrl(MCP_CONFIG.DEFAULT_PORT);
 
-		for (const endpoint of ALL_ENDPOINTS) {
-			this.registerEndpointTool(server, endpoint, url);
+		for (const definition of MCP_TOOL_DEFINITIONS) {
+			this.registerTool(server, definition, url);
 		}
 	}
 
@@ -30,53 +33,39 @@ export class McpToolsGenerator {
 		method: string;
 		description: string;
 	}> {
-		return ALL_ENDPOINTS.map(endpoint => ({
-			toolName: endpoint.toolName,
-			path: endpoint.path,
-			method: endpoint.method,
-			description: endpoint.description,
+		return MCP_TOOL_DEFINITIONS.map(definition => ({
+			toolName: definition.toolName,
+			path: definition.path,
+			method: definition.method,
+			description: definition.description,
 		}));
 	}
 
 	/**
-	 * @description Регистрирует один endpoint как MCP tool.
+	 * @description Регистрирует один tool из standalone-реестра.
 	 * @param {McpServer} server - MCP server instance.
-	 * @param {McpEndpointDefinition<any, any>} endpoint - Описание endpoint-а.
+	 * @param {McpToolDefinition<any, any>} definition - Описание MCP-инструмента.
 	 * @param {string} baseUrl - Базовый URL Kora MCP server.
 	 * @returns {void}
 	 */
-	private static registerEndpointTool(
+	private static registerTool(
 		server: McpServer,
-		endpoint: McpEndpointDefinition<any, any>,
+		definition: McpToolDefinition<any, any>,
 		baseUrl: string
 	): void {
 		server.registerTool(
-			endpoint.toolName,
+			definition.toolName,
 			{
-				description: endpoint.description,
-				inputSchema: this.toRawShape(endpoint),
+				description: definition.description,
+				inputSchema: getToolInputRawShape(definition),
 			},
 			async input => {
-				return await endpoint.mcpTool(baseUrl, input as any);
+				return await callMcpTool(definition, baseUrl, input as any);
 			}
 		);
 
 		console.log(
-			`Registered MCP tool: ${endpoint.toolName} -> ${endpoint.path}`
+			`Registered MCP tool: ${definition.toolName} -> ${definition.path}`
 		);
-	}
-
-	/**
-	 * @description Приводит endpoint schema к формату `ZodRawShape`, который ожидает MCP SDK.
-	 * Для zero-arg endpoint-ов возвращает пустую shape.
-	 * @param {McpEndpointDefinition<any, any>} endpoint - Описание endpoint-а.
-	 * @returns {ZodRawShape}
-	 */
-	private static toRawShape(
-		endpoint: McpEndpointDefinition<any, any>
-	): ZodRawShape {
-		return endpoint.inputSchema instanceof z.ZodObject
-			? endpoint.inputSchema.shape
-			: {};
 	}
 }

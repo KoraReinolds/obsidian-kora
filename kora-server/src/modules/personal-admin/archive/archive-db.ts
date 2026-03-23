@@ -142,7 +142,7 @@ export class ArchiveDatabase {
 	}
 
 	/**
-	 * @description Разрешает путь к файлу архива. Папка по умолчанию `gramjs-server/data`
+	 * @description Разрешает путь к файлу архива. Папка по умолчанию `kora-server/data`
 	 * упрощает бэкап и перенос; сервис остаётся единственным владельцем канонического хранилища.
 	 * @param {string | undefined} configuredPath - Путь из runtime-конфига (опционально).
 	 * @returns {string} Абсолютный путь к файлу SQLite.

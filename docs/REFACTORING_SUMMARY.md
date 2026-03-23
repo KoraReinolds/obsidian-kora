@@ -75,13 +75,13 @@ await strategy.sendMessage(peer, options);
 ## Структура файлов
 
 ```
-gramjs-server/
+kora-server/
 ├── strategies/
 │   ├── TelegramClientStrategy.js    # Базовая стратегия
 │   ├── BotStrategy.js               # Стратегия для ботов
 │   ├── UserbotStrategy.js           # Стратегия для юзерботов
 │   └── StrategyFactory.js           # Фабрика стратегий
-└── gramjs-server.js                 # Основной сервер (рефакторен)
+└── kora-server.js                 # Основной сервер (рефакторен)
 ```
 
 ## API Изменения

@@ -123,7 +123,7 @@ class BotStrategy extends TelegramClientStrategy {
 				options.message || (typeof options === 'string' ? options : '');
 
 			if (options.replyMarkup && options.replyMarkup.inline_keyboard) {
-				// gramjs-server.js format
+				// Legacy runtime-compatible format
 				opts.reply_markup = options.replyMarkup;
 				console.log(
 					`[BotStrategy] Using replyMarkup directly:`,
