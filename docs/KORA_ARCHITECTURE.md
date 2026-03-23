@@ -1,6 +1,6 @@
 # Kora Architecture
 
-Этот документ фиксирует итоговую архитектуру репозитория после рефакторинга.
+Этот документ фиксирует итоговую архитектуру репозитория после вывода root `modules/**` из канонической схемы.
 
 ## Системная схема
 
@@ -82,32 +82,41 @@ flowchart TB
     Root --> Apps["apps"]
     Root --> Packages["packages"]
     Root --> Server["gramjs-server"]
-    Root --> Modules["modules"]
     Root --> Docs["docs"]
 
-    Apps --> PluginApp["apps/obsidian-plugin/src<br/>plugin entrypoint, settings, views, mcp, vector, telegram transport"]
-    Packages --> CorePkg["packages/kora-core/src"]
-    Packages --> ContractsPkg["packages/contracts/src"]
+    Apps --> PluginApp["apps/obsidian-plugin/src<br/>main.ts, plugin-settings.ts, settings, views, obsidian, vector, daily-notes, ui-plugins"]
+    PluginApp --> PluginFeatures["features/**, telegram/**, mcp/**, ui-vue/**"]
+    Packages --> CorePkg["packages/kora-core/src<br/>chunking, telegram pure logic, shared ports/helpers, tests"]
+    Packages --> ContractsPkg["packages/contracts/src<br/>telegram contracts"]
     Server --> PublishMod["gramjs-server/src/modules/publish"]
     Server --> PersonalMod["gramjs-server/src/modules/personal-admin"]
     Server --> RuntimeMod["gramjs-server/src/modules/runtime"]
-    Modules --> Shims["top-level compatibility barrels и оставшиеся feature entrypoints"]
     Docs --> ArchitectureDoc["docs/KORA_ARCHITECTURE.md"]
 ```
 
 ## Практическое чтение структуры
 
-- `apps/obsidian-plugin/src` — канонический plugin-side код.
-- `packages/kora-core/src` — канонический shared/core код.
+- `apps/obsidian-plugin/src` — канонический plugin-side код: entrypoint, настройки, views, Obsidian adapters, feature-экраны, plugin-side Telegram, MCP и Vue UI.
+- `apps/obsidian-plugin/src/features/**` — plugin-side feature-кластеры вроде related chunks и semantic inspector.
+- `apps/obsidian-plugin/src/telegram/**` — plugin-side Telegram-слой: archive UI/model, transport-адаптеры и Obsidian-specific интеграции.
+- `apps/obsidian-plugin/src/mcp/**` — plugin-side MCP HTTP/server/endpoints слой.
+- `apps/obsidian-plugin/src/ui-vue/**` — общий Vue UI-кит плагина.
+- `packages/kora-core/src` — канонический shared/core код: pure chunking, pure Telegram logic, форматирование, парсинг, links, utils и тесты core-логики.
 - `packages/contracts/src` — канонические shared contracts.
 - `gramjs-server/src/modules/*` — канонический server-side код.
-- `modules/**` — переходный слой. Внутри него теперь в основном остались top-level barrels для совместимости и те feature-модули, которые еще канонически живут в `modules`.
+- root `modules/**` больше не является архитектурным слоем и не содержит канонического кода.
 
-## Что осталось в `modules`
+## Итог phaseout `modules/**`
 
-- `modules/chunking/**`, `modules/semantic-inspector/**`, `modules/hosts/**`, `modules/telegram/archive/**`, `modules/telegram/utils/**`, `modules/mcp/endpoints/**` — это все еще живые feature-модули, а не shim-слой.
-- `modules/obsidian/index.ts`, `modules/ui-plugins/index.ts`, `modules/vector/index.ts`, `modules/daily-notes/index.ts`, `modules/mcp/index.ts`, `modules/telegram/transport/index.ts`, `modules/telegram/ui/index.ts` — это совместимые top-level entrypoint/barrel-файлы.
-- Удалены промежуточные subpath-shim файлы вроде `modules/vector/vector-bridge.ts` или `modules/obsidian/file-operations.ts`: app-слой и feature-код теперь ходят либо в `apps/**`, либо в top-level barrels, либо прямо в канонические feature-модули.
+- plugin-side живой код разложен по `apps/obsidian-plugin/src/**`.
+- feature-слой вынесен в `apps/obsidian-plugin/src/features/**`.
+- plugin-side части Telegram перенесены в `apps/obsidian-plugin/src/telegram/**`.
+- plugin-side MCP перенесен в `apps/obsidian-plugin/src/mcp/**`.
+- общий Vue UI-kit перенесен в `apps/obsidian-plugin/src/ui-vue/**`.
+- shared chunking logic и его тесты живут в `packages/kora-core/src/chunking/**`.
+- shared pure Telegram logic живет в `packages/kora-core/src/telegram/**`.
+- server-side `gramjs-server/src/modules/**` остается отдельным серверным слоем и не связан с удаленным root `modules/**`.
+- Если в рабочем дереве локально еще существует пустая директория `modules/`, это больше не часть архитектуры и ее можно удалить без дополнительной миграции кода.
 
 ## Что сознательно не зафиксировано как реализованное
 

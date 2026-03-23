@@ -22,7 +22,7 @@ const baseStylesPath = join(projectRoot, 'styles.base.css');
 const componentStylesPath = join(projectRoot, 'main.css');
 const tailwindEntryPath = join(
 	projectRoot,
-	'modules/core/ui-vue/styles/tailwind.css'
+	'apps/obsidian-plugin/src/ui-vue/styles/tailwind.css'
 );
 const outputStylesPath = join(projectRoot, 'styles.css');
 

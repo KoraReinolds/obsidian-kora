@@ -12,11 +12,11 @@ import {
 	ObsidianLucideIcon,
 	mountVueInObsidian,
 	unmountVueInObsidian,
-} from '../../../../modules/hosts/obsidian';
+} from '../obsidian';
 import type { VectorSearchOptionsProvider } from '../vector';
 import { VectorBridge } from '../vector';
-import { ObsidianSemanticInspectorTransportAdapter } from '../../../../modules/semantic-inspector/adapters/obsidian-semantic-inspector-transport-adapter';
-import SemanticInspectorScreen from '../../../../modules/semantic-inspector/ui/SemanticInspectorScreen.vue';
+import { ObsidianSemanticInspectorTransportAdapter } from '../features/semantic-inspector/adapters/obsidian-semantic-inspector-transport-adapter';
+import SemanticInspectorScreen from '../features/semantic-inspector/ui/SemanticInspectorScreen.vue';
 
 export const SEMANTIC_INSPECTOR_VIEW_TYPE = 'kora-semantic-inspector';
 

@@ -1,4 +1,4 @@
-import type { EmojiMapping } from '../../../modules/telegram';
+import type { EmojiMapping } from './telegram/formatting';
 import type { VectorSettingsInterface } from './vector';
 import type { UIPluginSettings } from './ui-plugins';
 import { defaultVectorSettings } from './vector';

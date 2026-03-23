@@ -5,14 +5,14 @@
 
 import { App, Notice, Command } from 'obsidian';
 import {
-	ARCHIVE_VIEW_TYPE,
 	ChannelConfigService,
 	ObsidianTelegramFormatter,
 	PositionBasedSync,
-} from '../../../../modules/telegram';
+} from '../telegram';
 import { GramJSBridge } from '../telegram';
 import { FrontmatterUtils } from './frontmatter-utils';
-import { DuplicateTimeFixer } from '../../../../modules/utils';
+import { DuplicateTimeFixer } from './duplicate-time-fixer';
+import { ARCHIVE_VIEW_TYPE } from '../views/archive-view';
 import { RELATED_CHUNKS_VIEW_TYPE } from '../views/related-chunks-view';
 import { SEMANTIC_INSPECTOR_VIEW_TYPE } from '../views/semantic-inspector-view';
 import type { KoraMcpPluginSettings as KoraPluginSettings } from '../plugin-settings';

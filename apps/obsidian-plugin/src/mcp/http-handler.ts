@@ -1,6 +1,6 @@
 import type { App } from 'obsidian';
-import { ALL_ENDPOINTS } from '../../../../modules/mcp/endpoints';
-import type { McpEndpointDefinition } from '../../../../modules/mcp/endpoints';
+import { ALL_ENDPOINTS } from './endpoints';
+import type { McpEndpointDefinition } from './endpoints';
 
 export class McpHttpHandler {
 	private endpoints: Map<string, McpEndpointDefinition>;

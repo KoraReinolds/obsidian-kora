@@ -9,15 +9,12 @@ import { ItemView, WorkspaceLeaf } from 'obsidian';
 import type { App } from 'vue';
 import type KoraPlugin from '../main';
 import { ArchiveBridge } from '../telegram';
-import {
-	ArchiveScreen,
-	createArchiveBridgeAdapter,
-} from '../../../../modules/telegram/archive';
-import ObsidianLucideIcon from '../../../../modules/hosts/obsidian/ui-vue/ObsidianLucideIcon.vue';
+import { ArchiveScreen, createArchiveBridgeAdapter } from '../telegram/archive';
 import {
 	mountVueInObsidian,
+	ObsidianLucideIcon,
 	unmountVueInObsidian,
-} from '../../../../modules/hosts/obsidian';
+} from '../obsidian';
 
 export const ARCHIVE_VIEW_TYPE = 'kora-telegram-archive';
 

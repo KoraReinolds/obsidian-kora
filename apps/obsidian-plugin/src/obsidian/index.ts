@@ -1,4 +1,8 @@
 export { PluginCommands } from './commands';
+export {
+	DuplicateTimeFixer,
+	type DuplicateTimeResult,
+} from './duplicate-time-fixer';
 export { FrontmatterUtils } from './frontmatter-utils';
 export { TextInputSuggest } from './suggester';
 export {
@@ -10,4 +14,6 @@ export {
 	getMarkdownFiles,
 	type GetMarkdownFilesOptions,
 } from './file-operations';
+export { default as ObsidianLucideIcon } from './ui-vue/ObsidianLucideIcon.vue';
 export { VaultOperations } from './vault-operations';
+export { mountVueInObsidian, unmountVueInObsidian } from './vue-host';

@@ -20,7 +20,7 @@
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"test:coverage": "vitest run --coverage",
-		"test:telegram": "vitest run modules/telegram/__tests__",
+		"test:telegram": "vitest run packages/kora-core/src/chunking/__tests__",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
 		"prepare": "husky"
 	},
@@ -75,17 +75,13 @@
 	},
 	"vitest": {
 		"include": [
-			"modules/chunking/__tests__/**/*.spec.ts",
-			"modules/telegram/__tests__/**/*.{test,spec}.ts"
+			"packages/kora-core/src/chunking/__tests__/**/*.spec.ts"
 		],
 		"exclude": [
 			"mcp-obsidian/**",
 			"gramjs-server/**"
 		],
 		"environment": "node",
-		"setupFiles": [
-			"modules/telegram/__tests__/setup.ts"
-		],
 		"coverage": {
 			"provider": "v8",
 			"reporter": [
@@ -94,10 +90,10 @@
 				"html"
 			],
 			"include": [
-				"modules/telegram/**/*.ts"
+				"packages/kora-core/src/chunking/**/*.ts"
 			],
 			"exclude": [
-				"modules/telegram/__tests__/**",
+				"packages/kora-core/src/chunking/__tests__/**",
 				"**/*.d.ts"
 			],
 			"thresholds": {

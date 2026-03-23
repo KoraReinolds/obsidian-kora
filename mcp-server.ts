@@ -1,8 +1,11 @@
 #!/usr/bin/env bun
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { McpToolsGenerator } from './modules/mcp/mcp-tools-generator.js';
-import { MCP_CONFIG, getMcpUrl } from './modules/mcp/config.js';
+import { McpToolsGenerator } from './apps/obsidian-plugin/src/mcp/mcp-tools-generator.js';
+import {
+	MCP_CONFIG,
+	getMcpUrl,
+} from './apps/obsidian-plugin/src/mcp/config.js';
 
 console.error('[kora] server booted');
 const KORA_URL = getMcpUrl(MCP_CONFIG.DEFAULT_PORT);

@@ -2,10 +2,7 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
 	test: {
-		include: [
-			'modules/chunking/__tests__/**/*.spec.ts',
-			'modules/telegram/__tests__/**/*.{test,spec}.ts',
-		],
+		include: ['packages/kora-core/src/chunking/__tests__/**/*.spec.ts'],
 		exclude: [
 			'gramjs-server/**',
 			'mcp-obsidian/**',
@@ -13,6 +10,5 @@ export default defineConfig({
 			'dist/**',
 		],
 		environment: 'node',
-		setupFiles: ['modules/telegram/__tests__/setup.ts'],
 	},
 });

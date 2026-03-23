@@ -8,12 +8,12 @@ import type { App as VueApp } from 'vue';
 import type { VectorBridge, VectorSearchOptionsProvider } from '../vector';
 import {
 	mountVueInObsidian,
+	ObsidianLucideIcon,
 	unmountVueInObsidian,
-} from '../../../../modules/hosts/obsidian';
-import ObsidianLucideIcon from '../../../../modules/hosts/obsidian/ui-vue/ObsidianLucideIcon.vue';
+} from '../obsidian';
 import type KoraPlugin from '../main';
-import { ObsidianChunkTransportAdapter } from '../../../../modules/chunking/adapters/obsidian-chunk-transport-adapter';
-import RelatedChunksScreen from '../../../../modules/chunking/ui/RelatedChunksScreen.vue';
+import { ObsidianChunkTransportAdapter } from '../features/chunking/adapters/obsidian-chunk-transport-adapter';
+import RelatedChunksScreen from '../features/chunking/ui/RelatedChunksScreen.vue';
 
 export const RELATED_CHUNKS_VIEW_TYPE = 'kora-related-chunks';
 
