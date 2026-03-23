@@ -3,7 +3,7 @@
  */
 
 import { App, Notice, TFile } from 'obsidian';
-import { GramJSBridge } from '../transport/gramjs-bridge';
+import { GramJSBridge } from '../transport';
 import { FrontmatterUtils, VaultOperations } from '../../obsidian';
 import {
 	ObsidianTelegramFormatter,

@@ -16,7 +16,7 @@ import {
 	type ParsedMarkdownLink,
 	type ProcessedLink,
 } from '../../../packages/kora-core/src/telegram/links/index.js';
-import { getMarkdownFiles } from '../../obsidian/file-operations';
+import { getMarkdownFiles } from '../../obsidian';
 
 export interface ParsedObsidianLink extends BaseParsedLink {
 	type: 'obsidian';

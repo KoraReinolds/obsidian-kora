@@ -10,4 +10,4 @@ export type {
 	VectorSearchRuntimeOptions,
 	VectorSettingsInterface,
 } from '../../apps/obsidian-plugin/src/vector';
-export { VectorSettingTab } from './settings-tab';
+export { VectorSettingTab } from '../../apps/obsidian-plugin/src/settings/vector-settings-tab';

@@ -18,7 +18,7 @@ import {
 	StatusBanner,
 	SummaryChip,
 } from '../../core/ui-vue';
-import { defaultVectorSettings } from '../../vector/types';
+import { defaultVectorSettings } from '../../vector';
 import type KoraPlugin from '../../../main';
 import { useRelatedChunksScreen } from '../model/use-related-chunks-screen';
 import type { ChunkTransportPort } from '../ports/chunk-transport-port';

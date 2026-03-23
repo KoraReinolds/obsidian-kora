@@ -11,7 +11,7 @@ import {
 	PositionBasedSync,
 } from '../../../../modules/telegram';
 import { GramJSBridge } from '../telegram';
-import { FrontmatterUtils } from '../../../../modules/obsidian/frontmatter-utils';
+import { FrontmatterUtils } from './frontmatter-utils';
 import { DuplicateTimeFixer } from '../../../../modules/utils';
 import { RELATED_CHUNKS_VIEW_TYPE } from '../views/related-chunks-view';
 import { SEMANTIC_INSPECTOR_VIEW_TYPE } from '../views/semantic-inspector-view';
