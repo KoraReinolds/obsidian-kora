@@ -36,17 +36,23 @@ export function registerConfigRoutes(app: Express): void {
 
 			const parsed = updateConfig({
 				mode: mode ?? prevMode,
-				botToken,
+				botToken: botToken ?? previousConfig.botToken,
 				apiId:
-					typeof apiId === 'number' ? apiId : apiId ? Number(apiId) : undefined,
-				apiHash,
-				stringSession,
-				archiveDatabasePath,
+					typeof apiId === 'number'
+						? apiId
+						: apiId
+							? Number(apiId)
+							: previousConfig.apiId,
+				apiHash: apiHash ?? previousConfig.apiHash,
+				stringSession: stringSession ?? previousConfig.stringSession,
+				archiveDatabasePath:
+					archiveDatabasePath ?? previousConfig.archiveDatabasePath,
 				semanticBackend: 'sqlite',
-				semanticDatabasePath,
-				openaiApiKey,
-				embeddingModel,
-				embeddingBaseUrl,
+				semanticDatabasePath:
+					semanticDatabasePath ?? previousConfig.semanticDatabasePath,
+				openaiApiKey: openaiApiKey ?? previousConfig.openaiApiKey,
+				embeddingModel: embeddingModel ?? previousConfig.embeddingModel,
+				embeddingBaseUrl: embeddingBaseUrl ?? previousConfig.embeddingBaseUrl,
 			});
 
 			if (prevMode !== parsed.mode) {

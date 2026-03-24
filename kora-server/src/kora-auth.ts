@@ -9,6 +9,10 @@ import { TelegramClient } from 'telegram';
 import { StringSession } from 'telegram/sessions/index.js';
 import { createInterface } from 'readline';
 import type { Interface } from 'readline';
+import { loadKoraServerEnv } from './services/env-loader.js';
+import { getTelegramProxyConfig } from './services/telegram-proxy.js';
+
+loadKoraServerEnv();
 
 // Your API credentials for Kora server runtime
 const API_ID = 27782052;
@@ -38,6 +42,7 @@ async function authenticate(): Promise<void> {
 
 	const client = new TelegramClient(stringSession, API_ID, API_HASH, {
 		connectionRetries: 5,
+		proxy: getTelegramProxyConfig(),
 	});
 
 	try {

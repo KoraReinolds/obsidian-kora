@@ -67,7 +67,7 @@ export class ArchiveBridge extends BaseHttpClient {
 	): Promise<NonNullable<ArchiveSyncResponse['result']>> {
 		const response = await this.handleRequest<ArchiveSyncResponse>(
 			'/archive/sync',
-			{ method: 'POST', body: request, timeout: 60000 },
+			{ method: 'POST', body: request, timeout: 5000 },
 			'Ошибка синхронизации архива'
 		);
 
@@ -88,7 +88,7 @@ export class ArchiveBridge extends BaseHttpClient {
 	): Promise<NonNullable<ArchiveBackfillResponse['result']>> {
 		const response = await this.handleRequest<ArchiveBackfillResponse>(
 			'/archive/backfill',
-			{ method: 'POST', body: request, timeout: 60000 },
+			{ method: 'POST', body: request, timeout: 5000 },
 			'Ошибка догрузки старых сообщений'
 		);
 

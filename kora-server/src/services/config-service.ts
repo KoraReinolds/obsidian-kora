@@ -5,6 +5,10 @@
  */
 
 import { loadKoraServerEnv } from './env-loader.js';
+import {
+	getTelegramProxyConfig,
+	type TelegramProxyConfig,
+} from './telegram-proxy.js';
 
 loadKoraServerEnv();
 
@@ -16,6 +20,7 @@ export interface ServerConfig {
 	apiHash: string | undefined;
 	stringSession: string | undefined;
 	botToken: string | undefined;
+	telegramProxy: TelegramProxyConfig | undefined;
 	mode: TelegramMode;
 	archiveDatabasePath: string | undefined;
 	semanticBackend: SemanticBackendType;
@@ -32,6 +37,7 @@ let configState: ServerConfig = {
 	apiHash: process.env.TELEGRAM_API_HASH,
 	stringSession: process.env.TELEGRAM_SESSION,
 	botToken: process.env.TELEGRAM_BOT_TOKEN,
+	telegramProxy: getTelegramProxyConfig(),
 	archiveDatabasePath: process.env.ARCHIVE_DB_PATH,
 	semanticBackend: 'sqlite',
 	semanticDatabasePath: process.env.SEMANTIC_DB_PATH,

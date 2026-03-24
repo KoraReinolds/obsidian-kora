@@ -53,7 +53,10 @@ class UserbotStrategy extends TelegramClientStrategy {
 			new StringSession(this.config.stringSession),
 			this.config.apiId,
 			this.config.apiHash,
-			{ connectionRetries: 5 }
+			{
+				connectionRetries: 5,
+				proxy: this.config.proxy,
+			}
 		);
 
 		await this.client.connect();

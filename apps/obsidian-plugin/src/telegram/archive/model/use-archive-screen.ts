@@ -32,6 +32,7 @@ export interface ArchiveScreenModelOptions {
 export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 	const selectedChatId = ref<string | null>(null);
 	const peerInputValue = ref(options.defaultPeer || '');
+	const syncLimitValue = ref(String(Math.max(1, options.defaultSyncLimit)));
 	const chats = ref<ArchiveChat[]>([]);
 	const selectedChatMessages = ref<ArchiveMessage[]>([]);
 	const selectedChatTotal = ref(0);
@@ -283,9 +284,15 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 		isSyncing.value = true;
 		screen.setMessage('neutral', `Синхронизируем ${peer}…`);
 		try {
+			const parsedLimit = Number(syncLimitValue.value);
+			const syncLimit =
+				Number.isFinite(parsedLimit) && parsedLimit > 0
+					? Math.max(1, Math.floor(parsedLimit))
+					: Math.max(1, options.defaultSyncLimit);
+			syncLimitValue.value = String(syncLimit);
 			const result = await options.transport.syncArchive({
 				peer,
-				limit: options.defaultSyncLimit,
+				limit: syncLimit,
 			});
 
 			await loadChats();
@@ -377,9 +384,15 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 
 		isBackfilling.value = true;
 		try {
+			const parsedLimit = Number(syncLimitValue.value);
+			const syncLimit =
+				Number.isFinite(parsedLimit) && parsedLimit > 0
+					? Math.max(1, Math.floor(parsedLimit))
+					: Math.max(1, options.defaultSyncLimit);
+			syncLimitValue.value = String(syncLimit);
 			const result = await options.transport.backfillArchive({
 				chatId: selectedChatId.value,
-				limit: options.backfillLimit ?? options.defaultSyncLimit,
+				limit: options.backfillLimit ?? syncLimit,
 			});
 
 			await reloadCurrentPage();
@@ -414,9 +427,15 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 		screen.setMessage('neutral', `Догружаем новые сообщения для ${peer}…`);
 
 		try {
+			const parsedLimit = Number(syncLimitValue.value);
+			const syncLimit =
+				Number.isFinite(parsedLimit) && parsedLimit > 0
+					? Math.max(1, Math.floor(parsedLimit))
+					: Math.max(1, options.defaultSyncLimit);
+			syncLimitValue.value = String(syncLimit);
 			const result = await options.transport.syncArchive({
 				peer,
-				limit: options.defaultSyncLimit,
+				limit: syncLimit,
 			});
 
 			await loadChats();
@@ -455,6 +474,7 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 
 	return {
 		peerInputValue,
+		syncLimitValue,
 		searchQuery: search.query,
 		chats,
 		filteredChats: search.filtered,

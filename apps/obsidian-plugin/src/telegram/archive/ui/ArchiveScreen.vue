@@ -35,6 +35,7 @@ const model = useArchiveScreen({
 
 const {
 	peerInputValue,
+	syncLimitValue,
 	searchQuery,
 	chats,
 	filteredChats,
@@ -128,6 +129,15 @@ void refreshData();
 							:disabled="isSyncing || isRefreshing"
 							:loading="isSyncing"
 							@click="handleSync"
+						/>
+					</div>
+					<div class="w-28 shrink-0">
+						<IconTextField
+							v-model="syncLimitValue"
+							:input-class="fieldClass"
+							icon="list-ordered"
+							icon-label="Лимит синхронизации"
+							placeholder="лимит"
 						/>
 					</div>
 					<div

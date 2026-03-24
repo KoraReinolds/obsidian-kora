@@ -3,11 +3,14 @@
  * Defines common interface for bot and userbot strategies
  */
 
+import type { ProxyInterface } from 'telegram/network/connection/TCPMTProxy';
+
 export interface TelegramConfig {
 	apiId?: number;
 	apiHash?: string;
 	botToken?: string;
 	stringSession?: string;
+	proxy?: ProxyInterface;
 	mode?: 'bot' | 'userbot';
 	[key: string]: any;
 }
