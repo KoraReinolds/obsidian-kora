@@ -6,12 +6,14 @@
 
 import { getConfig } from '../../../services/config-service.js';
 import { ArchiveDatabase } from '../archive/archive-db.js';
+import { ArchiveDesktopImportService } from '../archive/archive-desktop-import-service.js';
 import { ArchiveRepository } from '../archive/archive-repository.js';
 import { ArchiveSyncService } from '../archive/archive-sync-service.js';
 
 let database: ArchiveDatabase | null = null;
 let repository: ArchiveRepository | null = null;
 let syncService: ArchiveSyncService | null = null;
+let desktopImportService: ArchiveDesktopImportService | null = null;
 let currentDatabasePath: string | null = null;
 
 /**
@@ -34,6 +36,15 @@ export function getArchiveSyncService(): ArchiveSyncService {
 }
 
 /**
+ * @description Возвращает общий сервис импорта Telegram Desktop export.
+ * @returns {ArchiveDesktopImportService} Сервис импорта архивных экспортов.
+ */
+export function getArchiveDesktopImportService(): ArchiveDesktopImportService {
+	ensureArchiveServices();
+	return desktopImportService as ArchiveDesktopImportService;
+}
+
+/**
  * @description Сбрасывает кэш сервисов архива. Вызывается при смене пути к БД в конфиге.
  * @returns {void}
  */
@@ -42,6 +53,7 @@ export function resetArchiveServices(): void {
 	database = null;
 	repository = null;
 	syncService = null;
+	desktopImportService = null;
 	currentDatabasePath = null;
 }
 
@@ -57,5 +69,6 @@ function ensureArchiveServices(): void {
 	database = new ArchiveDatabase({ databasePath: nextPath || undefined });
 	repository = new ArchiveRepository(database.getConnection());
 	syncService = new ArchiveSyncService(repository);
+	desktopImportService = new ArchiveDesktopImportService(repository);
 	currentDatabasePath = nextPath;
 }

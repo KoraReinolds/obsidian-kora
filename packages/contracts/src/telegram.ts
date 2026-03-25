@@ -72,6 +72,17 @@ export interface ArchiveSyncRequest {
 }
 
 /**
+ * @description Тело запроса `POST /archive/import-desktop`: путь к папке экспорта Telegram Desktop.
+ * Внутри ожидается `result.json` и, опционально, директории `files`, `photos`, `stickers`, `video_files`.
+ */
+export interface ArchiveDesktopImportRequest {
+	folderPath?: string;
+	folderLabel?: string;
+	exportData?: Record<string, unknown>;
+	resetChat?: boolean;
+}
+
+/**
  * @description Тело запроса `POST /archive/backfill` для догрузки более старой истории из Telegram.
  * @property {string} chatId - Идентификатор архивного чата.
  * @property {string} [peer] - Явный peer для Telegram API (если нужно переопределить сохраненный в архиве).
@@ -225,7 +236,11 @@ export interface ArchiveMessage {
 	messagePk: string;
 	chatId: string;
 	messageId: number;
+	source?: string | null;
+	messageType?: string | null;
 	senderId?: string | null;
+	senderName?: string | null;
+	senderDisplayName?: string | null;
 	timestampUtc: string;
 	editTimestampUtc?: string | null;
 	replyToMessageId?: number | null;
@@ -236,6 +251,8 @@ export interface ArchiveMessage {
 	entities?: Record<string, unknown> | null;
 	forward?: Record<string, unknown> | null;
 	service?: Record<string, unknown> | null;
+	media?: Record<string, unknown> | null;
+	metadata?: Record<string, unknown> | null;
 	contentHash: string;
 }
 
@@ -290,6 +307,32 @@ export interface ArchiveSyncResponse {
 }
 
 /**
+ * @description Итог импорта Telegram Desktop export.
+ */
+export interface ArchiveDesktopImportResult {
+	chatId: string;
+	title: string;
+	source: 'telegram-desktop-export';
+	inserted: number;
+	updated: number;
+	skipped: number;
+	totalProcessed: number;
+	messagesInExport: number;
+	exportedAt?: string | null;
+	folderPath: string;
+	mode: 'desktop-export';
+}
+
+/**
+ * @description Ответ `POST /archive/import-desktop`.
+ */
+export interface ArchiveDesktopImportResponse {
+	success: boolean;
+	result?: ArchiveDesktopImportResult;
+	error?: string;
+}
+
+/**
  * @description Ответ `POST /archive/backfill`.
  */
 export interface ArchiveBackfillResponse {
@@ -314,6 +357,93 @@ export interface ArchiveDeleteChatResponse {
 	success: boolean;
 	deleted?: boolean;
 	chatId?: string;
+	error?: string;
+}
+
+export type ArchivePipelineStepKey = 'normalize' | 'chunk' | 'embed';
+
+export type ArchivePipelineSelectionScope =
+	| 'chat'
+	| 'paged-chat'
+	| 'message-ids';
+
+/**
+ * @description Селектор подмножества архивных данных для ручного запуска pipeline-шага.
+ */
+export interface ArchivePipelineSelection {
+	scope: ArchivePipelineSelectionScope;
+	chatId: string;
+	offset?: number;
+	limit?: number;
+	messageIds?: number[];
+}
+
+/**
+ * @description Краткое описание шага pipeline для UI управления архивной обработкой.
+ */
+export interface ArchivePipelineStepDescriptor {
+	key: ArchivePipelineStepKey;
+	title: string;
+	description: string;
+	supportsScopes: ArchivePipelineSelectionScope[];
+}
+
+/**
+ * @description Статистика выполнения одного pipeline-шага.
+ */
+export interface ArchivePipelineStepStats {
+	selected: number;
+	processed: number;
+	skipped: number;
+	failed: number;
+}
+
+/**
+ * @description Небольшой preview-артефакт для ручной проверки результата шага.
+ */
+export interface ArchivePipelinePreviewItem {
+	id: string;
+	title: string;
+	summary: string;
+	details?: string;
+}
+
+/**
+ * @description Результат одного ручного запуска pipeline-шага.
+ */
+export interface ArchivePipelineRunRecord {
+	runId: string;
+	step: ArchivePipelineStepKey;
+	selection: ArchivePipelineSelection;
+	status: 'running' | 'success' | 'partial' | 'error';
+	startedAt: string;
+	finishedAt?: string | null;
+	stats: ArchivePipelineStepStats;
+	warnings: string[];
+	error?: string | null;
+	preview: ArchivePipelinePreviewItem[];
+}
+
+export interface ArchivePipelineStepsResponse {
+	success: boolean;
+	steps: ArchivePipelineStepDescriptor[];
+	error?: string;
+}
+
+export interface ArchivePipelineRunRequest {
+	step: ArchivePipelineStepKey;
+	selection: ArchivePipelineSelection;
+}
+
+export interface ArchivePipelineRunResponse {
+	success: boolean;
+	run?: ArchivePipelineRunRecord;
+	error?: string;
+}
+
+export interface ArchivePipelineRunsResponse {
+	success: boolean;
+	runs: ArchivePipelineRunRecord[];
 	error?: string;
 }
 

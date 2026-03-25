@@ -1,8 +1,8 @@
 /**
  * @module telegram/archive/model/use-archive-screen
  *
- * @description Composable фичи экрана архива Telegram.
- * Инкапсулирует состояние и действия без зависимости от Obsidian ItemView.
+ * @description Composable экрана архива Telegram, ориентированного на импорт
+ * Telegram Desktop export и просмотр сырых данных.
  */
 
 import { computed, ref } from 'vue';
@@ -13,25 +13,17 @@ import type {
 import { useFilterQuery, useScreenMessage } from '../../../ui-vue';
 import type { ArchiveTransportPort } from '../ports/archive-transport-port';
 
-/**
- * @description Параметры инициализации модели экрана архива.
- */
 export interface ArchiveScreenModelOptions {
 	transport: ArchiveTransportPort;
 	defaultPeer?: string;
 	defaultSyncLimit: number;
 	recentMessagesLimit: number;
-	backfillLimit?: number;
 }
 
-/**
- * @description Создаёт состояние и действия для UI архива.
- * @param {ArchiveScreenModelOptions} options - Зависимости фичи и настройки.
- * @returns {object} State и действия фичи архива.
- */
 export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 	const selectedChatId = ref<string | null>(null);
 	const peerInputValue = ref(options.defaultPeer || '');
+	const selectedFolderLabel = ref(options.defaultPeer || '');
 	const syncLimitValue = ref(String(Math.max(1, options.defaultSyncLimit)));
 	const chats = ref<ArchiveChat[]>([]);
 	const selectedChatMessages = ref<ArchiveMessage[]>([]);
@@ -50,59 +42,76 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 	const isRefreshing = ref(false);
 	const isLoadingMessages = ref(false);
 	const isSyncing = ref(false);
-	const isBackfilling = ref(false);
 	const isDeletingChatId = ref<string | null>(null);
+	const highlightedMessageId = ref<number | null>(null);
 
 	const screen = useScreenMessage();
 	const search = useFilterQuery(chats, chat =>
-		[chat.title, chat.username, chat.chatId].filter(Boolean).join(' ')
+		[chat.title, chat.username, chat.chatId, chat.type]
+			.filter(Boolean)
+			.join(' ')
 	);
 
 	const selectedChat = computed(
 		() => chats.value.find(chat => chat.chatId === selectedChatId.value) || null
 	);
-
-	const currentPage = computed(
-		() => Math.floor(messagesPageOffset.value / messagesPageLimit.value) + 1
-	);
-
-	const totalPages = computed(() =>
-		Math.max(1, Math.ceil(selectedChatTotal.value / messagesPageLimit.value))
-	);
-
-	const canGoPrevPage = computed(() => messagesPageOffset.value > 0);
-
-	const canGoNextPage = computed(() => {
-		return (
-			messagesPageOffset.value + messagesPageLimit.value <
-			selectedChatTotal.value
-		);
+	const effectiveTotalMessages = computed(() => {
+		return selectedChat.value?.messageCount || selectedChatTotal.value || 0;
 	});
+	const selectedMessagesById = computed(() => {
+		const map = new Map<number, ArchiveMessage>();
+		for (const message of selectedChatMessages.value) {
+			map.set(message.messageId, message);
+		}
+		return map;
+	});
+	const orderedSelectedChatMessages = computed(() => {
+		return [...selectedChatMessages.value].reverse();
+	});
+	const selectedMessageStats = computed(() => {
+		const messages = selectedChatMessages.value;
+		const withText = messages.filter(message =>
+			Boolean(message.textNormalized)
+		).length;
+		const withMedia = messages.filter(message => Boolean(message.media)).length;
+		const service = messages.filter(
+			message => message.messageType === 'service' || Boolean(message.service)
+		).length;
+		return { withText, withMedia, service };
+	});
+
+	const currentPage = computed(() => {
+		const total = effectiveTotalMessages.value;
+		const pageSize = Math.max(1, messagesPageLimit.value);
+		if (total <= 0) {
+			return 1;
+		}
+		const sourcePage = Math.floor(messagesPageOffset.value / pageSize) + 1;
+		const pages = Math.max(1, Math.ceil(total / pageSize));
+		return pages - sourcePage + 1;
+	});
+	const totalPages = computed(() =>
+		Math.max(
+			1,
+			Math.ceil(effectiveTotalMessages.value / messagesPageLimit.value)
+		)
+	);
+	const canGoPrevPage = computed(() => currentPage.value > 1);
+	const canGoNextPage = computed(() => currentPage.value < totalPages.value);
 
 	const visibleRangeText = computed(() => {
 		if (
-			selectedChatTotal.value === 0 ||
+			effectiveTotalMessages.value === 0 ||
 			selectedChatMessages.value.length === 0
 		) {
 			return '0 из 0';
 		}
-		const from = messagesPageOffset.value + 1;
+		const from = (currentPage.value - 1) * messagesPageLimit.value + 1;
 		const to = Math.min(
-			messagesPageOffset.value + selectedChatMessages.value.length,
-			selectedChatTotal.value
+			from + selectedChatMessages.value.length - 1,
+			effectiveTotalMessages.value
 		);
 		return `${from}-${to} из ${selectedChatTotal.value}`;
-	});
-
-	const visibleTimeRangeText = computed(() => {
-		if (selectedChatMessages.value.length === 0) {
-			return 'Диапазон: нет сообщений';
-		}
-		const newest = selectedChatMessages.value[0]?.timestampUtc;
-		const oldest =
-			selectedChatMessages.value[selectedChatMessages.value.length - 1]
-				?.timestampUtc;
-		return `Диапазон: ${formatDate(newest)} - ${formatDate(oldest)}`;
 	});
 
 	const fullTimeRangeText = computed(() => {
@@ -116,14 +125,8 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 		)}`;
 	});
 
-	/**
-	 * @description Нормализует входной список чатов и убирает битые записи,
-	 * чтобы UI не падал при обращении к `chatId`/`title`.
-	 * @param {unknown[]} rawChats - Сырые данные от транспорта.
-	 * @returns {ArchiveChat[]} Валидные чаты для UI.
-	 */
-	const normalizeChats = (rawChats: unknown[]): ArchiveChat[] => {
-		return rawChats
+	const normalizeChats = (rawChats: unknown[]): ArchiveChat[] =>
+		rawChats
 			.filter((candidate): candidate is ArchiveChat => {
 				if (!candidate || typeof candidate !== 'object') return false;
 				const chat = candidate as Partial<ArchiveChat>;
@@ -139,11 +142,23 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 					? chat.messageCount
 					: 0,
 			}));
+
+	const getSourceOffsetForDisplayPage = (
+		displayPage: number,
+		limit: number,
+		total: number
+	): number => {
+		const safeLimit = Math.max(1, Math.floor(limit));
+		const safeTotal = Math.max(0, total);
+		const pages = Math.max(1, Math.ceil(safeTotal / safeLimit));
+		const boundedDisplayPage = Math.min(
+			Math.max(1, Math.floor(displayPage)),
+			pages
+		);
+		const sourcePage = pages - boundedDisplayPage + 1;
+		return Math.max(0, (sourcePage - 1) * safeLimit);
 	};
 
-	/**
-	 * @description Загружает список чатов и синхронизирует выбранный chatId.
-	 */
 	const loadChats = async (): Promise<void> => {
 		const rawChats = await options.transport.getArchivedChats(200);
 		chats.value = normalizeChats(rawChats as unknown[]);
@@ -160,9 +175,6 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 		}
 	};
 
-	/**
-	 * @description Загружает сообщения выбранного чата.
-	 */
 	const loadSelectedChatMessages = async (params?: {
 		offset?: number;
 		limit?: number;
@@ -177,15 +189,21 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 			return;
 		}
 
-		const nextOffset =
-			typeof params?.offset === 'number'
-				? Math.max(0, params.offset)
-				: messagesPageOffset.value;
-
 		const nextLimit =
 			typeof params?.limit === 'number' && Number.isFinite(params.limit)
 				? Math.max(1, Math.floor(params.limit))
 				: messagesPageLimit.value;
+		const totalForPaging =
+			selectedChat.value?.messageCount || selectedChatTotal.value || 0;
+		const nextDisplayPage =
+			typeof params?.offset === 'number'
+				? Math.max(1, Math.floor(params.offset))
+				: currentPage.value;
+		const nextOffset = getSourceOffsetForDisplayPage(
+			nextDisplayPage,
+			nextLimit,
+			totalForPaging
+		);
 
 		messagesPageOffset.value = nextOffset;
 		messagesPageLimit.value = nextLimit;
@@ -201,63 +219,16 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 			selectedChatMessages.value = response.messages;
 			selectedChatTotal.value = response.total;
 			selectedChatFullRange.value = response.fullRange;
-
-			const maxOffset = Math.max(0, response.total - nextLimit);
-			if (messagesPageOffset.value > maxOffset) {
-				messagesPageOffset.value =
-					Math.floor(maxOffset / nextLimit) * nextLimit;
-				return await loadSelectedChatMessages();
-			}
 		} finally {
 			isLoadingMessages.value = false;
 		}
 	};
 
-	/**
-	 * @description Загружает предыдущую страницу (более новые сообщения).
-	 */
-	const goToPrevPage = async (): Promise<void> => {
-		if (isLoadingMessages.value || !canGoPrevPage.value) return;
-		await loadSelectedChatMessages({
-			offset: Math.max(0, messagesPageOffset.value - messagesPageLimit.value),
-		});
-	};
-
-	/**
-	 * @description Загружает следующую страницу (более старые сообщения).
-	 */
-	const goToNextPage = async (): Promise<void> => {
-		if (isLoadingMessages.value || !canGoNextPage.value) return;
-		await loadSelectedChatMessages({
-			offset: messagesPageOffset.value + messagesPageLimit.value,
-		});
-	};
-
-	/**
-	 * @description Переключает на указанную страницу локальной пагинации (нумерация с 1).
-	 */
-	const goToPage = async (page: number): Promise<void> => {
-		if (isLoadingMessages.value) return;
-		const target = Math.min(Math.max(1, Math.floor(page)), totalPages.value);
-		const offset = (target - 1) * messagesPageLimit.value;
-		await loadSelectedChatMessages({ offset });
-	};
-
-	/**
-	 * @description Перезагружает текущую страницу для выбранного чата.
-	 */
-	const reloadCurrentPage = async (): Promise<void> => {
-		await loadSelectedChatMessages();
-	};
-
-	/**
-	 * @description Обновляет весь экран: список чатов и текущие сообщения.
-	 */
 	const refreshData = async (): Promise<void> => {
 		isRefreshing.value = true;
 		try {
 			await loadChats();
-			await reloadCurrentPage();
+			await loadSelectedChatMessages({ offset: 1 });
 		} catch (error) {
 			screen.setMessage(
 				'error',
@@ -268,68 +239,80 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 		}
 	};
 
-	/**
-	 * @description Запускает синхронизацию для указанного peer и перезагружает данные.
-	 */
 	const handleSync = async (): Promise<void> => {
-		const peer = peerInputValue.value.trim();
-		if (!peer) {
+		screen.setMessage(
+			'neutral',
+			'Для импорта выберите папку Telegram Desktop export через кнопку.'
+		);
+	};
+
+	const handleDesktopExportSelection = async (
+		files: FileList | File[]
+	): Promise<void> => {
+		const fileArray = Array.from(files);
+		if (fileArray.length === 0) {
+			return;
+		}
+
+		const resultJsonFile = fileArray.find(file => {
+			const relativePath =
+				(file as File & { webkitRelativePath?: string }).webkitRelativePath ||
+				file.name;
+			return /(^|\/)result\.json$/i.test(relativePath);
+		});
+
+		if (!resultJsonFile) {
 			screen.setMessage(
 				'error',
-				'Введите peer чата или канала перед синхронизацией.'
+				'В выбранной папке не найден result.json. Выберите корень Telegram Desktop export.'
 			);
 			return;
 		}
 
+		const relativePath =
+			(resultJsonFile as File & { webkitRelativePath?: string })
+				.webkitRelativePath || resultJsonFile.name;
+		const folderLabel =
+			relativePath.split('/')[0] ||
+			selectedFolderLabel.value ||
+			'Telegram export';
+		selectedFolderLabel.value = folderLabel;
+		peerInputValue.value = folderLabel;
+
 		isSyncing.value = true;
-		screen.setMessage('neutral', `Синхронизируем ${peer}…`);
+		screen.setMessage('neutral', `Импортируем архив "${folderLabel}"...`);
 		try {
-			const parsedLimit = Number(syncLimitValue.value);
-			const syncLimit =
-				Number.isFinite(parsedLimit) && parsedLimit > 0
-					? Math.max(1, Math.floor(parsedLimit))
-					: Math.max(1, options.defaultSyncLimit);
-			syncLimitValue.value = String(syncLimit);
-			const result = await options.transport.syncArchive({
-				peer,
-				limit: syncLimit,
+			const rawText = await resultJsonFile.text();
+			const exportData = JSON.parse(rawText) as Record<string, unknown>;
+			const result = await options.transport.importDesktopArchive({
+				folderLabel,
+				exportData,
 			});
 
 			await loadChats();
 			selectedChatId.value = result.chatId || selectedChatId.value;
-			await reloadCurrentPage();
-
-			if (result.totalProcessed === 0) {
-				screen.setMessage(
-					'success',
-					'Синк завершён: новых сообщений не найдено.'
-				);
-			} else {
-				screen.setMessage(
-					'success',
-					`Синк завершён: добавлено ${result.inserted}, обновлено ${result.updated}, без изменений ${result.skipped}.`
-				);
-			}
+			messagesPageOffset.value = 0;
+			await loadSelectedChatMessages({ offset: 1 });
+			screen.setMessage(
+				'success',
+				`Импорт завершён: добавлено ${result.inserted}, обновлено ${result.updated}, без изменений ${result.skipped}.`
+			);
 		} catch (error) {
 			screen.setMessage(
 				'error',
-				`Синхронизация не удалась: ${(error as Error).message}`
+				`Импорт не удался: ${(error as Error).message}`
 			);
 		} finally {
 			isSyncing.value = false;
 		}
 	};
 
-	/**
-	 * @description Выбирает чат и загружает его сообщения.
-	 * @param {string} chatId - Идентификатор выбранного чата.
-	 */
 	const handleChatSelection = async (chatId: string): Promise<void> => {
 		if (selectedChatId.value === chatId) return;
 		selectedChatId.value = chatId;
 		messagesPageOffset.value = 0;
 		try {
-			await loadSelectedChatMessages();
+			await loadSelectedChatMessages({ offset: 1 });
 		} catch (error) {
 			screen.setMessage(
 				'error',
@@ -338,32 +321,74 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 		}
 	};
 
-	/**
-	 * @description Удаляет чат и всю локальную историю (SQLite), не затрагивая Telegram.
-	 */
+	const goToPrevPage = async (): Promise<void> => {
+		if (isLoadingMessages.value || !canGoPrevPage.value) return;
+		await loadSelectedChatMessages({
+			offset: currentPage.value - 1,
+		});
+	};
+
+	const goToNextPage = async (): Promise<void> => {
+		if (isLoadingMessages.value || !canGoNextPage.value) return;
+		await loadSelectedChatMessages({
+			offset: currentPage.value + 1,
+		});
+	};
+
+	const goToPage = async (page: number): Promise<void> => {
+		if (isLoadingMessages.value) return;
+		const target = Math.min(Math.max(1, Math.floor(page)), totalPages.value);
+		await loadSelectedChatMessages({
+			offset: target,
+		});
+	};
+
+	const reloadCurrentPage = async (): Promise<void> => {
+		await loadSelectedChatMessages();
+	};
+
+	const jumpToMessageInCurrentView = (messageId: number): boolean => {
+		const exists = selectedMessagesById.value.has(messageId);
+		if (!exists) {
+			screen.setMessage(
+				'neutral',
+				`Reply #${messageId} не загружен на текущей странице.`
+			);
+			return false;
+		}
+
+		highlightedMessageId.value = messageId;
+		window.setTimeout(() => {
+			const element = document.getElementById(`archive-message-${messageId}`);
+			element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		}, 0);
+		window.setTimeout(() => {
+			if (highlightedMessageId.value === messageId) {
+				highlightedMessageId.value = null;
+			}
+		}, 1800);
+		return true;
+	};
+
 	const handleDeleteChat = async (chatId: string): Promise<void> => {
 		const trimmed = chatId.trim();
 		if (!trimmed) return;
 
 		const confirmed = window.confirm(
-			'Удалить этот чат из локального архива вместе со всеми сообщениями? Действие не затрагивает Telegram.'
+			'Удалить этот чат из локального архива вместе со всеми сообщениями?'
 		);
 		if (!confirmed) return;
 
 		isDeletingChatId.value = trimmed;
 		try {
 			const { deleted } = await options.transport.deleteArchiveChat(trimmed);
-			if (!deleted) {
-				screen.setMessage(
-					'neutral',
-					'Чат не найден в архиве (возможно, уже удалён).'
-				);
-			} else {
-				screen.setMessage('success', 'Чат удалён из локального архива.');
-			}
+			screen.setMessage(
+				deleted ? 'success' : 'neutral',
+				deleted ? 'Чат удалён из локального архива.' : 'Чат не найден в архиве.'
+			);
 			await loadChats();
 			messagesPageOffset.value = 0;
-			await reloadCurrentPage();
+			await loadSelectedChatMessages({ offset: 1 });
 		} catch (error) {
 			screen.setMessage(
 				'error',
@@ -374,102 +399,130 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 		}
 	};
 
-	/**
-	 * @description Ручной backfill «сначала Telegram»: догружает старые сообщения через сервер `/archive/backfill`,
-	 * затем перезагружает текущую страницу.
-	 */
-	const handleBackfillOlder = async (): Promise<void> => {
-		if (!selectedChatId.value || isBackfilling.value || isLoadingMessages.value)
-			return;
-
-		isBackfilling.value = true;
-		try {
-			const parsedLimit = Number(syncLimitValue.value);
-			const syncLimit =
-				Number.isFinite(parsedLimit) && parsedLimit > 0
-					? Math.max(1, Math.floor(parsedLimit))
-					: Math.max(1, options.defaultSyncLimit);
-			syncLimitValue.value = String(syncLimit);
-			const result = await options.transport.backfillArchive({
-				chatId: selectedChatId.value,
-				limit: options.backfillLimit ?? syncLimit,
-			});
-
-			await reloadCurrentPage();
-			if (result.totalProcessed === 0) {
-				screen.setMessage('neutral', 'Более старых сообщений не найдено.');
-				return;
-			}
-
-			screen.setMessage(
-				'success',
-				`Догружено старых: добавлено ${result.inserted}, обновлено ${result.updated}, без изменений ${result.skipped}.`
-			);
-		} catch (error) {
-			screen.setMessage(
-				'error',
-				`Не удалось догрузить старые сообщения: ${(error as Error).message}`
-			);
-		} finally {
-			isBackfilling.value = false;
-		}
-	};
-
-	/**
-	 * @description Ручная синхронизация новых сообщений для выбранного чата (forward-sync).
-	 */
-	const handleSyncNewerForSelectedChat = async (): Promise<void> => {
-		if (!selectedChat.value || isSyncing.value) return;
-
-		const peer =
-			selectedChat.value.username?.trim() || selectedChat.value.chatId.trim();
-		isSyncing.value = true;
-		screen.setMessage('neutral', `Догружаем новые сообщения для ${peer}…`);
-
-		try {
-			const parsedLimit = Number(syncLimitValue.value);
-			const syncLimit =
-				Number.isFinite(parsedLimit) && parsedLimit > 0
-					? Math.max(1, Math.floor(parsedLimit))
-					: Math.max(1, options.defaultSyncLimit);
-			syncLimitValue.value = String(syncLimit);
-			const result = await options.transport.syncArchive({
-				peer,
-				limit: syncLimit,
-			});
-
-			await loadChats();
-			selectedChatId.value = result.chatId || selectedChatId.value;
-			await reloadCurrentPage();
-
-			if (result.totalProcessed === 0) {
-				screen.setMessage(
-					'neutral',
-					'Новых сообщений для выбранного чата не найдено.'
-				);
-				return;
-			}
-
-			screen.setMessage(
-				'success',
-				`Догружено новых: добавлено ${result.inserted}, обновлено ${result.updated}, без изменений ${result.skipped}.`
-			);
-		} catch (error) {
-			screen.setMessage(
-				'error',
-				`Не удалось догрузить новые сообщения: ${(error as Error).message}`
-			);
-		} finally {
-			isSyncing.value = false;
-		}
-	};
-
-	/**
-	 * @description Форматирует дату для человекочитаемого UI.
-	 */
 	const formatDate = (value?: string | null): string => {
 		if (!value) return 'ещё не было';
 		return new Date(value).toLocaleString();
+	};
+
+	const formatMessageMeta = (message: ArchiveMessage): string => {
+		const parts = [formatDate(message.timestampUtc)];
+		if (message.messageType && message.messageType !== 'message') {
+			parts.unshift(message.messageType);
+		}
+		return parts.join(' · ');
+	};
+
+	const getMessageAuthorLabel = (message: ArchiveMessage): string => {
+		return (
+			message.senderDisplayName ||
+			message.senderName ||
+			message.senderId ||
+			'Unknown'
+		);
+	};
+
+	const getMessageInitials = (message: ArchiveMessage): string => {
+		const label = getMessageAuthorLabel(message).replace(/\s+/g, ' ').trim();
+		if (!label) return '?';
+		const parts = label.split(' ').filter(Boolean);
+		if (parts.length === 1) {
+			return parts[0].slice(0, 2).toUpperCase();
+		}
+		return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase();
+	};
+
+	const getMessageAccent = (
+		message: ArchiveMessage
+	): {
+		bg: string;
+		soft: string;
+		text: string;
+		border: string;
+		tint: string;
+	} => {
+		const seed = `${message.senderId || ''}:${message.senderDisplayName || ''}`;
+		let hash = 0;
+		for (let index = 0; index < seed.length; index += 1) {
+			hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
+		}
+		const hue = hash % 360;
+		return {
+			bg: `hsl(${hue} 32% 52%)`,
+			soft: `hsl(${hue} 22% 97%)`,
+			text: `hsl(${hue} 28% 34%)`,
+			border: `hsl(${hue} 18% 84%)`,
+			tint: `hsl(${hue} 22% 92%)`,
+		};
+	};
+
+	const getReplyPreview = (
+		message: ArchiveMessage
+	): { author: string; text: string } | null => {
+		if (!message.replyToMessageId) return null;
+		const reply = selectedMessagesById.value.get(message.replyToMessageId);
+		if (!reply) {
+			return {
+				author: `#${message.replyToMessageId}`,
+				text: 'Сообщение вне текущего окна',
+			};
+		}
+		return {
+			author: getMessageAuthorLabel(reply),
+			text:
+				reply.textNormalized ||
+				reply.textRaw ||
+				(reply.media ? 'Вложение' : 'Сообщение без текста'),
+		};
+	};
+
+	const getMediaItems = (
+		message: ArchiveMessage
+	): Array<Record<string, unknown>> => {
+		const media = message.media as
+			| { attachments?: Array<Record<string, unknown>> }
+			| null
+			| undefined;
+		const attachments = media?.attachments;
+		return Array.isArray(attachments) ? attachments : [];
+	};
+
+	const isImageAttachment = (attachment: Record<string, unknown>): boolean => {
+		const relativePath = String(attachment.relativePath || '');
+		const mimeType = String(attachment.mimeType || '');
+		return (
+			mimeType.startsWith('image/') ||
+			/\.(png|jpe?g|gif|webp)$/i.test(relativePath)
+		);
+	};
+
+	const resolveAttachmentSrc = (
+		attachment: Record<string, unknown>
+	): string | null => {
+		const absolutePath = String(attachment.absolutePath || '');
+		if (!absolutePath) return null;
+		return `file:///${absolutePath.replace(/\\/g, '/')}`;
+	};
+
+	const summarizeMessagePayload = (message: ArchiveMessage): string[] => {
+		const result: string[] = [];
+		if (message.replyToMessageId) {
+			result.push(`Ответ на: #${message.replyToMessageId}`);
+		}
+		const mediaItems = getMediaItems(message);
+		if (mediaItems.length > 0) {
+			result.push(`Вложений: ${mediaItems.length}`);
+		}
+		if ((message.forward as { forwardedFrom?: string } | null)?.forwardedFrom) {
+			result.push(
+				`Forwarded from: ${(message.forward as { forwardedFrom?: string }).forwardedFrom}`
+			);
+		}
+		const reactions =
+			(message.reactions as Array<Record<string, unknown>> | null) || [];
+		if (reactions.length > 0) {
+			result.push(`Реакций: ${reactions.length}`);
+		}
+		return result;
 	};
 
 	return {
@@ -480,9 +533,8 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 		filteredChats: search.filtered,
 		selectedChatId,
 		selectedChatMessages,
+		orderedSelectedChatMessages,
 		selectedChatTotal,
-		messagesPageLimit,
-		messagesPageOffset,
 		currentPage,
 		totalPages,
 		canGoPrevPage,
@@ -490,23 +542,36 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 		isRefreshing,
 		isLoadingMessages,
 		isSyncing,
-		isBackfilling,
+		isBackfilling: ref(false),
 		isDeletingChatId,
+		highlightedMessageId,
 		screenMessage: screen.message,
 		selectedChat,
-		visibleRangeText,
-		visibleTimeRangeText,
-		fullTimeRangeText,
+		selectedMessageStats,
+		selectedFolderLabel,
 		refreshData,
 		handleSync,
+		handleDesktopExportSelection,
 		handleChatSelection,
 		goToPrevPage,
 		goToNextPage,
 		goToPage,
 		reloadCurrentPage,
-		handleBackfillOlder,
-		handleSyncNewerForSelectedChat,
+		jumpToMessageInCurrentView,
+		handleBackfillOlder: async () => undefined,
+		handleSyncNewerForSelectedChat: async () => undefined,
+		visibleRangeText,
+		fullTimeRangeText,
 		handleDeleteChat,
 		formatDate,
+		formatMessageMeta,
+		getMessageAuthorLabel,
+		getMessageInitials,
+		getMessageAccent,
+		getReplyPreview,
+		getMediaItems,
+		isImageAttachment,
+		resolveAttachmentSrc,
+		summarizeMessagePayload,
 	};
 }

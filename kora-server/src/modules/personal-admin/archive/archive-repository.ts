@@ -27,6 +27,14 @@ export class ArchiveRepository {
 	constructor(private readonly db: Database.Database) {}
 
 	/**
+	 * @description Возвращает открытое SQLite-соединение архива для read-only слоёв, которым нужен прямой SQL.
+	 * @returns {Database.Database} Открытый экземпляр better-sqlite3.
+	 */
+	getConnection(): Database.Database {
+		return this.db;
+	}
+
+	/**
 	 * @description Upsert метаданных чата: у вставки сообщений всегда есть родительская
 	 * строка чата, а UI может строить список архивных чатов без сканирования сырых диалогов.
 	 * @param {ArchiveChatRecord} chat — нормализованные метаданные чата.
@@ -110,7 +118,11 @@ export class ArchiveRepository {
 					message_pk,
 					chat_id,
 					message_id,
+					source,
+					message_type,
 					sender_id,
+					sender_name,
+					sender_display_name,
 					timestamp_utc,
 					edit_timestamp_utc,
 					reply_to_message_id,
@@ -121,13 +133,19 @@ export class ArchiveRepository {
 					entities_json,
 					forward_json,
 					service_json,
+					media_json,
+					metadata_json,
 					content_hash
 				)
 				VALUES (
 					@messagePk,
 					@chatId,
 					@messageId,
+					@source,
+					@messageType,
 					@senderId,
+					@senderName,
+					@senderDisplayName,
 					@timestampUtc,
 					@editTimestampUtc,
 					@replyToMessageId,
@@ -138,10 +156,16 @@ export class ArchiveRepository {
 					@entitiesJson,
 					@forwardJson,
 					@serviceJson,
+					@mediaJson,
+					@metadataJson,
 					@contentHash
 				)
 				ON CONFLICT(message_pk) DO UPDATE SET
+					source = excluded.source,
+					message_type = excluded.message_type,
 					sender_id = excluded.sender_id,
+					sender_name = excluded.sender_name,
+					sender_display_name = excluded.sender_display_name,
 					timestamp_utc = excluded.timestamp_utc,
 					edit_timestamp_utc = excluded.edit_timestamp_utc,
 					reply_to_message_id = excluded.reply_to_message_id,
@@ -152,6 +176,8 @@ export class ArchiveRepository {
 					entities_json = excluded.entities_json,
 					forward_json = excluded.forward_json,
 					service_json = excluded.service_json,
+					media_json = excluded.media_json,
+					metadata_json = excluded.metadata_json,
 					content_hash = excluded.content_hash
 			`
 			)
@@ -487,7 +513,11 @@ export class ArchiveRepository {
 			messagePk: row.message_pk,
 			chatId: row.chat_id,
 			messageId: row.message_id,
+			source: row.source,
+			messageType: row.message_type,
 			senderId: row.sender_id,
+			senderName: row.sender_name,
+			senderDisplayName: row.sender_display_name,
 			timestampUtc: row.timestamp_utc,
 			editTimestampUtc: row.edit_timestamp_utc,
 			replyToMessageId: row.reply_to_message_id,
@@ -498,6 +528,8 @@ export class ArchiveRepository {
 			entities: this.parseJson(row.entities_json),
 			forward: this.parseJson(row.forward_json),
 			service: this.parseJson(row.service_json),
+			media: this.parseJson(row.media_json),
+			metadata: this.parseJson(row.metadata_json),
 			contentHash: row.content_hash,
 		};
 	}

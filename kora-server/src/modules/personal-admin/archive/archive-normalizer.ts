@@ -109,7 +109,15 @@ export class ArchiveNormalizer {
 			messagePk: `telegram:${chatId}:${message.id}`,
 			chatId,
 			messageId: Number(message.id),
+			source: 'gramjs',
+			messageType: message?.className || 'message',
 			senderId,
+			senderName: message?.sender?.username || null,
+			senderDisplayName:
+				message?.sender?.firstName ||
+				message?.sender?.title ||
+				message?.postAuthor ||
+				null,
 			timestampUtc,
 			editTimestampUtc,
 			replyToMessageId,
@@ -130,8 +138,20 @@ export class ArchiveNormalizer {
 				pinned: Boolean(message?.pinned),
 				silent: Boolean(message?.silent),
 			}),
+			mediaJson: this.stringifyJson(message?.media ?? null),
+			metadataJson: this.stringifyJson({
+				out: Boolean(message?.out),
+				mentioned: Boolean(message?.mentioned),
+				mediaUnread: Boolean(message?.mediaUnread),
+				fromScheduled: Boolean(message?.fromScheduled),
+				legacy: Boolean(message?.legacy),
+				groupedId: message?.groupedId?.toString?.() || null,
+				viaBotId: message?.viaBotId?.toString?.() || null,
+			}),
 			contentHash: this.hashContent({
 				messageId: message.id,
+				source: 'gramjs',
+				messageType: message?.className || 'message',
 				textNormalized,
 				editTimestampUtc,
 				replyToMessageId,

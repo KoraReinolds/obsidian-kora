@@ -88,7 +88,11 @@ export class ArchiveDatabase {
 				message_pk TEXT PRIMARY KEY,
 				chat_id TEXT NOT NULL,
 				message_id INTEGER NOT NULL,
+				source TEXT,
+				message_type TEXT,
 				sender_id TEXT,
+				sender_name TEXT,
+				sender_display_name TEXT,
 				timestamp_utc TEXT NOT NULL,
 				edit_timestamp_utc TEXT,
 				reply_to_message_id INTEGER,
@@ -99,6 +103,8 @@ export class ArchiveDatabase {
 				entities_json TEXT,
 				forward_json TEXT,
 				service_json TEXT,
+				media_json TEXT,
+				metadata_json TEXT,
 				content_hash TEXT NOT NULL,
 				UNIQUE(chat_id, message_id),
 				FOREIGN KEY(chat_id) REFERENCES chats(chat_id) ON DELETE CASCADE,
@@ -139,6 +145,27 @@ export class ArchiveDatabase {
 			CREATE INDEX IF NOT EXISTS idx_sync_runs_chat_finished
 				ON sync_runs(chat_id, finished_at DESC);
 		`);
+
+		const messageColumns = this.db
+			.prepare('PRAGMA table_info(messages)')
+			.all() as Array<{ name: string }>;
+		const existingColumns = new Set(messageColumns.map(column => column.name));
+		const extraColumns = [
+			['source', 'TEXT'],
+			['message_type', 'TEXT'],
+			['sender_name', 'TEXT'],
+			['sender_display_name', 'TEXT'],
+			['media_json', 'TEXT'],
+			['metadata_json', 'TEXT'],
+		] as const;
+
+		for (const [columnName, columnType] of extraColumns) {
+			if (!existingColumns.has(columnName)) {
+				this.db.exec(
+					`ALTER TABLE messages ADD COLUMN ${columnName} ${columnType}`
+				);
+			}
+		}
 	}
 
 	/**

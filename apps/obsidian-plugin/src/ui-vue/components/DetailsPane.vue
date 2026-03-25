@@ -34,7 +34,9 @@ withDefaults(
 		<div v-if="$slots.toolbar" class="shrink-0">
 			<slot name="toolbar" />
 		</div>
-		<div :class="[scroll ? 'min-h-0 flex-1 overflow-auto' : '']">
+		<div
+			:class="['min-h-0 flex-1', scroll ? 'overflow-auto' : 'overflow-hidden']"
+		>
 			<slot />
 		</div>
 		<footer v-if="$slots.footer" class="shrink-0">

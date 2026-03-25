@@ -30,7 +30,7 @@ export interface ArchiveSettings {
 	serverHost: string;
 	serverPort: number;
 	databasePath: string;
-	defaultPeer: string;
+	defaultDesktopExportPath: string;
 	defaultSyncLimit: number;
 	recentMessagesLimit: number;
 }
@@ -126,7 +126,7 @@ export const DEFAULT_SETTINGS: KoraMcpPluginSettings = {
 		serverHost: '127.0.0.1',
 		serverPort: 8125,
 		databasePath: 'data/telegram-archive.sqlite',
-		defaultPeer: '',
+		defaultDesktopExportPath: '',
 		defaultSyncLimit: 200,
 		recentMessagesLimit: 50,
 	},

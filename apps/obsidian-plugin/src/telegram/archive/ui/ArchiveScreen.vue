@@ -1,7 +1,4 @@
 <script setup lang="ts">
-/**
- * @description Эталонный UI фичи архива Telegram на базе общих Vue-компонентов.
- */
 import {
 	AppShell,
 	DetailsPane,
@@ -10,7 +7,6 @@ import {
 	IconButton,
 	IconTextField,
 	LoadingState,
-	MessageCard,
 	StatusBanner,
 	SummaryChip,
 	Toolbar,
@@ -18,12 +14,17 @@ import {
 import { ref, watch } from 'vue';
 import { useArchiveScreen } from '../model/use-archive-screen';
 import type { ArchiveTransportPort } from '../ports/archive-transport-port';
+import { PipelineRuntimeScreen } from '../../pipeline';
+import type { PipelineRuntimeTransportPort } from '../../pipeline';
 
 const props = defineProps<{
 	transport: ArchiveTransportPort;
+	pipelineTransport?: PipelineRuntimeTransportPort;
 	defaultPeer?: string;
 	defaultSyncLimit: number;
 	recentMessagesLimit: number;
+	defaultChunkSize?: number;
+	defaultGapMinutes?: number;
 }>();
 
 const model = useArchiveScreen({
@@ -35,12 +36,15 @@ const model = useArchiveScreen({
 
 const {
 	peerInputValue,
-	syncLimitValue,
+	selectedFolderLabel,
 	searchQuery,
-	chats,
 	filteredChats,
+	chats,
 	selectedChatId,
 	selectedChatMessages,
+	orderedSelectedChatMessages,
+	selectedChat,
+	selectedMessageStats,
 	currentPage,
 	totalPages,
 	canGoPrevPage,
@@ -48,27 +52,36 @@ const {
 	isRefreshing,
 	isLoadingMessages,
 	isSyncing,
-	isBackfilling,
 	isDeletingChatId,
+	highlightedMessageId,
 	screenMessage,
-	selectedChat,
 	refreshData,
-	handleSync,
+	handleDesktopExportSelection,
 	handleChatSelection,
 	goToPrevPage,
 	goToNextPage,
 	goToPage,
 	reloadCurrentPage,
-	handleBackfillOlder,
-	handleSyncNewerForSelectedChat,
+	jumpToMessageInCurrentView,
 	visibleRangeText,
-	visibleTimeRangeText,
 	fullTimeRangeText,
 	handleDeleteChat,
 	formatDate,
+	formatMessageMeta,
+	getMessageAuthorLabel,
+	getMessageInitials,
+	getMessageAccent,
+	getReplyPreview,
+	getMediaItems,
+	isImageAttachment,
+	resolveAttachmentSrc,
+	summarizeMessagePayload,
 } = model;
 
+const fileInputRef = ref<HTMLInputElement | null>(null);
 const pageInputValue = ref('1');
+const activeTab = ref<'archive' | 'pipeline'>('archive');
+
 watch(
 	() => currentPage.value,
 	value => {
@@ -76,6 +89,12 @@ watch(
 	},
 	{ immediate: true }
 );
+
+const fieldClass =
+	'box-border h-8 min-h-8 w-full min-w-0 rounded-lg border border-solid border-[var(--background-modifier-border)] bg-[var(--background-primary)] px-0 text-sm text-[var(--text-normal)] focus-within:outline-none focus-within:ring-2 focus-within:ring-[var(--interactive-accent)] focus-within:ring-offset-1 focus-within:ring-offset-[var(--background-secondary)]';
+
+const toolbarFieldClass =
+	'box-border h-8 min-h-8 w-full min-w-0 rounded-md border-0 bg-transparent px-0 text-sm text-[var(--text-normal)] focus-within:outline-none focus-within:ring-2 focus-within:ring-[var(--interactive-accent)] focus-within:ring-inset';
 
 const handlePageInputSubmit = (): void => {
 	const page = Number(pageInputValue.value);
@@ -86,17 +105,18 @@ const handlePageInputSubmit = (): void => {
 	void goToPage(page);
 };
 
-/**
- * @description Стили контейнера {@link IconTextField} (flex + рамка); фокус — `focus-within`, т.к. фокус на внутреннем input.
- */
-const fieldClass =
-	'box-border h-8 min-h-8 w-full min-w-0 rounded-lg border border-solid border-[var(--background-modifier-border)] bg-[var(--background-primary)] px-0 text-sm text-[var(--text-normal)] focus-within:outline-none focus-within:ring-2 focus-within:ring-[var(--interactive-accent)] focus-within:ring-offset-1 focus-within:ring-offset-[var(--background-secondary)]';
+const openDirectoryPicker = (): void => {
+	fileInputRef.value?.click();
+};
 
-/**
- * @description Peer внутри обведённой группы toolbar — без собственной рамки.
- */
-const toolbarFieldClass =
-	'box-border h-8 min-h-8 w-full min-w-0 rounded-md border-0 bg-transparent px-0 text-sm text-[var(--text-normal)] focus-within:outline-none focus-within:ring-2 focus-within:ring-[var(--interactive-accent)] focus-within:ring-inset';
+const handleFileSelection = async (event: Event): Promise<void> => {
+	const input = event.target as HTMLInputElement;
+	if (!input.files || input.files.length === 0) {
+		return;
+	}
+	await handleDesktopExportSelection(input.files);
+	input.value = '';
+};
 
 void refreshData();
 </script>
@@ -105,54 +125,84 @@ void refreshData();
 	<AppShell title="Архив Telegram">
 		<template #toolbar>
 			<Toolbar>
-				<div class="flex min-w-0 w-full flex-nowrap items-stretch gap-2">
+				<div class="flex min-w-0 w-full flex-wrap items-stretch gap-2">
+					<div class="flex shrink-0 items-center gap-1">
+						<button
+							type="button"
+							class="rounded-full border border-solid px-3 py-1.5 text-xs font-medium transition-colors"
+							:class="
+								activeTab === 'archive'
+									? 'border-[var(--interactive-accent)] bg-[var(--interactive-accent)]/12 text-[var(--text-normal)]'
+									: 'border-[var(--background-modifier-border)] bg-[var(--background-primary)] text-[var(--text-muted)]'
+							"
+							@click="activeTab = 'archive'"
+						>
+							Просмотр
+						</button>
+						<button
+							type="button"
+							class="rounded-full border border-solid px-3 py-1.5 text-xs font-medium transition-colors"
+							:class="
+								activeTab === 'pipeline'
+									? 'border-[var(--interactive-accent)] bg-[var(--interactive-accent)]/12 text-[var(--text-normal)]'
+									: 'border-[var(--background-modifier-border)] bg-[var(--background-primary)] text-[var(--text-muted)]'
+							"
+							@click="activeTab = 'pipeline'"
+						>
+							Pipeline
+						</button>
+					</div>
 					<div
-						class="flex min-w-0 flex-1 flex-nowrap items-center gap-1 rounded-lg border border-solid border-[var(--background-modifier-border)] bg-[var(--background-primary)] px-1 py-0"
+						v-if="activeTab === 'archive'"
+						class="flex min-w-0 flex-1 flex-nowrap items-stretch gap-2"
 					>
-						<div class="min-w-0 flex-1 basis-0">
-							<IconTextField
-								v-model="peerInputValue"
-								:input-class="toolbarFieldClass"
-								icon="at-sign"
-								icon-label="Peer канала или чата"
-								placeholder="@channel или -1001234567890"
-								submit-on-enter
-								@enter="handleSync"
+						<input
+							ref="fileInputRef"
+							type="file"
+							multiple
+							class="hidden"
+							webkitdirectory
+							directory
+							@change="handleFileSelection"
+						/>
+						<div
+							class="flex min-w-0 flex-1 flex-nowrap items-center gap-1 rounded-lg border border-solid border-[var(--background-modifier-border)] bg-[var(--background-primary)] px-1 py-0"
+						>
+							<div class="min-w-0 flex-1 basis-0">
+								<IconTextField
+									v-model="peerInputValue"
+									:input-class="toolbarFieldClass"
+									icon="folder-open"
+									icon-label="Выбранный Telegram Desktop export"
+									placeholder="Выберите папку Telegram Desktop export"
+									:disabled="true"
+								/>
+							</div>
+							<IconButton
+								size="sm"
+								variant="accent"
+								icon="folder-open"
+								label="Выбрать папку Telegram Desktop export"
+								title="Выбрать папку"
+								:disabled="isSyncing || isRefreshing"
+								:loading="isSyncing"
+								@click="openDirectoryPicker"
 							/>
 						</div>
-						<IconButton
-							size="sm"
-							variant="accent"
-							icon="refresh-cw"
-							label="Синхронизировать архив"
-							title="Синхронизировать"
-							:disabled="isSyncing || isRefreshing"
-							:loading="isSyncing"
-							@click="handleSync"
-						/>
-					</div>
-					<div class="w-28 shrink-0">
-						<IconTextField
-							v-model="syncLimitValue"
-							:input-class="fieldClass"
-							icon="list-ordered"
-							icon-label="Лимит синхронизации"
-							placeholder="лимит"
-						/>
-					</div>
-					<div
-						class="flex shrink-0 items-center border-l border-solid border-[var(--background-modifier-border)] pl-2"
-					>
-						<IconButton
-							size="sm"
-							variant="muted"
-							icon="rotate-ccw"
-							label="Обновить список чатов и сообщения"
-							title="Обновить"
-							:disabled="isSyncing || isRefreshing"
-							:loading="isRefreshing"
-							@click="refreshData"
-						/>
+						<div
+							class="flex shrink-0 items-center border-l border-solid border-[var(--background-modifier-border)] pl-2"
+						>
+							<IconButton
+								size="sm"
+								variant="muted"
+								icon="rotate-ccw"
+								label="Обновить список архивных чатов"
+								title="Обновить"
+								:disabled="isRefreshing || isSyncing"
+								:loading="isRefreshing"
+								@click="refreshData"
+							/>
+						</div>
 					</div>
 				</div>
 			</Toolbar>
@@ -167,7 +217,8 @@ void refreshData();
 		</template>
 
 		<div
-			class="grid h-full min-h-0 flex-1 grid-cols-1 items-stretch gap-3 overflow-hidden lg:grid-cols-[minmax(288px,380px)_minmax(0,1fr)]"
+			v-if="activeTab === 'archive'"
+			class="grid h-full min-h-0 flex-1 grid-cols-1 items-stretch gap-3 overflow-hidden lg:grid-cols-[minmax(320px,400px)_minmax(0,1fr)]"
 		>
 			<EntityListPane class="min-h-0">
 				<div
@@ -175,30 +226,43 @@ void refreshData();
 				>
 					<div
 						class="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]"
-						v-text="'Чаты'"
-					/>
+					>
+						Архивные чаты
+					</div>
+					<div class="mt-2 text-xs text-[var(--text-muted)]">
+						Экран читает локальный SQLite-архив и показывает его в более
+						нативном формате, не меняя исходную структуру данных.
+					</div>
+					<div
+						v-if="selectedFolderLabel"
+						class="mt-2 text-xs text-[var(--text-muted)]"
+					>
+						Последний выбранный export: {{ selectedFolderLabel }}
+					</div>
 					<div class="mt-2">
 						<IconTextField
 							v-model="searchQuery"
 							:input-class="fieldClass"
 							icon="search"
 							icon-label="Поиск по архивным чатам"
-							placeholder="Поиск по архивным чатам"
+							placeholder="Название, тип, chatId"
 						/>
 					</div>
-					<div class="mt-2 text-xs text-[var(--text-muted)]">
-						<span v-if="isRefreshing" v-text="'Обновляем список чатов…'" />
-						<span v-else v-text="`Архивных чатов: ${filteredChats.length}`" />
-					</div>
 				</div>
+
+				<div class="mt-3 flex flex-wrap gap-2">
+					<SummaryChip :text="`Чатов: ${chats.length}`" />
+					<SummaryChip :text="`Найдено: ${filteredChats.length}`" />
+				</div>
+
 				<div
-					class="isolate flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden pb-2 pr-1"
+					class="isolate mt-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden pb-2 pr-1"
 				>
 					<EmptyState
 						v-if="filteredChats.length === 0"
 						:text="
 							chats.length === 0
-								? 'Пока нет архивных чатов. Введите peer и выполните синхронизацию.'
+								? 'Архив пока пуст. Импортируйте Telegram Desktop export сверху.'
 								: 'По текущему поиску чаты не найдены.'
 						"
 					/>
@@ -209,7 +273,7 @@ void refreshData();
 					>
 						<button
 							type="button"
-							class="flex min-w-0 flex-1 cursor-pointer flex-row items-center gap-2 rounded-xl border border-solid px-3 py-2.5 text-left shadow-sm transition-[border-color,box-shadow] hover:border-[var(--interactive-accent-hover)] hover:shadow"
+							class="flex min-w-0 flex-1 cursor-pointer flex-col items-start gap-1 rounded-2xl border border-solid px-3 py-3 text-left shadow-sm transition-[border-color,box-shadow] hover:border-[var(--interactive-accent-hover)] hover:shadow"
 							:class="
 								selectedChatId === chat?.chatId
 									? 'border-[var(--interactive-accent)] bg-[var(--background-modifier-hover)] ring-1 ring-[var(--interactive-accent)]/25'
@@ -217,23 +281,15 @@ void refreshData();
 							"
 							@click="chat?.chatId && handleChatSelection(chat.chatId)"
 						>
-							<div
-								class="min-w-0 flex-1 truncate text-sm font-semibold leading-tight text-[var(--text-normal)]"
-							>
+							<div class="min-w-0 w-full truncate text-sm font-semibold">
 								{{ chat?.title || 'Без названия' }}
 							</div>
-							<div
-								class="max-w-[min(100%,12.5rem)] shrink-0 truncate text-right text-[11px] leading-tight tabular-nums text-[var(--text-muted)]"
-							>
-								<span
-									v-text="
-										`${chat?.messageCount || 0} · ${formatDate(chat?.lastSyncedAt)}`
-									"
-								/>
-								<span
-									v-if="chat?.username"
-									v-text="` · @${chat.username.replace(/^@/, '')}`"
-								/>
+							<div class="text-xs text-[var(--text-muted)]">
+								{{ chat?.type || 'unknown' }} · {{ chat?.messageCount || 0 }}
+								сообщений
+							</div>
+							<div class="text-xs text-[var(--text-muted)]">
+								chatId: {{ chat?.chatId }}
 							</div>
 						</button>
 						<IconButton
@@ -252,8 +308,16 @@ void refreshData();
 				</div>
 			</EntityListPane>
 
-			<DetailsPane class="min-h-0">
-				<div v-if="selectedChat" class="flex min-h-0 flex-1 flex-col gap-3">
+			<DetailsPane
+				class="min-h-0 overflow-hidden"
+				padding="md"
+				gap="md"
+				:scroll="false"
+			>
+				<div
+					v-if="selectedChat"
+					class="flex h-full min-h-0 flex-1 flex-col gap-3 overflow-hidden"
+				>
 					<div
 						class="flex shrink-0 flex-wrap items-start justify-between gap-2 border-b border-solid border-[var(--background-modifier-border)] pb-3"
 					>
@@ -261,11 +325,8 @@ void refreshData();
 							<div class="text-sm font-semibold leading-snug">
 								{{ selectedChat.title }}
 							</div>
-							<div
-								v-if="selectedChat.username"
-								class="mt-0.5 text-xs text-[var(--text-muted)]"
-							>
-								@{{ selectedChat.username.replace(/^@/, '') }}
+							<div class="mt-1 text-xs text-[var(--text-muted)]">
+								chatId: {{ selectedChat.chatId }}
 							</div>
 						</div>
 						<IconButton
@@ -286,49 +347,19 @@ void refreshData();
 					<div class="flex flex-wrap gap-2">
 						<SummaryChip :text="`Сообщений: ${selectedChat.messageCount}`" />
 						<SummaryChip
-							:text="`Последний синк: ${formatDate(selectedChat.lastSyncedAt)}`"
+							:text="`С текстом: ${selectedMessageStats.withText}`"
 						/>
-						<SummaryChip :text="`Показано: ${selectedChatMessages.length}`" />
-					</div>
-
-					<div
-						class="flex shrink-0 flex-wrap items-baseline justify-between gap-2 border-b border-solid border-[var(--background-modifier-border)] pb-2"
-					>
-						<div class="text-sm font-semibold">Сообщения</div>
-						<div
-							class="flex items-center gap-2 text-xs text-[var(--text-muted)]"
-						>
-							{{
-								isLoadingMessages
-									? 'Загрузка…'
-									: `Показано: ${visibleRangeText}`
-							}}
-							<span
-								v-if="!isLoadingMessages"
-								v-text="`· Страница ${currentPage} из ${totalPages}`"
-							/>
-						</div>
+						<SummaryChip :text="`С media: ${selectedMessageStats.withMedia}`" />
+						<SummaryChip :text="`Service: ${selectedMessageStats.service}`" />
+						<SummaryChip
+							:text="`Последнее обновление: ${formatDate(selectedChat.lastSyncedAt)}`"
+						/>
 					</div>
 
 					<div
 						class="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-solid border-[var(--background-modifier-border)] pb-2"
 					>
-						<div class="flex flex-wrap items-center gap-2">
-							<IconButton
-								size="sm"
-								variant="accent"
-								icon="arrow-up-circle"
-								label="Догрузить новые сообщения из Telegram"
-								title="Догрузить в начало"
-								:disabled="
-									isSyncing ||
-									isLoadingMessages ||
-									isRefreshing ||
-									isBackfilling
-								"
-								:loading="isSyncing"
-								@click="handleSyncNewerForSelectedChat"
-							/>
+						<div class="flex items-center gap-2">
 							<IconButton
 								size="sm"
 								variant="muted"
@@ -363,36 +394,27 @@ void refreshData();
 								variant="muted"
 								icon="rotate-ccw"
 								label="Перезагрузить текущую страницу"
-								title="Перезагрузить страницу"
+								title="Перезагрузить"
 								:disabled="isLoadingMessages"
 								@click="reloadCurrentPage"
 							/>
-							<IconButton
-								size="sm"
-								variant="accent"
-								icon="arrow-down-circle"
-								label="Догрузить старые сообщения из Telegram"
-								title="Догрузить в конец"
-								:disabled="
-									isBackfilling ||
-									isLoadingMessages ||
-									isSyncing ||
-									isRefreshing
-								"
-								:loading="isBackfilling"
-								@click="handleBackfillOlder"
-							/>
 						</div>
-						<div
-							class="text-xs text-[var(--text-muted)]"
-							v-text="fullTimeRangeText"
-						/>
+						<div class="text-xs text-[var(--text-muted)]">
+							{{ visibleRangeText }} · страница {{ currentPage }} из
+							{{ totalPages }}
+						</div>
+					</div>
+
+					<div
+						class="shrink-0 border-b border-solid border-[var(--background-modifier-border)] pb-2 text-xs text-[var(--text-muted)]"
+					>
+						{{ fullTimeRangeText }}
 					</div>
 
 					<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
 						<LoadingState
 							v-if="isLoadingMessages"
-							text="Загружаем страницу сообщений…"
+							text="Загружаем страницу сообщений..."
 						/>
 						<EmptyState
 							v-else-if="selectedChatMessages.length === 0"
@@ -400,19 +422,155 @@ void refreshData();
 						/>
 						<div
 							v-else
-							class="flex min-h-0 flex-1 flex-col overflow-auto rounded-lg border border-solid border-[var(--background-modifier-border)] bg-[var(--background-primary)] pb-2"
+							class="kora-archive-thread flex min-h-0 flex-1 flex-col overflow-y-scroll overflow-x-hidden rounded-2xl border border-solid border-[var(--background-modifier-border)] bg-[#161616] p-3"
 						>
-							<MessageCard
-								v-for="message in selectedChatMessages"
+							<div
+								v-for="message in orderedSelectedChatMessages"
 								:key="message.messagePk"
-								stacked
-								:meta="`#${message.messageId} • ${new Date(message.timestampUtc).toLocaleString()}`"
-								:body="
-									message.textNormalized ||
-									message.textRaw ||
-									'[сообщение без текстового содержимого]'
-								"
-							/>
+								:id="`archive-message-${message.messageId}`"
+								class="mb-3 flex items-end gap-2 last:mb-0"
+							>
+								<div
+									class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white/95 shadow-sm"
+									:style="{ backgroundColor: getMessageAccent(message).bg }"
+								>
+									{{ getMessageInitials(message) }}
+								</div>
+
+								<div
+									class="max-w-[min(100%,48rem)] min-w-0 rounded-[18px] border px-3 py-2.5 shadow-sm"
+									:style="{
+										backgroundColor:
+											highlightedMessageId === message.messageId
+												? 'rgba(255, 214, 10, 0.12)'
+												: 'rgba(29, 29, 29, 0.96)',
+										borderColor:
+											highlightedMessageId === message.messageId
+												? 'rgba(255, 214, 10, 0.35)'
+												: 'rgba(255, 255, 255, 0.08)',
+										color: 'var(--text-normal)',
+									}"
+								>
+									<div class="mb-1 flex items-center gap-2">
+										<div
+											class="truncate text-sm font-semibold"
+											:style="{ color: 'var(--text-normal)' }"
+										>
+											{{ getMessageAuthorLabel(message) }}
+										</div>
+										<div class="truncate text-[11px] text-[var(--text-muted)]">
+											{{ formatMessageMeta(message) }}
+										</div>
+									</div>
+
+									<div
+										v-if="getReplyPreview(message)"
+										class="mb-2 cursor-pointer rounded-2xl border border-solid px-3 py-2 transition-colors hover:bg-white/6"
+										:style="{
+											borderColor: 'rgba(255, 255, 255, 0.08)',
+											backgroundColor: 'rgba(255, 255, 255, 0.03)',
+										}"
+										@click="
+											message.replyToMessageId &&
+											jumpToMessageInCurrentView(message.replyToMessageId)
+										"
+									>
+										<div
+											class="text-[11px] font-semibold text-[var(--text-muted)]"
+										>
+											{{ getReplyPreview(message)?.author }}
+										</div>
+										<div class="line-clamp-2 text-xs text-[var(--text-muted)]">
+											{{ getReplyPreview(message)?.text }}
+										</div>
+									</div>
+
+									<div
+										v-if="(message.forward as any)?.forwardedFrom"
+										class="mb-2 text-xs text-[var(--text-muted)]"
+									>
+										Переслано из
+										{{ (message.forward as any).forwardedFrom }}
+									</div>
+
+									<div
+										v-if="message.textNormalized || message.textRaw"
+										class="whitespace-pre-wrap text-sm leading-6"
+									>
+										{{ message.textNormalized || message.textRaw }}
+									</div>
+
+									<div
+										v-for="(attachment, index) in getMediaItems(message)"
+										:key="`${message.messagePk}-attachment-${index}`"
+										class="mt-2 overflow-hidden rounded-2xl border border-solid bg-[rgba(255,255,255,0.03)]"
+										:style="{ borderColor: 'rgba(255, 255, 255, 0.08)' }"
+									>
+										<img
+											v-if="
+												isImageAttachment(attachment) &&
+												resolveAttachmentSrc(attachment)
+											"
+											:src="resolveAttachmentSrc(attachment) || undefined"
+											alt=""
+											class="block max-h-72 w-full object-cover"
+										/>
+										<div class="p-3">
+											<div class="text-sm font-medium">
+												{{
+													String(
+														attachment.fileName ||
+															attachment.relativePath ||
+															attachment.kind ||
+															'Вложение'
+													)
+												}}
+											</div>
+											<div class="mt-1 text-xs text-[var(--text-muted)]">
+												{{ String(attachment.kind || 'file') }}
+												<span v-if="attachment.size">
+													· {{ attachment.size }} bytes
+												</span>
+												<span v-if="attachment.mimeType">
+													· {{ String(attachment.mimeType) }}
+												</span>
+											</div>
+										</div>
+									</div>
+
+									<div
+										v-if="(message.reactions as any[])?.length"
+										class="mt-2 flex flex-wrap gap-1.5"
+									>
+										<div
+											v-for="(reaction, index) in message.reactions as any[]"
+											:key="`${message.messagePk}-reaction-${index}`"
+											class="rounded-full border border-solid px-2 py-0.5 text-xs"
+											:style="{
+												borderColor: 'rgba(255, 255, 255, 0.08)',
+												backgroundColor: 'rgba(255, 255, 255, 0.05)',
+											}"
+										>
+											{{ reaction.emoji || reaction.type || 'reaction' }}
+											<span v-if="reaction.count"> {{ reaction.count }}</span>
+										</div>
+									</div>
+
+									<div
+										v-if="summarizeMessagePayload(message).length"
+										class="mt-2 flex flex-wrap gap-1.5"
+									>
+										<div
+											v-for="hint in summarizeMessagePayload(message)"
+											:key="`${message.messagePk}-${hint}`"
+											class="rounded-full px-2 py-0.5 text-[11px] text-[var(--text-muted)]"
+											:style="{ backgroundColor: 'rgba(255, 255, 255, 0.04)' }"
+										>
+											{{ hint }}
+										</div>
+									</div>
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -423,10 +581,41 @@ void refreshData();
 				>
 					<div class="text-sm font-semibold">Ничего не выбрано</div>
 					<div class="max-w-sm text-xs text-[var(--text-muted)]">
-						Синхронизируйте новый peer или выберите чат слева.
+						Импортируйте архив Telegram Desktop export или выберите чат слева.
 					</div>
 				</div>
 			</DetailsPane>
 		</div>
+		<div v-else class="flex min-h-0 flex-1 overflow-hidden">
+			<PipelineRuntimeScreen
+				v-if="pipelineTransport"
+				:transport="pipelineTransport"
+				:default-page-limit="recentMessagesLimit"
+				:default-chunk-size="defaultChunkSize || 6"
+				:default-gap-minutes="defaultGapMinutes || 30"
+				:embedded="true"
+			/>
+			<EmptyState v-else text="Pipeline transport недоступен." />
+		</div>
 	</AppShell>
 </template>
+
+<style scoped>
+.kora-archive-thread {
+	scrollbar-width: thin;
+	scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+
+.kora-archive-thread::-webkit-scrollbar {
+	width: 10px;
+}
+
+.kora-archive-thread::-webkit-scrollbar-thumb {
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.14);
+}
+
+.kora-archive-thread::-webkit-scrollbar-track {
+	background: transparent;
+}
+</style>

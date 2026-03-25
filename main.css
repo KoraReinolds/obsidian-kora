@@ -1,0 +1,16 @@
+/* sfc-style:C:\Users\reino\Documents\Obsidian\.obsidian\plugins\obsidian-kora\apps\obsidian-plugin\src\telegram\archive\ui\ArchiveScreen.vue?type=style&index=0 */
+.kora-archive-thread[data-v-d450192f] {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+.kora-archive-thread[data-v-d450192f]::-webkit-scrollbar {
+  width: 10px;
+}
+.kora-archive-thread[data-v-d450192f]::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+}
+.kora-archive-thread[data-v-d450192f]::-webkit-scrollbar-track {
+  background: transparent;
+}
+/*# sourceMappingURL=data:application/json;base64,ewogICJ2ZXJzaW9uIjogMywKICAic291cmNlcyI6IFsic2ZjLXN0eWxlOkM6XFxVc2Vyc1xccmVpbm9cXERvY3VtZW50c1xcT2JzaWRpYW5cXC5vYnNpZGlhblxccGx1Z2luc1xcb2JzaWRpYW4ta29yYVxcYXBwc1xcb2JzaWRpYW4tcGx1Z2luXFxzcmNcXHRlbGVncmFtXFxhcmNoaXZlXFx1aVxcQXJjaGl2ZVNjcmVlbi52dWU/dHlwZT1zdHlsZSZpbmRleD0wIl0sCiAgInNvdXJjZXNDb250ZW50IjogWyJcbi5rb3JhLWFyY2hpdmUtdGhyZWFkW2RhdGEtdi1kNDUwMTkyZl0ge1xuXHRzY3JvbGxiYXItd2lkdGg6IHRoaW47XG5cdHNjcm9sbGJhci1jb2xvcjogcmdiYSgyNTUsIDI1NSwgMjU1LCAwLjE4KSB0cmFuc3BhcmVudDtcbn1cbi5rb3JhLWFyY2hpdmUtdGhyZWFkW2RhdGEtdi1kNDUwMTkyZl06Oi13ZWJraXQtc2Nyb2xsYmFyIHtcblx0d2lkdGg6IDEwcHg7XG59XG4ua29yYS1hcmNoaXZlLXRocmVhZFtkYXRhLXYtZDQ1MDE5MmZdOjotd2Via2l0LXNjcm9sbGJhci10aHVtYiB7XG5cdGJvcmRlci1yYWRpdXM6IDk5OXB4O1xuXHRiYWNrZ3JvdW5kOiByZ2JhKDI1NSwgMjU1LCAyNTUsIDAuMTQpO1xufVxuLmtvcmEtYXJjaGl2ZS10aHJlYWRbZGF0YS12LWQ0NTAxOTJmXTo6LXdlYmtpdC1zY3JvbGxiYXItdHJhY2sge1xuXHRiYWNrZ3JvdW5kOiB0cmFuc3BhcmVudDtcbn1cbiJdLAogICJtYXBwaW5ncyI6ICI7QUFDQTtBQUNDO0FBQ0E7QUFBQTtBQUVEO0FBQ0M7QUFBQTtBQUVEO0FBQ0M7QUFDQTtBQUFBO0FBRUQ7QUFDQztBQUFBOyIsCiAgIm5hbWVzIjogW10KfQo= */

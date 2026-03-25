@@ -39,7 +39,11 @@ export interface ArchiveMessageRecord {
 	messagePk: string;
 	chatId: string;
 	messageId: number;
+	source?: string | null;
+	messageType?: string | null;
 	senderId?: string | null;
+	senderName?: string | null;
+	senderDisplayName?: string | null;
 	timestampUtc: string;
 	editTimestampUtc?: string | null;
 	replyToMessageId?: number | null;
@@ -50,6 +54,8 @@ export interface ArchiveMessageRecord {
 	entitiesJson?: string | null;
 	forwardJson?: string | null;
 	serviceJson?: string | null;
+	mediaJson?: string | null;
+	metadataJson?: string | null;
 	contentHash: string;
 }
 

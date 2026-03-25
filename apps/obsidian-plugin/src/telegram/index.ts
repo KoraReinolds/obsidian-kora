@@ -1,6 +1,7 @@
 export * from './core';
 export * from './formatting';
 export * from './archive';
+export * from './pipeline';
 export * from './parsing';
 export * from './transport';
 export * from './utils';

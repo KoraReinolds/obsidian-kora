@@ -8,6 +8,8 @@ import type {
 	ArchiveBackfillRequest,
 	ArchiveBackfillResult,
 	ArchiveChat,
+	ArchiveDesktopImportRequest,
+	ArchiveDesktopImportResult,
 	ArchiveMessagesResponse,
 	ArchiveSyncRequest,
 	ArchiveSyncResult,
@@ -22,6 +24,9 @@ export interface ArchiveTransportPort {
 	getArchivedMessages(
 		request: GetArchivedMessagesRequest
 	): Promise<ArchiveMessagesResponse>;
+	importDesktopArchive(
+		request: ArchiveDesktopImportRequest
+	): Promise<ArchiveDesktopImportResult>;
 	syncArchive(request: ArchiveSyncRequest): Promise<ArchiveSyncResult>;
 	backfillArchive(
 		request: ArchiveBackfillRequest

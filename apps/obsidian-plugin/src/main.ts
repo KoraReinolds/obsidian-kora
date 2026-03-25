@@ -106,7 +106,7 @@ export default class KoraPlugin extends Plugin {
 		);
 		this.registerView(
 			ARCHIVE_VIEW_TYPE,
-			leaf => new ArchiveView(leaf, this, this.archiveBridge)
+			leaf => new ArchiveView(leaf, this, this.archiveBridge, this.vectorBridge)
 		);
 		this.addRibbonIcon('git-branch', 'Open Related Chunks', () => {
 			this.activateRelatedChunksView();
@@ -117,7 +117,6 @@ export default class KoraPlugin extends Plugin {
 		this.addRibbonIcon('database', 'Открыть архив Telegram', () => {
 			this.activateArchiveView();
 		});
-
 		this.pluginCommands.getCommands().forEach(command => {
 			this.addCommand(command);
 		});
@@ -204,6 +203,14 @@ export default class KoraPlugin extends Plugin {
 
 		if (!data.archiveSettings) {
 			data.archiveSettings = DEFAULT_SETTINGS.archiveSettings;
+		}
+
+		if (
+			data.archiveSettings.defaultDesktopExportPath === undefined &&
+			typeof data.archiveSettings.defaultPeer === 'string'
+		) {
+			data.archiveSettings.defaultDesktopExportPath =
+				data.archiveSettings.defaultPeer;
 		}
 
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, data, {
@@ -320,6 +327,10 @@ export default class KoraPlugin extends Plugin {
 
 	getArchiveBridge() {
 		return this.archiveBridge;
+	}
+
+	getVectorBridge() {
+		return this.vectorBridge;
 	}
 
 	async activateArchiveView() {

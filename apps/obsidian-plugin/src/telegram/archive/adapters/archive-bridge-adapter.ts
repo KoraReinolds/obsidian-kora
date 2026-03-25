@@ -18,6 +18,7 @@ export function createArchiveBridgeAdapter(
 	return {
 		getArchivedChats: bridge.getArchivedChats.bind(bridge),
 		getArchivedMessages: bridge.getArchivedMessages.bind(bridge),
+		importDesktopArchive: bridge.importDesktopArchive.bind(bridge),
 		syncArchive: bridge.syncArchive.bind(bridge),
 		backfillArchive: bridge.backfillArchive.bind(bridge),
 		deleteArchiveChat: bridge.deleteArchivedChat.bind(bridge),

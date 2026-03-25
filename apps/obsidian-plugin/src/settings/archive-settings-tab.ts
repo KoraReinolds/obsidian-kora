@@ -2,9 +2,8 @@ import { App, Notice, PluginSettingTab, Setting } from 'obsidian';
 import type KoraPlugin from '../main';
 
 /**
- * @description Вкладка настроек MVP архива Telegram: адрес userbot-сервера,
- * путь к SQLite на стороне сервера, peer и лимиты по умолчанию для команд
- * и представления архива в Obsidian.
+ * @description Вкладка настроек архива Telegram: archive API, SQLite и путь по умолчанию
+ * к Telegram Desktop export.
  */
 export class ArchiveSettingTab extends PluginSettingTab {
 	private plugin: KoraPlugin;
@@ -24,13 +23,15 @@ export class ArchiveSettingTab extends PluginSettingTab {
 
 		containerEl.createEl('h2', { text: 'Архив Telegram' });
 		containerEl.createEl('p', {
-			text: 'SQLite-архив обслуживает kora-server; для чтения истории обычно нужен userbot-процесс.',
+			text: 'SQLite-архив обслуживает kora-server. Экран архива теперь ориентирован на импорт Telegram Desktop export и хранение сырых сообщений для последующей AI-обработки.',
 			cls: 'setting-item-description',
 		});
 
 		new Setting(containerEl)
 			.setName('Включить UI архива')
-			.setDesc('Показывать команды архива и разрешить вызовы моста из Obsidian')
+			.setDesc(
+				'Показывать команды архива и разрешить вызовы archive API из Obsidian'
+			)
 			.addToggle(toggle =>
 				toggle
 					.setValue(this.plugin.settings.archiveSettings.enableArchive)
@@ -43,7 +44,7 @@ export class ArchiveSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Хост сервера архива')
 			.setDesc(
-				'Хост kora-server, который обслуживает архив. Обычно это userbot-процесс.'
+				'Хост kora-server, который обслуживает архив и импорт export-каталогов.'
 			)
 			.addText(text =>
 				text
@@ -58,9 +59,7 @@ export class ArchiveSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Порт сервера архива')
-			.setDesc(
-				'Порт kora-server для архива. Для userbot по умолчанию используется 8125.'
-			)
+			.setDesc('Порт archive API на стороне kora-server.')
 			.addText(text =>
 				text
 					.setPlaceholder('8125')
@@ -77,7 +76,7 @@ export class ArchiveSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Путь к файлу БД архива')
 			.setDesc(
-				'Путь к SQLite на машине, где запущен kora-server. Относительные пути - от папки kora-server.'
+				'Путь к SQLite на машине, где запущен kora-server. Относительные пути считаются от папки kora-server.'
 			)
 			.addText(text =>
 				text
@@ -90,22 +89,29 @@ export class ArchiveSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName('Peer по умолчанию')
-			.setDesc('Предзаполненный peer для команд синка и для вида «Архив»')
+			.setName('Папка Telegram export по умолчанию')
+			.setDesc(
+				'Предзаполненный путь к каталогу Telegram Desktop export для страницы "Архив Telegram".'
+			)
 			.addText(text =>
 				text
-					.setPlaceholder('@channel или -100123456789')
-					.setValue(this.plugin.settings.archiveSettings.defaultPeer)
+					.setPlaceholder(
+						'C:\\Users\\...\\Telegram Desktop\\ChatExport_2026-03-25'
+					)
+					.setValue(
+						this.plugin.settings.archiveSettings.defaultDesktopExportPath
+					)
 					.onChange(async value => {
-						this.plugin.settings.archiveSettings.defaultPeer = value;
+						this.plugin.settings.archiveSettings.defaultDesktopExportPath =
+							value;
 						await this.plugin.saveSettings();
 					})
 			);
 
 		new Setting(containerEl)
-			.setName('Лимит синка по умолчанию')
+			.setName('Лимит импорта по умолчанию')
 			.setDesc(
-				'Сколько сообщений за один прогон синхронизации забирать по умолчанию'
+				'Служебный лимит для архивного экрана: сколько сообщений брать за один проход и показывать как рабочее окно.'
 			)
 			.addText(text =>
 				text
@@ -123,9 +129,9 @@ export class ArchiveSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName('Недавние сообщения во view')
+			.setName('Сообщений в одном view')
 			.setDesc(
-				'Сколько последних архивных сообщений подгружать за один запрос во view'
+				'Сколько архивных сообщений подгружать за один запрос в деталях выбранного чата.'
 			)
 			.addText(text =>
 				text
@@ -145,7 +151,7 @@ export class ArchiveSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Проверить подключение к архиву')
 			.setDesc(
-				'Проверяет, отвечает ли userbot-сервер архива по настроенному хосту и порту.'
+				'Проверяет, отвечает ли archive API по настроенному хосту и порту.'
 			)
 			.addButton(button =>
 				button

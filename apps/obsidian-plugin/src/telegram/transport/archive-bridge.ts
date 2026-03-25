@@ -5,6 +5,8 @@ import {
 } from '../core/base-http-client';
 import type {
 	ArchiveChat,
+	ArchiveDesktopImportRequest,
+	ArchiveDesktopImportResponse,
 	ArchiveBackfillRequest,
 	ArchiveBackfillResponse,
 	ArchiveChatsResponse,
@@ -12,6 +14,12 @@ import type {
 	ArchiveMessage,
 	ArchiveMessageResponse,
 	ArchiveMessagesResponse,
+	ArchivePipelineRunRecord,
+	ArchivePipelineRunRequest,
+	ArchivePipelineRunResponse,
+	ArchivePipelineRunsResponse,
+	ArchivePipelineStepDescriptor,
+	ArchivePipelineStepsResponse,
 	ArchiveSyncRequest,
 	ArchiveSyncResponse,
 	ArchiveSyncState,
@@ -79,6 +87,29 @@ export class ArchiveBridge extends BaseHttpClient {
 	}
 
 	/**
+	 * @description Импортирует локальный Telegram Desktop export через kora-server.
+	 * @param {ArchiveDesktopImportRequest} request - Путь к каталогу экспорта.
+	 * @returns {Promise<NonNullable<ArchiveDesktopImportResponse['result']>>}
+	 */
+	async importDesktopArchive(
+		request: ArchiveDesktopImportRequest
+	): Promise<NonNullable<ArchiveDesktopImportResponse['result']>> {
+		const response = await this.handleRequest<ArchiveDesktopImportResponse>(
+			'/archive/import-desktop',
+			{ method: 'POST', body: request, timeout: 30000 },
+			'Ошибка импорта Telegram Desktop архива'
+		);
+
+		if (!response?.result) {
+			throw new Error(
+				response?.error || 'Не удалось импортировать Telegram Desktop архив'
+			);
+		}
+
+		return response.result;
+	}
+
+	/**
 	 * @description Запускает ручную догрузку более старой истории.
 	 * @param {ArchiveBackfillRequest} request - Параметры backfill.
 	 * @returns {Promise<NonNullable<ArchiveBackfillResponse['result']>>}
@@ -114,6 +145,64 @@ export class ArchiveBridge extends BaseHttpClient {
 		);
 
 		return response?.chats || [];
+	}
+
+	/**
+	 * @description Возвращает список доступных ручных pipeline-шагов для архива.
+	 * @returns {Promise<ArchivePipelineStepDescriptor[]>}
+	 */
+	async listPipelineSteps(): Promise<ArchivePipelineStepDescriptor[]> {
+		const response = await this.handleRequest<ArchivePipelineStepsResponse>(
+			'/archive/pipeline/steps',
+			{},
+			'Ошибка получения шагов pipeline'
+		);
+
+		return response?.steps || [];
+	}
+
+	/**
+	 * @description Запускает один pipeline-шаг на выбранном подмножестве архивных сообщений.
+	 * @param {ArchivePipelineRunRequest} request - Шаг и селектор данных.
+	 * @returns {Promise<ArchivePipelineRunRecord>}
+	 */
+	async runPipelineStep(
+		request: ArchivePipelineRunRequest
+	): Promise<ArchivePipelineRunRecord> {
+		const response = await this.handleRequest<ArchivePipelineRunResponse>(
+			'/archive/pipeline/run',
+			{ method: 'POST', body: request, timeout: 30000 },
+			'Ошибка запуска шага pipeline'
+		);
+
+		if (!response?.run) {
+			throw new Error(response?.error || 'Не удалось запустить шаг pipeline');
+		}
+
+		return response.run;
+	}
+
+	/**
+	 * @description Возвращает последние ручные запуски pipeline для выбранного чата.
+	 * @param {string} chatId - Идентификатор архивного чата.
+	 * @param {number} limit - Максимум записей в истории.
+	 * @returns {Promise<ArchivePipelineRunRecord[]>}
+	 */
+	async listPipelineRuns(
+		chatId: string,
+		limit = 10
+	): Promise<ArchivePipelineRunRecord[]> {
+		const params = new URLSearchParams({
+			chatId,
+			limit: String(limit),
+		});
+		const response = await this.handleRequest<ArchivePipelineRunsResponse>(
+			`/archive/pipeline/runs?${params.toString()}`,
+			{},
+			'Ошибка получения истории pipeline'
+		);
+
+		return response?.runs || [];
 	}
 
 	/**

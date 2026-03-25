@@ -1,4 +1,5 @@
 import type { Express } from 'express';
+import { registerPipelineRoutes } from './pipeline.js';
 import { registerContentRoutes } from './content.js';
 import { registerSearchRoute } from './search.js';
 import { registerVectorHealthRoute } from './vector_health.js';
@@ -12,6 +13,7 @@ import { registerVectorizeMessagesRoute } from './vectorize_messages.js';
  * @returns {void}
  */
 export function registerRuntimeRoutes(app: Express): void {
+	registerPipelineRoutes(app);
 	registerVectorizeRoute(app);
 	registerVectorizeMessagesRoute(app);
 	registerSearchRoute(app);

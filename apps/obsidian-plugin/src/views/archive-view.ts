@@ -10,6 +10,8 @@ import type { App } from 'vue';
 import type KoraPlugin from '../main';
 import { ArchiveBridge } from '../telegram';
 import { ArchiveScreen, createArchiveBridgeAdapter } from '../telegram/archive';
+import { createPipelineRuntimeBridgeAdapter } from '../telegram/pipeline';
+import { VectorBridge } from '../vector';
 import {
 	mountVueInObsidian,
 	ObsidianLucideIcon,
@@ -27,7 +29,8 @@ export class ArchiveView extends ItemView {
 	constructor(
 		leaf: WorkspaceLeaf,
 		private readonly plugin: KoraPlugin,
-		private readonly archiveBridge: ArchiveBridge
+		private readonly archiveBridge: ArchiveBridge,
+		private readonly vectorBridge: VectorBridge
 	) {
 		super(leaf);
 	}
@@ -54,10 +57,17 @@ export class ArchiveView extends ItemView {
 			ArchiveScreen,
 			{
 				transport: createArchiveBridgeAdapter(this.archiveBridge),
-				defaultPeer: this.plugin.settings.archiveSettings.defaultPeer || '',
+				pipelineTransport: createPipelineRuntimeBridgeAdapter(
+					this.archiveBridge,
+					this.vectorBridge
+				),
+				defaultPeer:
+					this.plugin.settings.archiveSettings.defaultDesktopExportPath || '',
 				defaultSyncLimit: this.plugin.settings.archiveSettings.defaultSyncLimit,
 				recentMessagesLimit:
 					this.plugin.settings.archiveSettings.recentMessagesLimit,
+				defaultChunkSize: 6,
+				defaultGapMinutes: 30,
 			},
 			{ hostLucideIcon: ObsidianLucideIcon }
 		);

@@ -16,7 +16,7 @@ defineProps<{
 		<div class="flex w-full min-w-0 flex-wrap items-center gap-2">
 			<slot name="toolbar" />
 		</div>
-		<div>
+		<div class="shrink-0">
 			<slot name="message" />
 		</div>
 		<div class="flex min-h-0 flex-1 overflow-hidden">
