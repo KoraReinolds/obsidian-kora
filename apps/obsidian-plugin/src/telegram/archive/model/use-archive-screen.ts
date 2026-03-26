@@ -11,6 +11,7 @@ import type {
 	ArchiveMessage,
 } from '../../../../../../packages/contracts/src/telegram';
 import { useFilterQuery, useScreenMessage } from '../../../ui-vue';
+import type { ChatTimelineItem } from '../../../ui-vue';
 import type { ArchiveTransportPort } from '../ports/archive-transport-port';
 
 export interface ArchiveScreenModelOptions {
@@ -67,6 +68,69 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 	});
 	const orderedSelectedChatMessages = computed(() => {
 		return [...selectedChatMessages.value].reverse();
+	});
+	const selectedTimelineItems = computed<ChatTimelineItem[]>(() => {
+		return orderedSelectedChatMessages.value.map(message => {
+			const accent = getMessageAccent(message);
+			const replyPreview = getReplyPreview(message);
+			const attachments = getMediaItems(message).map((attachment, index) => ({
+				id: `${message.messagePk}-attachment-${index}`,
+				kind: String(attachment.kind || 'file'),
+				name: String(
+					attachment.fileName ||
+						attachment.relativePath ||
+						attachment.kind ||
+						'Вложение'
+				),
+				description: '',
+				previewSrc: resolveAttachmentSrc(attachment),
+				isImage: isImageAttachment(attachment),
+				size:
+					typeof attachment.size === 'number' ? Number(attachment.size) : null,
+				mimeType: attachment.mimeType ? String(attachment.mimeType) : null,
+			}));
+			const reactions = (
+				Array.isArray(message.reactions) ? message.reactions : []
+			) as Array<Record<string, unknown>>;
+
+			return {
+				id: String(message.messageId),
+				anchorId: `archive-message-${message.messageId}`,
+				role: 'other',
+				align: 'start',
+				author: getMessageAuthorLabel(message),
+				initials: getMessageInitials(message),
+				meta: formatMessageMeta(message),
+				text: message.textNormalized || message.textRaw || '',
+				replyPreview: replyPreview
+					? {
+							label: replyPreview.author,
+							text: replyPreview.text,
+							targetId: message.replyToMessageId
+								? String(message.replyToMessageId)
+								: null,
+						}
+					: null,
+				forwardedLabel: (message.forward as { forwardedFrom?: string } | null)
+					?.forwardedFrom
+					? `Переслано из ${(message.forward as { forwardedFrom?: string }).forwardedFrom}`
+					: null,
+				attachments,
+				reactions: reactions.map((reaction, index) => ({
+					id: `${message.messagePk}-reaction-${index}`,
+					label: String(reaction.emoji || reaction.type || 'reaction'),
+					count:
+						typeof reaction.count === 'number' ? Number(reaction.count) : null,
+				})),
+				badges: summarizeMessagePayload(message),
+				accent: {
+					avatarBg: accent.bg,
+					avatarText: 'rgba(255, 255, 255, 0.95)',
+					bubbleBg: 'rgba(29, 29, 29, 0.96)',
+					bubbleBorder: 'rgba(255, 255, 255, 0.08)',
+				},
+			} satisfies ChatTimelineItem;
+		});
 	});
 	const selectedMessageStats = computed(() => {
 		const messages = selectedChatMessages.value;
@@ -534,6 +598,7 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 		selectedChatId,
 		selectedChatMessages,
 		orderedSelectedChatMessages,
+		selectedTimelineItems,
 		selectedChatTotal,
 		currentPage,
 		totalPages,

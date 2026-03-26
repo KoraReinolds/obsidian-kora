@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import {
 	AppShell,
+	ChatTimeline,
 	DetailsPane,
 	EmptyState,
 	EntityListPane,
 	IconButton,
 	IconTextField,
-	LoadingState,
 	StatusBanner,
 	SummaryChip,
 	Toolbar,
@@ -42,7 +42,7 @@ const {
 	chats,
 	selectedChatId,
 	selectedChatMessages,
-	orderedSelectedChatMessages,
+	selectedTimelineItems,
 	selectedChat,
 	selectedMessageStats,
 	currentPage,
@@ -67,15 +67,6 @@ const {
 	fullTimeRangeText,
 	handleDeleteChat,
 	formatDate,
-	formatMessageMeta,
-	getMessageAuthorLabel,
-	getMessageInitials,
-	getMessageAccent,
-	getReplyPreview,
-	getMediaItems,
-	isImageAttachment,
-	resolveAttachmentSrc,
-	summarizeMessagePayload,
 } = model;
 
 const fileInputRef = ref<HTMLInputElement | null>(null);
@@ -116,6 +107,14 @@ const handleFileSelection = async (event: Event): Promise<void> => {
 	}
 	await handleDesktopExportSelection(input.files);
 	input.value = '';
+};
+
+const handleTimelineJump = (targetId: string): void => {
+	const numericId = Number(targetId);
+	if (!Number.isFinite(numericId)) {
+		return;
+	}
+	jumpToMessageInCurrentView(numericId);
 };
 
 void refreshData();
@@ -411,168 +410,15 @@ void refreshData();
 						{{ fullTimeRangeText }}
 					</div>
 
-					<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-						<LoadingState
-							v-if="isLoadingMessages"
-							text="Загружаем страницу сообщений..."
-						/>
-						<EmptyState
-							v-else-if="selectedChatMessages.length === 0"
-							text="В этом чате пока нет архивных сообщений."
-						/>
-						<div
-							v-else
-							class="kora-archive-thread flex min-h-0 flex-1 flex-col overflow-y-scroll overflow-x-hidden rounded-2xl border border-solid border-[var(--background-modifier-border)] bg-[#161616] p-3"
-						>
-							<div
-								v-for="message in orderedSelectedChatMessages"
-								:key="message.messagePk"
-								:id="`archive-message-${message.messageId}`"
-								class="mb-3 flex items-end gap-2 last:mb-0"
-							>
-								<div
-									class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white/95 shadow-sm"
-									:style="{ backgroundColor: getMessageAccent(message).bg }"
-								>
-									{{ getMessageInitials(message) }}
-								</div>
-
-								<div
-									class="max-w-[min(100%,48rem)] min-w-0 rounded-[18px] border px-3 py-2.5 shadow-sm"
-									:style="{
-										backgroundColor:
-											highlightedMessageId === message.messageId
-												? 'rgba(255, 214, 10, 0.12)'
-												: 'rgba(29, 29, 29, 0.96)',
-										borderColor:
-											highlightedMessageId === message.messageId
-												? 'rgba(255, 214, 10, 0.35)'
-												: 'rgba(255, 255, 255, 0.08)',
-										color: 'var(--text-normal)',
-									}"
-								>
-									<div class="mb-1 flex items-center gap-2">
-										<div
-											class="truncate text-sm font-semibold"
-											:style="{ color: 'var(--text-normal)' }"
-										>
-											{{ getMessageAuthorLabel(message) }}
-										</div>
-										<div class="truncate text-[11px] text-[var(--text-muted)]">
-											{{ formatMessageMeta(message) }}
-										</div>
-									</div>
-
-									<div
-										v-if="getReplyPreview(message)"
-										class="mb-2 cursor-pointer rounded-2xl border border-solid px-3 py-2 transition-colors hover:bg-white/6"
-										:style="{
-											borderColor: 'rgba(255, 255, 255, 0.08)',
-											backgroundColor: 'rgba(255, 255, 255, 0.03)',
-										}"
-										@click="
-											message.replyToMessageId &&
-											jumpToMessageInCurrentView(message.replyToMessageId)
-										"
-									>
-										<div
-											class="text-[11px] font-semibold text-[var(--text-muted)]"
-										>
-											{{ getReplyPreview(message)?.author }}
-										</div>
-										<div class="line-clamp-2 text-xs text-[var(--text-muted)]">
-											{{ getReplyPreview(message)?.text }}
-										</div>
-									</div>
-
-									<div
-										v-if="(message.forward as any)?.forwardedFrom"
-										class="mb-2 text-xs text-[var(--text-muted)]"
-									>
-										Переслано из
-										{{ (message.forward as any).forwardedFrom }}
-									</div>
-
-									<div
-										v-if="message.textNormalized || message.textRaw"
-										class="whitespace-pre-wrap text-sm leading-6"
-									>
-										{{ message.textNormalized || message.textRaw }}
-									</div>
-
-									<div
-										v-for="(attachment, index) in getMediaItems(message)"
-										:key="`${message.messagePk}-attachment-${index}`"
-										class="mt-2 overflow-hidden rounded-2xl border border-solid bg-[rgba(255,255,255,0.03)]"
-										:style="{ borderColor: 'rgba(255, 255, 255, 0.08)' }"
-									>
-										<img
-											v-if="
-												isImageAttachment(attachment) &&
-												resolveAttachmentSrc(attachment)
-											"
-											:src="resolveAttachmentSrc(attachment) || undefined"
-											alt=""
-											class="block max-h-72 w-full object-cover"
-										/>
-										<div class="p-3">
-											<div class="text-sm font-medium">
-												{{
-													String(
-														attachment.fileName ||
-															attachment.relativePath ||
-															attachment.kind ||
-															'Вложение'
-													)
-												}}
-											</div>
-											<div class="mt-1 text-xs text-[var(--text-muted)]">
-												{{ String(attachment.kind || 'file') }}
-												<span v-if="attachment.size">
-													· {{ attachment.size }} bytes
-												</span>
-												<span v-if="attachment.mimeType">
-													· {{ String(attachment.mimeType) }}
-												</span>
-											</div>
-										</div>
-									</div>
-
-									<div
-										v-if="(message.reactions as any[])?.length"
-										class="mt-2 flex flex-wrap gap-1.5"
-									>
-										<div
-											v-for="(reaction, index) in message.reactions as any[]"
-											:key="`${message.messagePk}-reaction-${index}`"
-											class="rounded-full border border-solid px-2 py-0.5 text-xs"
-											:style="{
-												borderColor: 'rgba(255, 255, 255, 0.08)',
-												backgroundColor: 'rgba(255, 255, 255, 0.05)',
-											}"
-										>
-											{{ reaction.emoji || reaction.type || 'reaction' }}
-											<span v-if="reaction.count"> {{ reaction.count }}</span>
-										</div>
-									</div>
-
-									<div
-										v-if="summarizeMessagePayload(message).length"
-										class="mt-2 flex flex-wrap gap-1.5"
-									>
-										<div
-											v-for="hint in summarizeMessagePayload(message)"
-											:key="`${message.messagePk}-${hint}`"
-											class="rounded-full px-2 py-0.5 text-[11px] text-[var(--text-muted)]"
-											:style="{ backgroundColor: 'rgba(255, 255, 255, 0.04)' }"
-										>
-											{{ hint }}
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
+					<ChatTimeline
+						:items="selectedTimelineItems"
+						:loading="isLoadingMessages"
+						empty-text="В этом чате пока нет архивных сообщений."
+						:highlighted-item-id="
+							highlightedMessageId ? String(highlightedMessageId) : null
+						"
+						@jump="handleTimelineJump"
+					/>
 				</div>
 
 				<div
@@ -599,23 +445,3 @@ void refreshData();
 		</div>
 	</AppShell>
 </template>
-
-<style scoped>
-.kora-archive-thread {
-	scrollbar-width: thin;
-	scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
-}
-
-.kora-archive-thread::-webkit-scrollbar {
-	width: 10px;
-}
-
-.kora-archive-thread::-webkit-scrollbar-thumb {
-	border-radius: 999px;
-	background: rgba(255, 255, 255, 0.14);
-}
-
-.kora-archive-thread::-webkit-scrollbar-track {
-	background: transparent;
-}
-</style>

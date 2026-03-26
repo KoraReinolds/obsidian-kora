@@ -13,6 +13,7 @@ import StrategyFactory from '../strategies/StrategyFactory.js';
 import { disconnectStrategy } from '../services/strategy-service.js';
 import { resetArchiveServices } from '../services/archive-service-singleton.js';
 import { resetVectorServices } from '../services/vector-service-singleton.js';
+import { resetEternalAiServices } from '../modules/eternal-ai/services/eternal-ai-service-singleton.js';
 
 export function registerConfigRoutes(app: Express): void {
 	app.post('/config', async (req: Request, res: Response) => {
@@ -21,6 +22,7 @@ export function registerConfigRoutes(app: Express): void {
 			const prevMode = previousConfig.mode;
 			const prevArchiveDatabasePath = previousConfig.archiveDatabasePath;
 			const prevSemanticDatabasePath = previousConfig.semanticDatabasePath;
+			const prevEternalAiDatabasePath = previousConfig.eternalAiDatabasePath;
 			const {
 				mode,
 				botToken,
@@ -32,6 +34,10 @@ export function registerConfigRoutes(app: Express): void {
 				openaiApiKey,
 				embeddingModel,
 				embeddingBaseUrl,
+				eternalAiApiKey,
+				eternalAiBaseUrl,
+				eternalAiModel,
+				eternalAiDatabasePath,
 			} = req.body || {};
 
 			const parsed = updateConfig({
@@ -53,6 +59,11 @@ export function registerConfigRoutes(app: Express): void {
 				openaiApiKey: openaiApiKey ?? previousConfig.openaiApiKey,
 				embeddingModel: embeddingModel ?? previousConfig.embeddingModel,
 				embeddingBaseUrl: embeddingBaseUrl ?? previousConfig.embeddingBaseUrl,
+				eternalAiApiKey: eternalAiApiKey ?? previousConfig.eternalAiApiKey,
+				eternalAiBaseUrl: eternalAiBaseUrl ?? previousConfig.eternalAiBaseUrl,
+				eternalAiModel: eternalAiModel ?? previousConfig.eternalAiModel,
+				eternalAiDatabasePath:
+					eternalAiDatabasePath ?? previousConfig.eternalAiDatabasePath,
 			});
 
 			if (prevMode !== parsed.mode) {
@@ -72,6 +83,15 @@ export function registerConfigRoutes(app: Express): void {
 				resetVectorServices();
 			}
 
+			if (
+				prevEternalAiDatabasePath !== parsed.eternalAiDatabasePath ||
+				previousConfig.eternalAiApiKey !== parsed.eternalAiApiKey ||
+				previousConfig.eternalAiBaseUrl !== parsed.eternalAiBaseUrl ||
+				previousConfig.eternalAiModel !== parsed.eternalAiModel
+			) {
+				resetEternalAiServices();
+			}
+
 			const validation = getConfigValidation(parsed.mode);
 
 			res.json({
@@ -88,6 +108,10 @@ export function registerConfigRoutes(app: Express): void {
 					semanticDatabasePath: parsed.semanticDatabasePath || null,
 					embeddingModel: parsed.embeddingModel || null,
 					embeddingBaseUrl: parsed.embeddingBaseUrl || null,
+					eternalAiBaseUrl: parsed.eternalAiBaseUrl || null,
+					eternalAiModel: parsed.eternalAiModel || null,
+					eternalAiDatabasePath: parsed.eternalAiDatabasePath || null,
+					hasEternalAiApiKey: !!parsed.eternalAiApiKey,
 				},
 				validation,
 				strategyInfo: StrategyFactory.getStrategyInfo(parsed.mode),

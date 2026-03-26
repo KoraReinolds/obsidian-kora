@@ -28,6 +28,10 @@ export interface ServerConfig {
 	openaiApiKey: string | undefined;
 	embeddingModel: string | undefined;
 	embeddingBaseUrl: string | undefined;
+	eternalAiApiKey: string | undefined;
+	eternalAiBaseUrl: string | undefined;
+	eternalAiModel: string | undefined;
+	eternalAiDatabasePath: string | undefined;
 }
 
 let configState: ServerConfig = {
@@ -47,6 +51,11 @@ let configState: ServerConfig = {
 		process.env.OPENROUTER_BASE_URL ||
 		process.env.OPENAI_BASE_URL ||
 		'https://openrouter.ai/api/v1',
+	eternalAiApiKey: process.env.ETERNAL_AI_API_KEY,
+	eternalAiBaseUrl:
+		process.env.ETERNAL_AI_BASE_URL || 'https://open.eternalai.org/v1',
+	eternalAiModel: process.env.ETERNAL_AI_MODEL || 'uncensored-eternal-ai-1.0',
+	eternalAiDatabasePath: process.env.ETERNAL_AI_DB_PATH,
 	// Initialize with a safe default; actual mode is resolved dynamically in getConfig
 	mode: 'bot',
 };

@@ -26,6 +26,7 @@ import express from 'express';
 import cors from 'cors';
 
 // Route registrars
+import { registerEternalAiRoutes } from './modules/eternal-ai/routes/index.js';
 import { registerPersonalAdminRoutes } from './modules/personal-admin/routes/index.js';
 import { registerPublishRoutes } from './modules/publish/routes/index.js';
 import { registerRuntimeRoutes } from './modules/runtime/routes/index.js';
@@ -65,6 +66,9 @@ registerConfigRoutes(app);
 
 // Vector routes
 registerRuntimeRoutes(app);
+
+// Eternal AI routes
+registerEternalAiRoutes(app);
 
 // Archive routes
 registerPersonalAdminRoutes(app);

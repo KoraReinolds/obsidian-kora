@@ -48,6 +48,14 @@ export interface KoraMcpPluginSettings {
 	};
 	archiveSettings: ArchiveSettings;
 	vectorSettings: VectorSettingsInterface;
+	eternalAiSettings: {
+		enableEternalAi: boolean;
+		apiKey: string;
+		baseUrl: string;
+		model: string;
+		databasePath: string;
+		defaultSystemPrompt: string;
+	};
 	uiPlugins: UIPluginSettings;
 }
 
@@ -131,5 +139,13 @@ export const DEFAULT_SETTINGS: KoraMcpPluginSettings = {
 		recentMessagesLimit: 50,
 	},
 	vectorSettings: defaultVectorSettings,
+	eternalAiSettings: {
+		enableEternalAi: true,
+		apiKey: '',
+		baseUrl: 'https://open.eternalai.org/v1',
+		model: 'uncensored-eternal-ai-1.0',
+		databasePath: 'data/eternal-ai-chat.sqlite',
+		defaultSystemPrompt: '',
+	},
 	uiPlugins: DEFAULT_UI_PLUGIN_SETTINGS,
 };

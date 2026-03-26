@@ -85,6 +85,7 @@ Core UI tokens shared between Obsidian host and Vue core layer.
     --radius-sm: 0.25rem;
     --radius-md: 0.375rem;
     --radius-lg: 0.5rem;
+    --radius-xl: 0.75rem;
     --radius-2xl: 1rem;
     --animate-spin: spin 1s linear infinite;
     --default-transition-duration: 150ms;
@@ -416,6 +417,9 @@ Core UI tokens shared between Obsidian host and Vue core layer.
   .min-h-\[1\.25em\] {
     min-height: 1.25em;
   }
+  .min-h-\[108px\] {
+    min-height: 108px;
+  }
   .\!w-3 {
     width: calc(var(--spacing) * 3) !important;
   }
@@ -479,11 +483,17 @@ Core UI tokens shared between Obsidian host and Vue core layer.
   .basis-0 {
     flex-basis: calc(var(--spacing) * 0);
   }
+  .cursor-default {
+    cursor: default;
+  }
   .cursor-pointer {
     cursor: pointer;
   }
   .resize {
     resize: both;
+  }
+  .resize-y {
+    resize: vertical;
   }
   .appearance-none {
     -webkit-appearance: none;
@@ -498,6 +508,9 @@ Core UI tokens shared between Obsidian host and Vue core layer.
   }
   .flex-col {
     flex-direction: column;
+  }
+  .flex-row-reverse {
+    flex-direction: row-reverse;
   }
   .flex-nowrap {
     flex-wrap: nowrap;
@@ -523,6 +536,12 @@ Core UI tokens shared between Obsidian host and Vue core layer.
   .justify-center {
     justify-content: center;
   }
+  .justify-end {
+    justify-content: flex-end;
+  }
+  .justify-start {
+    justify-content: flex-start;
+  }
   .gap-0 {
     gap: calc(var(--spacing) * 0);
   }
@@ -543,6 +562,15 @@ Core UI tokens shared between Obsidian host and Vue core layer.
   }
   .gap-3 {
     gap: calc(var(--spacing) * 3);
+  }
+  .self-center {
+    align-self: center;
+  }
+  .self-end {
+    align-self: flex-end;
+  }
+  .self-start {
+    align-self: flex-start;
   }
   .truncate {
     overflow: hidden;
@@ -590,6 +618,9 @@ Core UI tokens shared between Obsidian host and Vue core layer.
   }
   .rounded-sm {
     border-radius: var(--radius-sm);
+  }
+  .rounded-xl {
+    border-radius: var(--radius-xl);
   }
   .border {
     border-style: var(--tw-border-style);
@@ -802,6 +833,9 @@ Core UI tokens shared between Obsidian host and Vue core layer.
   }
   .text-left {
     text-align: left;
+  }
+  .text-right {
+    text-align: right;
   }
   .font-mono {
     font-family: var(--font-mono);
@@ -1145,6 +1179,11 @@ Core UI tokens shared between Obsidian host and Vue core layer.
       opacity: 40%;
     }
   }
+  .lg\:grid-cols-\[minmax\(280px\,360px\)_minmax\(0\,1fr\)\] {
+    @media (width >= 64rem) {
+      grid-template-columns: minmax(280px,360px) minmax(0,1fr);
+    }
+  }
   .lg\:grid-cols-\[minmax\(320px\,1fr\)_minmax\(300px\,0\.85fr\)\] {
     @media (width >= 64rem) {
       grid-template-columns: minmax(320px,1fr) minmax(300px,0.85fr);
@@ -1405,19 +1444,19 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 }
 
 /* Vue SFC compiled styles */
-/* sfc-style:C:\Users\Kora\Documents\Obsidian\.obsidian\plugins\obsidian-kora\apps\obsidian-plugin\src\telegram\archive\ui\ArchiveScreen.vue?type=style&index=0 */
-.kora-archive-thread[data-v-d450192f] {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+/* sfc-style:C:\Users\reino\Documents\Obsidian\.obsidian\plugins\obsidian-kora\apps\obsidian-plugin\src\ui-vue\components\ChatTimeline.vue?type=style&index=0 */
+.kora-chat-timeline[data-v-4556b573] {
+	scrollbar-width: thin;
+	scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
 }
-.kora-archive-thread[data-v-d450192f]::-webkit-scrollbar {
-  width: 10px;
+.kora-chat-timeline[data-v-4556b573]::-webkit-scrollbar {
+	width: 10px;
 }
-.kora-archive-thread[data-v-d450192f]::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.14);
+.kora-chat-timeline[data-v-4556b573]::-webkit-scrollbar-thumb {
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.14);
 }
-.kora-archive-thread[data-v-d450192f]::-webkit-scrollbar-track {
-  background: transparent;
+.kora-chat-timeline[data-v-4556b573]::-webkit-scrollbar-track {
+	background: transparent;
 }
-/*# sourceMappingURL=data:application/json;base64,ewogICJ2ZXJzaW9uIjogMywKICAic291cmNlcyI6IFsic2ZjLXN0eWxlOkM6XFxVc2Vyc1xcS29yYVxcRG9jdW1lbnRzXFxPYnNpZGlhblxcLm9ic2lkaWFuXFxwbHVnaW5zXFxvYnNpZGlhbi1rb3JhXFxhcHBzXFxvYnNpZGlhbi1wbHVnaW5cXHNyY1xcdGVsZWdyYW1cXGFyY2hpdmVcXHVpXFxBcmNoaXZlU2NyZWVuLnZ1ZT90eXBlPXN0eWxlJmluZGV4PTAiXSwKICAic291cmNlc0NvbnRlbnQiOiBbIlxuLmtvcmEtYXJjaGl2ZS10aHJlYWRbZGF0YS12LWQ0NTAxOTJmXSB7XG5cdHNjcm9sbGJhci13aWR0aDogdGhpbjtcblx0c2Nyb2xsYmFyLWNvbG9yOiByZ2JhKDI1NSwgMjU1LCAyNTUsIDAuMTgpIHRyYW5zcGFyZW50O1xufVxuLmtvcmEtYXJjaGl2ZS10aHJlYWRbZGF0YS12LWQ0NTAxOTJmXTo6LXdlYmtpdC1zY3JvbGxiYXIge1xuXHR3aWR0aDogMTBweDtcbn1cbi5rb3JhLWFyY2hpdmUtdGhyZWFkW2RhdGEtdi1kNDUwMTkyZl06Oi13ZWJraXQtc2Nyb2xsYmFyLXRodW1iIHtcblx0Ym9yZGVyLXJhZGl1czogOTk5cHg7XG5cdGJhY2tncm91bmQ6IHJnYmEoMjU1LCAyNTUsIDI1NSwgMC4xNCk7XG59XG4ua29yYS1hcmNoaXZlLXRocmVhZFtkYXRhLXYtZDQ1MDE5MmZdOjotd2Via2l0LXNjcm9sbGJhci10cmFjayB7XG5cdGJhY2tncm91bmQ6IHRyYW5zcGFyZW50O1xufVxuIl0sCiAgIm1hcHBpbmdzIjogIjtBQUNBO0FBQ0M7QUFDQTtBQUFBO0FBRUQ7QUFDQztBQUFBO0FBRUQ7QUFDQztBQUNBO0FBQUE7QUFFRDtBQUNDO0FBQUE7IiwKICAibmFtZXMiOiBbXQp9Cg== */
+/*# sourceMappingURL=data:application/json;base64,ewogICJ2ZXJzaW9uIjogMywKICAic291cmNlcyI6IFsic2ZjLXN0eWxlOkM6XFxVc2Vyc1xccmVpbm9cXERvY3VtZW50c1xcT2JzaWRpYW5cXC5vYnNpZGlhblxccGx1Z2luc1xcb2JzaWRpYW4ta29yYVxcYXBwc1xcb2JzaWRpYW4tcGx1Z2luXFxzcmNcXHVpLXZ1ZVxcY29tcG9uZW50c1xcQ2hhdFRpbWVsaW5lLnZ1ZT90eXBlPXN0eWxlJmluZGV4PTAiXSwKICAic291cmNlc0NvbnRlbnQiOiBbIlxuLmtvcmEtY2hhdC10aW1lbGluZVtkYXRhLXYtNDU1NmI1NzNdIHtcblx0c2Nyb2xsYmFyLXdpZHRoOiB0aGluO1xuXHRzY3JvbGxiYXItY29sb3I6IHJnYmEoMjU1LCAyNTUsIDI1NSwgMC4xOCkgdHJhbnNwYXJlbnQ7XG59XG4ua29yYS1jaGF0LXRpbWVsaW5lW2RhdGEtdi00NTU2YjU3M106Oi13ZWJraXQtc2Nyb2xsYmFyIHtcblx0d2lkdGg6IDEwcHg7XG59XG4ua29yYS1jaGF0LXRpbWVsaW5lW2RhdGEtdi00NTU2YjU3M106Oi13ZWJraXQtc2Nyb2xsYmFyLXRodW1iIHtcblx0Ym9yZGVyLXJhZGl1czogOTk5cHg7XG5cdGJhY2tncm91bmQ6IHJnYmEoMjU1LCAyNTUsIDI1NSwgMC4xNCk7XG59XG4ua29yYS1jaGF0LXRpbWVsaW5lW2RhdGEtdi00NTU2YjU3M106Oi13ZWJraXQtc2Nyb2xsYmFyLXRyYWNrIHtcblx0YmFja2dyb3VuZDogdHJhbnNwYXJlbnQ7XG59XG4iXSwKICAibWFwcGluZ3MiOiAiO0FBQ0E7QUFDQztBQUNBO0FBQUE7QUFFRDtBQUNDO0FBQUE7QUFFRDtBQUNDO0FBQ0E7QUFBQTtBQUVEO0FBQ0M7QUFBQTsiLAogICJuYW1lcyI6IFtdCn0K */

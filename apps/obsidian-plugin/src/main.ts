@@ -6,6 +6,8 @@ import {
 	SemanticInspectorView,
 	ARCHIVE_VIEW_TYPE,
 	ArchiveView,
+	ETERNAL_AI_VIEW_TYPE,
+	EternalAiView,
 } from './views';
 import { ArchiveBridge, GramJSBridge } from './telegram';
 import { VectorBridge } from './vector';
@@ -18,6 +20,7 @@ import {
 } from './plugin-settings';
 import {
 	ArchiveSettingTab,
+	EternalAiSettingTab,
 	McpServerSettingTab,
 	TelegramSettingTab,
 	UIPluginSettingsTab,
@@ -46,6 +49,7 @@ export default class KoraPlugin extends Plugin {
 		this.addSettingTab(new TelegramSettingTab(this.app, this));
 		this.addSettingTab(new ArchiveSettingTab(this.app, this));
 		this.addSettingTab(new VectorSettingTab(this.app, this));
+		this.addSettingTab(new EternalAiSettingTab(this.app, this));
 
 		this.uiPluginManager = new UIPluginManager(
 			this.app,
@@ -108,6 +112,10 @@ export default class KoraPlugin extends Plugin {
 			ARCHIVE_VIEW_TYPE,
 			leaf => new ArchiveView(leaf, this, this.archiveBridge, this.vectorBridge)
 		);
+		this.registerView(
+			ETERNAL_AI_VIEW_TYPE,
+			leaf => new EternalAiView(leaf, this)
+		);
 		this.addRibbonIcon('git-branch', 'Open Related Chunks', () => {
 			this.activateRelatedChunksView();
 		});
@@ -117,6 +125,11 @@ export default class KoraPlugin extends Plugin {
 		this.addRibbonIcon('database', 'Открыть архив Telegram', () => {
 			this.activateArchiveView();
 		});
+		if (this.settings.eternalAiSettings.enableEternalAi) {
+			this.addRibbonIcon('sparkles', 'Открыть Eternal AI', () => {
+				this.activateEternalAiView();
+			});
+		}
 		this.pluginCommands.getCommands().forEach(command => {
 			this.addCommand(command);
 		});
@@ -205,6 +218,10 @@ export default class KoraPlugin extends Plugin {
 			data.archiveSettings = DEFAULT_SETTINGS.archiveSettings;
 		}
 
+		if (!data.eternalAiSettings) {
+			data.eternalAiSettings = DEFAULT_SETTINGS.eternalAiSettings;
+		}
+
 		if (
 			data.archiveSettings.defaultDesktopExportPath === undefined &&
 			typeof data.archiveSettings.defaultPeer === 'string'
@@ -225,6 +242,11 @@ export default class KoraPlugin extends Plugin {
 				{},
 				DEFAULT_SETTINGS.vectorSettings,
 				data.vectorSettings
+			),
+			eternalAiSettings: Object.assign(
+				{},
+				DEFAULT_SETTINGS.eternalAiSettings,
+				data.eternalAiSettings
 			),
 			uiPlugins: Object.assign({}, DEFAULT_SETTINGS.uiPlugins, data.uiPlugins),
 		});
@@ -259,6 +281,10 @@ export default class KoraPlugin extends Plugin {
 			openaiApiKey: this.settings.vectorSettings.openaiApiKey,
 			embeddingModel: this.settings.vectorSettings.embeddingModel,
 			embeddingBaseUrl: this.settings.vectorSettings.embeddingBaseUrl,
+			eternalAiApiKey: this.settings.eternalAiSettings.apiKey,
+			eternalAiBaseUrl: this.settings.eternalAiSettings.baseUrl,
+			eternalAiModel: this.settings.eternalAiSettings.model,
+			eternalAiDatabasePath: this.settings.eternalAiSettings.databasePath,
 		};
 
 		try {
@@ -337,6 +363,13 @@ export default class KoraPlugin extends Plugin {
 		const leaf = this.app.workspace.getRightLeaf(false);
 		if (!leaf) return;
 		await leaf.setViewState({ type: ARCHIVE_VIEW_TYPE, active: true });
+		this.app.workspace.revealLeaf(leaf);
+	}
+
+	async activateEternalAiView() {
+		const leaf = this.app.workspace.getRightLeaf(false);
+		if (!leaf) return;
+		await leaf.setViewState({ type: ETERNAL_AI_VIEW_TYPE, active: true });
 		this.app.workspace.revealLeaf(leaf);
 	}
 }
