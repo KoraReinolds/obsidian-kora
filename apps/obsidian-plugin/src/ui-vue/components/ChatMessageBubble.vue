@@ -4,7 +4,10 @@
  * Компонент не знает ничего о Telegram archive или Eternal AI и опирается только
  * на нормализованный `ChatTimelineItem`.
  */
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import type { ChatTimelineItem } from '../types';
+import AttachmentPreviewThumb from './AttachmentPreviewThumb.vue';
+import UiHostIcon from './UiHostIcon.vue';
 
 const props = withDefaults(
 	defineProps<{
@@ -18,6 +21,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{
 	(event: 'jump', targetId: string): void;
+	(event: 'delete', messageId: string): void;
 }>();
 
 const isEndAligned = props.item.align === 'end';
@@ -39,6 +43,80 @@ const handleReplyClick = (): void => {
 
 	emit('jump', props.item.replyPreview.targetId);
 };
+
+const lightboxSrc = ref<string | null>(null);
+
+const openLightbox = (src?: string | null): void => {
+	if (!src) {
+		return;
+	}
+	lightboxSrc.value = src;
+};
+
+const closeLightbox = (): void => {
+	lightboxSrc.value = null;
+};
+
+const inlineAttachment = computed(() => {
+	const attachments = props.item.attachments || [];
+	if (!props.item.text || attachments.length !== 1) {
+		return null;
+	}
+	const [attachment] = attachments;
+	if (!attachment?.isImage || !attachment.previewSrc) {
+		return null;
+	}
+	return attachment;
+});
+
+const attachmentList = computed(() => {
+	const attachments = props.item.attachments || [];
+	if (!inlineAttachment.value) {
+		return attachments;
+	}
+	return attachments.filter(
+		attachment => attachment.id !== inlineAttachment.value?.id
+	);
+});
+
+const copyMessage = async (): Promise<void> => {
+	const lines: string[] = [];
+	if (props.item.text) {
+		lines.push(props.item.text);
+	}
+	for (const attachment of props.item.attachments || []) {
+		if (attachment.previewSrc) {
+			lines.push(attachment.previewSrc);
+		}
+	}
+	const payload = lines.join('\n').trim();
+	if (!payload) {
+		return;
+	}
+	try {
+		await navigator.clipboard.writeText(payload);
+	} catch {
+		// noop: Clipboard may be unavailable in some hosts.
+	}
+};
+
+const deleteMessage = (): void => {
+	emit('delete', props.item.id);
+};
+
+const handleEscape = (event: KeyboardEvent): void => {
+	if (event.key === 'Escape' && lightboxSrc.value) {
+		closeLightbox();
+	}
+};
+
+onMounted(() => {
+	window.addEventListener('keydown', handleEscape);
+});
+
+onBeforeUnmount(() => {
+	window.removeEventListener('keydown', handleEscape);
+});
 </script>
 
 <template>
@@ -113,30 +191,66 @@ const handleReplyClick = (): void => {
 				{{ item.forwardedLabel }}
 			</div>
 
-			<div v-if="item.text" class="whitespace-pre-wrap text-sm leading-6">
+			<div
+				v-if="item.text && inlineAttachment"
+				class="mt-2 flex items-start gap-3"
+			>
+				<AttachmentPreviewThumb
+					:src="inlineAttachment.previewSrc"
+					:is-image="true"
+					:zoomable="true"
+					@open="openLightbox"
+				/>
+				<div class="min-w-0 flex-1">
+					<div class="whitespace-pre-wrap text-sm leading-6">
+						{{ item.text }}
+					</div>
+					<div class="mt-1 line-clamp-2 text-xs text-[var(--text-muted)]">
+						{{ inlineAttachment.name }} · {{ inlineAttachment.kind }}
+						<span v-if="inlineAttachment.mimeType">
+							· {{ inlineAttachment.mimeType }}
+						</span>
+					</div>
+				</div>
+			</div>
+
+			<div v-else-if="item.text" class="whitespace-pre-wrap text-sm leading-6">
 				{{ item.text }}
 			</div>
 
 			<div
-				v-for="attachment in item.attachments || []"
+				v-for="attachment in attachmentList"
 				:key="attachment.id"
 				class="mt-2 overflow-hidden rounded-2xl border border-solid bg-[rgba(255,255,255,0.03)]"
 				:style="{ borderColor: 'rgba(255, 255, 255, 0.08)' }"
 			>
-				<img
-					v-if="attachment.isImage && attachment.previewSrc"
-					:src="attachment.previewSrc || undefined"
-					alt=""
-					class="block max-h-72 w-full object-cover"
-				/>
-				<video
-					v-else-if="attachment.isVideo && attachment.previewSrc"
-					:src="attachment.previewSrc || undefined"
-					class="block max-h-72 w-full object-cover"
-					controls
-					playsinline
-				/>
-				<div class="p-3">
+				<div v-if="attachment.previewSrc" class="flex items-start gap-3 p-3">
+					<AttachmentPreviewThumb
+						:src="attachment.previewSrc"
+						:is-image="attachment.isImage"
+						:is-video="attachment.isVideo"
+						:zoomable="attachment.isImage"
+						@open="openLightbox"
+					/>
+					<div class="min-w-0 flex-1">
+						<div class="truncate text-sm font-medium">
+							{{ attachment.name }}
+						</div>
+						<div class="mt-1 line-clamp-2 text-xs text-[var(--text-muted)]">
+							{{ attachment.kind }}
+							<span v-if="attachment.size">
+								· {{ attachment.size }} bytes
+							</span>
+							<span v-if="attachment.mimeType">
+								· {{ attachment.mimeType }}
+							</span>
+							<span v-if="attachment.description">
+								· {{ attachment.description }}
+							</span>
+						</div>
+					</div>
+				</div>
+				<div v-else class="p-3">
 					<div class="text-sm font-medium">
 						{{ attachment.name }}
 					</div>
@@ -184,6 +298,57 @@ const handleReplyClick = (): void => {
 					{{ badge }}
 				</div>
 			</div>
+
+			<div class="mt-2 flex items-center justify-end gap-2">
+				<button
+					type="button"
+					class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-solid border-[rgba(255,255,255,0.12)] text-[var(--text-muted)] transition-colors hover:text-[var(--text-normal)]"
+					title="Скопировать"
+					aria-label="Скопировать"
+					@click="copyMessage"
+				>
+					<UiHostIcon
+						name="copy"
+						label="Скопировать"
+						icon-class="h-3.5 w-3.5 [&>svg]:h-3.5 [&>svg]:w-3.5"
+					/>
+				</button>
+				<button
+					type="button"
+					class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-solid border-[rgba(255,255,255,0.12)] text-[var(--text-muted)] transition-colors hover:text-[var(--text-error)]"
+					title="Удалить"
+					aria-label="Удалить"
+					@click="deleteMessage"
+				>
+					<UiHostIcon
+						name="trash-2"
+						label="Удалить"
+						icon-class="h-3.5 w-3.5 [&>svg]:h-3.5 [&>svg]:w-3.5"
+					/>
+				</button>
+			</div>
 		</div>
 	</div>
+
+	<Teleport to="body">
+		<div
+			v-if="lightboxSrc"
+			class="fixed inset-0 z-[99999] flex h-screen w-screen items-center justify-center bg-black/85 p-4"
+			@click="closeLightbox"
+		>
+			<button
+				type="button"
+				class="absolute right-4 top-4 rounded-full border border-solid border-white/25 bg-black/30 px-3 py-1 text-sm text-white"
+				@click.stop="closeLightbox"
+			>
+				Close
+			</button>
+			<img
+				:src="lightboxSrc"
+				alt=""
+				class="max-h-[96vh] max-w-[96vw] object-contain"
+				@click.stop
+			/>
+		</div>
+	</Teleport>
 </template>

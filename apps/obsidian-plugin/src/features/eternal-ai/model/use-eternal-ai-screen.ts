@@ -82,6 +82,7 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 	const isLoadingMessages = ref(false);
 	const isSending = ref(false);
 	const isDeletingConversationId = ref<string | null>(null);
+	const isDeletingMessageId = ref<string | null>(null);
 
 	const leftTab = ref<'chats' | 'effects' | 'custom'>('chats');
 	const creativeEffects = ref<EternalAiCreativeEffectItem[]>([]);
@@ -337,6 +338,31 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 		}
 	};
 
+	const handleDeleteMessage = async (messageId: string): Promise<void> => {
+		const conversationId = selectedConversationId.value;
+		if (!conversationId) {
+			return;
+		}
+
+		const confirmed = window.confirm('Удалить это сообщение из локальной БД?');
+		if (!confirmed) {
+			return;
+		}
+
+		isDeletingMessageId.value = messageId;
+		try {
+			await options.transport.deleteMessage(conversationId, messageId);
+			await refreshData(conversationId);
+		} catch (error) {
+			screen.setMessage(
+				'error',
+				`Не удалось удалить сообщение: ${(error as Error).message}`
+			);
+		} finally {
+			isDeletingMessageId.value = null;
+		}
+	};
+
 	const selectEffect = (effectId: string): void => {
 		selectedEffectId.value = effectId;
 	};
@@ -534,6 +560,7 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 		isLoadingMessages,
 		isSending,
 		isDeletingConversationId,
+		isDeletingMessageId,
 		screenMessage: screen.message,
 		timelineItems,
 		systemPromptSummary,
@@ -542,6 +569,7 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 		startNewConversation,
 		sendCurrentDraft,
 		handleDeleteConversation,
+		handleDeleteMessage,
 		leftTab,
 		creativeEffects,
 		effectsQuery,

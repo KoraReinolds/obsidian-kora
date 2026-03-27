@@ -265,6 +265,18 @@ export class EternalAiRepository {
 		return result.changes > 0;
 	}
 
+	deleteMessage(conversationId: string, messageId: string): boolean {
+		const result = this.db
+			.prepare(
+				`
+					DELETE FROM eternal_ai_messages
+					WHERE id = ? AND conversation_id = ?
+				`
+			)
+			.run(messageId, conversationId);
+		return result.changes > 0;
+	}
+
 	insertEffectJob(input: {
 		requestId: string;
 		conversationId: string;

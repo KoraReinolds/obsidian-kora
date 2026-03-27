@@ -1,11 +1,16 @@
 <script setup lang="ts">
+import { onBeforeUnmount, onMounted, ref } from 'vue';
 import {
 	AppShell,
+	AttachmentPreviewThumb,
 	ChatTimeline,
 	DetailsPane,
 	EmptyState,
 	EntityListPane,
 	IconButton,
+	LoadingState,
+	MessageCard,
+	SectionHeader,
 	StatusBanner,
 	SummaryChip,
 	Toolbar,
@@ -33,6 +38,7 @@ const {
 	isLoadingMessages,
 	isSending,
 	isDeletingConversationId,
+	isDeletingMessageId,
 	screenMessage,
 	timelineItems,
 	systemPromptSummary,
@@ -41,6 +47,7 @@ const {
 	startNewConversation,
 	sendCurrentDraft,
 	handleDeleteConversation,
+	handleDeleteMessage,
 	leftTab,
 	effectsQuery,
 	selectedEffectId,
@@ -60,6 +67,25 @@ const {
 	runCustomGeneration,
 } = model;
 
+const lightboxSrc = ref<string | null>(null);
+
+const openLightbox = (src?: string | null): void => {
+	if (!src) {
+		return;
+	}
+	lightboxSrc.value = src;
+};
+
+const closeLightbox = (): void => {
+	lightboxSrc.value = null;
+};
+
+const handleEscape = (event: KeyboardEvent): void => {
+	if (event.key === 'Escape' && lightboxSrc.value) {
+		closeLightbox();
+	}
+};
+
 const handleDraftKeydown = async (event: KeyboardEvent): Promise<void> => {
 	if (event.key !== 'Enter' || event.shiftKey) {
 		return;
@@ -68,6 +94,14 @@ const handleDraftKeydown = async (event: KeyboardEvent): Promise<void> => {
 	event.preventDefault();
 	await sendCurrentDraft();
 };
+
+onMounted(() => {
+	window.addEventListener('keydown', handleEscape);
+});
+
+onBeforeUnmount(() => {
+	window.removeEventListener('keydown', handleEscape);
+});
 
 void refreshData();
 </script>
@@ -117,7 +151,7 @@ void refreshData();
 		<div
 			class="grid h-full min-h-0 flex-1 grid-cols-1 items-stretch gap-3 overflow-hidden lg:grid-cols-[minmax(280px,360px)_minmax(0,1fr)]"
 		>
-			<EntityListPane class="min-h-0">
+			<EntityListPane class="min-h-0" :scroll="true">
 				<div
 					class="mb-3 flex shrink-0 gap-1 rounded-2xl border border-solid border-[var(--background-modifier-border)] p-1"
 				>
@@ -177,9 +211,7 @@ void refreshData();
 						</div>
 					</div>
 
-					<div
-						class="mt-1 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1"
-					>
+					<div class="mt-1 flex min-h-0 flex-1 flex-col gap-2 pr-1">
 						<EmptyState
 							v-if="conversations.length === 0"
 							text="Локальная история пуста. Начните новый чат справа."
@@ -226,79 +258,87 @@ void refreshData();
 
 				<div v-else class="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
 					<div v-if="leftTab === 'effects'" class="contents">
-						<div class="shrink-0">
-							<div
-								class="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]"
-							>
-								Creative / Easy Effect
-							</div>
-							<div class="mt-2 text-xs text-[var(--text-muted)]">
-								Каталог проксируется через Kora server (без AES-полей). Выберите
-								эффект и исходный кадр справа.
-							</div>
+						<div
+							class="shrink-0 rounded-2xl border border-solid border-[var(--background-modifier-border)] p-2.5"
+						>
+							<SectionHeader
+								title="Creative / Easy Effect"
+								subtitle="Каталог проксируется через Kora server (без AES-полей). Выберите эффект и исходный кадр справа."
+							/>
 							<input
 								v-model="effectsQuery"
 								type="search"
-								class="mt-3 w-full rounded-xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-secondary)] px-3 py-2 text-sm text-[var(--text-normal)] outline-none"
+								class="mt-2.5 w-full rounded-xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-secondary)] px-3 py-2 text-sm text-[var(--text-normal)] outline-none"
 								placeholder="Поиск по названию…"
 							/>
 						</div>
 
-						<div
-							class="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1"
-						>
+						<div class="min-h-0 flex-1 pr-1">
 							<EmptyState
 								v-if="!isLoadingEffects && filteredEffects.length === 0"
 								text="Эффекты не найдены. Смените фильтр или обновите экран."
 							/>
-							<div
-								v-if="isLoadingEffects"
-								class="text-xs text-[var(--text-muted)]"
-							>
-								Загрузка каталога…
+							<LoadingState v-if="isLoadingEffects" text="Загрузка каталога…" />
+							<div v-else class="grid grid-cols-1 gap-2 pb-1 md:grid-cols-2">
+								<MessageCard
+									v-for="effect in filteredEffects"
+									:key="effect.effect_id"
+									:title="effect.tag"
+									:subtitle="`ID: ${effect.effect_id}`"
+									:selected="selectedEffectId === effect.effect_id"
+									:clickable="true"
+									:compact="true"
+									class="overflow-hidden"
+									@click="selectEffect(effect.effect_id)"
+								>
+									<template #meta>
+										<div class="flex flex-wrap items-center gap-1">
+											<SummaryChip :text="effect.effect_type" />
+											<SummaryChip :text="`Цена: ${effect.price}`" />
+											<SummaryChip
+												v-if="effect.duration"
+												:text="`${effect.duration}s`"
+											/>
+										</div>
+									</template>
+									<template #body>
+										<div
+											class="relative overflow-hidden rounded-xl bg-black/20"
+										>
+											<video
+												v-if="
+													effect.effect_type === 'video' &&
+													effect.sampleOutputURL
+												"
+												:src="effect.sampleOutputURL"
+												class="h-32 w-full object-cover"
+												muted
+												playsinline
+												loop
+												preload="metadata"
+											/>
+											<img
+												v-else-if="effect.sampleOutputURL"
+												:src="effect.sampleOutputURL"
+												alt=""
+												class="h-32 w-full object-cover"
+												loading="lazy"
+											/>
+											<div
+												v-else
+												class="flex h-32 w-full items-center justify-center text-xs text-[var(--text-muted)]"
+											>
+												Нет превью
+											</div>
+											<div
+												class="absolute left-2 top-2 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-semibold uppercase text-white"
+											>
+												<span v-text="effect.effect_type" />
+											</div>
+										</div>
+									</template>
+								</MessageCard>
 							</div>
-							<button
-								v-for="effect in filteredEffects"
-								:key="effect.effect_id"
-								type="button"
-								class="flex w-full flex-col gap-2 rounded-2xl border border-solid px-2 py-2 text-left shadow-sm transition-[border-color,box-shadow] hover:border-[var(--interactive-accent-hover)] hover:shadow"
-								:class="
-									selectedEffectId === effect.effect_id
-										? 'border-[var(--interactive-accent)] bg-[var(--background-modifier-hover)] ring-1 ring-[var(--interactive-accent)]/25'
-										: 'border-[var(--background-modifier-border)] bg-[var(--background-primary)]'
-								"
-								@click="selectEffect(effect.effect_id)"
-							>
-								<div class="relative overflow-hidden rounded-xl bg-black/20">
-									<img
-										v-if="effect.sampleOutputURL"
-										:src="effect.sampleOutputURL"
-										alt=""
-										class="h-28 w-full object-cover"
-										:class="effect.is_blurred ? 'blur-md scale-105' : ''"
-										loading="lazy"
-									/>
-									<div
-										class="absolute left-2 top-2 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-semibold uppercase text-white"
-									>
-										<span v-text="effect.effect_type" />
-									</div>
-								</div>
-								<div class="px-1">
-									<div class="line-clamp-2 text-sm font-semibold">
-										<span v-text="effect.tag" />
-									</div>
-									<div
-										class="mt-1 flex flex-wrap gap-2 text-[11px] text-[var(--text-muted)]"
-									>
-										<span v-text="`Цена: ${effect.price}`" />
-										<span
-											v-if="effect.duration"
-											v-text="`· ${effect.duration}s`"
-										/>
-									</div>
-								</div>
-							</button>
 						</div>
 					</div>
 					<div
@@ -421,64 +461,69 @@ void refreshData();
 							изображение и запустите генерацию. Результат появится в ленте
 							ниже.
 						</div>
-						<div
-							v-if="selectedEffect"
-							class="mt-3 flex flex-wrap items-center gap-2"
-						>
-							<SummaryChip
-								:text="`Эффект: ${selectedEffect.tag} (${selectedEffect.effect_type})`"
+						<div class="mt-3 flex items-start gap-3">
+							<AttachmentPreviewThumb
+								:src="effectSourceDataUrl"
+								:is-image="true"
+								:zoomable="true"
+								@open="openLightbox"
 							/>
-							<SummaryChip :text="`ID: ${selectedEffect.effect_id}`" />
-						</div>
-						<div class="mt-3 flex flex-wrap items-center gap-3">
-							<label
-								class="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-secondary)] px-3 py-2 text-xs font-semibold text-[var(--text-normal)]"
-							>
-								<input
-									class="hidden"
-									type="file"
-									accept="image/png,image/jpeg,image/webp"
-									@change="
-										event =>
-											setEffectSourceFromFileList(
-												(event.target as HTMLInputElement).files
-											)
-									"
-								/>
-								Исходное изображение
-							</label>
-							<div class="text-xs text-[var(--text-muted)]">
-								<span v-if="effectSourceDataUrl" v-text="'Файл загружен'" />
-								<span v-else v-text="'Файл не выбран'" />
+							<div class="min-w-0 flex-1">
+								<div
+									v-if="selectedEffect"
+									class="flex flex-wrap items-center gap-2"
+								>
+									<SummaryChip
+										:text="`Эффект: ${selectedEffect.tag} (${selectedEffect.effect_type})`"
+									/>
+									<SummaryChip :text="`ID: ${selectedEffect.effect_id}`" />
+								</div>
+								<div class="mt-3 flex flex-wrap items-center gap-3">
+									<label
+										class="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-secondary)] px-3 py-2 text-xs font-semibold text-[var(--text-normal)]"
+									>
+										<input
+											class="hidden"
+											type="file"
+											accept="image/png,image/jpeg,image/webp"
+											@change="
+												event =>
+													setEffectSourceFromFileList(
+														(event.target as HTMLInputElement).files
+													)
+											"
+										/>
+										Исходное изображение
+									</label>
+									<div class="text-xs text-[var(--text-muted)]">
+										<span v-if="effectSourceDataUrl" v-text="'Файл загружен'" />
+										<span v-else v-text="'Файл не выбран'" />
+									</div>
+									<IconButton
+										size="sm"
+										variant="accent"
+										icon="wand-2"
+										label="Запустить визуальный эффект"
+										title="Запустить эффект"
+										:disabled="
+											isCreativeRunning ||
+											!selectedEffect ||
+											!effectSourceDataUrl ||
+											health?.status !== 'healthy'
+										"
+										:loading="isCreativeRunning"
+										@click="runCreativeEffect"
+									/>
+								</div>
 							</div>
-							<IconButton
-								size="sm"
-								variant="accent"
-								icon="wand-2"
-								label="Запустить визуальный эффект"
-								title="Запустить эффект"
-								:disabled="
-									isCreativeRunning ||
-									!selectedEffect ||
-									!effectSourceDataUrl ||
-									health?.status !== 'healthy'
-								"
-								:loading="isCreativeRunning"
-								@click="runCreativeEffect"
-							/>
 						</div>
-						<img
-							v-if="effectSourceDataUrl"
-							:src="effectSourceDataUrl"
-							alt=""
-							class="mt-3 max-h-40 w-full rounded-xl object-contain"
-						/>
 					</div>
 
 					<ChatTimeline
 						:items="timelineItems"
 						:loading="isLoadingMessages"
 						empty-text="История ещё не началась. Отправьте первое сообщение."
+						@delete="handleDeleteMessage"
 					/>
 
 					<div
@@ -501,7 +546,9 @@ void refreshData();
 								icon="send"
 								label="Отправить сообщение Eternal AI"
 								title="Отправить"
-								:disabled="isSending || !draft.trim()"
+								:disabled="
+									isSending || Boolean(isDeletingMessageId) || !draft.trim()
+								"
 								:loading="isSending"
 								@click="sendCurrentDraft"
 							/>
@@ -511,4 +558,26 @@ void refreshData();
 			</DetailsPane>
 		</div>
 	</AppShell>
+
+	<Teleport to="body">
+		<div
+			v-if="lightboxSrc"
+			class="fixed inset-0 z-[99999] flex h-screen w-screen items-center justify-center bg-black/85 p-4"
+			@click="closeLightbox"
+		>
+			<button
+				type="button"
+				class="absolute right-4 top-4 rounded-full border border-solid border-white/25 bg-black/30 px-3 py-1 text-sm text-white"
+				@click.stop="closeLightbox"
+			>
+				Close
+			</button>
+			<img
+				:src="lightboxSrc"
+				alt=""
+				class="max-h-[96vh] max-w-[96vw] object-contain"
+				@click.stop
+			/>
+		</div>
+	</Teleport>
 </template>

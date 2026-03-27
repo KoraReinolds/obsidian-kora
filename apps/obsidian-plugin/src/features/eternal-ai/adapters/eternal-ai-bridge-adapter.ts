@@ -13,6 +13,8 @@ export function createEternalAiBridgeAdapter(
 		getHealth: () => bridge.getHealth(),
 		listConversations: () => bridge.listConversations(),
 		listMessages: conversationId => bridge.listMessages(conversationId),
+		deleteMessage: (conversationId, messageId) =>
+			bridge.deleteMessage(conversationId, messageId),
 		sendMessage: request => bridge.sendMessage(request),
 		deleteConversation: conversationId =>
 			bridge.deleteConversation(conversationId),

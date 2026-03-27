@@ -25,6 +25,7 @@ withDefaults(
 
 const emit = defineEmits<{
 	(event: 'jump', targetId: string): void;
+	(event: 'delete', messageId: string): void;
 }>();
 </script>
 
@@ -46,6 +47,7 @@ const emit = defineEmits<{
 					:item="item"
 					:highlighted="highlightedItemId === item.id"
 					@jump="emit('jump', $event)"
+					@delete="emit('delete', $event)"
 				/>
 			</div>
 		</div>

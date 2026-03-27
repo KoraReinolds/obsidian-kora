@@ -55,6 +55,24 @@ export function registerEternalAiRoutes(app: Express): void {
 	);
 
 	app.delete(
+		'/eternal_ai/conversations/:conversationId/messages/:messageId',
+		(req: Request, res: Response) => {
+			try {
+				const service = getEternalAiService();
+				res.json({
+					success: true,
+					deleted: service.deleteMessage(
+						req.params.conversationId,
+						req.params.messageId
+					),
+				});
+			} catch (error: any) {
+				res.status(500).json({ success: false, error: error.message });
+			}
+		}
+	);
+
+	app.delete(
 		'/eternal_ai/conversations/:conversationId',
 		(req: Request, res: Response) => {
 			try {

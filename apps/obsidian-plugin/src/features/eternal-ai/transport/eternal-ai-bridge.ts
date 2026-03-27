@@ -109,6 +109,23 @@ export class EternalAiBridge extends BaseHttpClient {
 		return response.messages || [];
 	}
 
+	async deleteMessage(
+		conversationId: string,
+		messageId: string
+	): Promise<{ deleted: boolean }> {
+		const response = await this.handleRequest<EternalAiDeleteResponse>(
+			`/eternal_ai/conversations/${encodeURIComponent(conversationId)}/messages/${encodeURIComponent(messageId)}`,
+			{ method: 'DELETE' },
+			'Ошибка удаления Eternal AI сообщения'
+		);
+
+		if (!response?.success) {
+			throw new Error(response?.error || 'Не удалось удалить сообщение');
+		}
+
+		return { deleted: response.deleted === true };
+	}
+
 	async sendMessage(
 		request: SendEternalAiMessageRequest
 	): Promise<SendEternalAiMessageResponse> {

@@ -10,6 +10,7 @@ export { default as SummaryChip } from './SummaryChip.vue';
 export { default as MessageCard } from './MessageCard.vue';
 export { default as ChatTimeline } from './ChatTimeline.vue';
 export { default as ChatMessageBubble } from './ChatMessageBubble.vue';
+export { default as AttachmentPreviewThumb } from './AttachmentPreviewThumb.vue';
 export { default as EmptyState } from './EmptyState.vue';
 export { default as LoadingState } from './LoadingState.vue';
 export { default as UiHostIcon } from './UiHostIcon.vue';

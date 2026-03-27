@@ -21,6 +21,10 @@ export interface EternalAiTransportPort {
 	getHealth(): Promise<EternalAiHealthResponse>;
 	listConversations(): Promise<EternalAiConversationSummary[]>;
 	listMessages(conversationId: string): Promise<EternalAiMessageRecord[]>;
+	deleteMessage(
+		conversationId: string,
+		messageId: string
+	): Promise<{ deleted: boolean }>;
 	sendMessage(
 		request: SendEternalAiMessageRequest
 	): Promise<SendEternalAiMessageResponse>;

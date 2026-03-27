@@ -67,6 +67,28 @@ export class EternalAiService {
 		return this.repository.deleteConversation(conversationId);
 	}
 
+	deleteMessage(conversationId: string, messageId: string): boolean {
+		const deleted = this.repository.deleteMessage(conversationId, messageId);
+		if (!deleted) {
+			return false;
+		}
+
+		const remainingMessages = this.repository.listMessages(conversationId);
+		const lastMessage = remainingMessages.at(-1) || null;
+		const updatedAt = new Date().toISOString();
+
+		this.repository.updateConversationMetadata({
+			conversationId,
+			lastMessagePreview: lastMessage
+				? this.buildPreview(lastMessage.contentText)
+				: null,
+			lastMessageAt: lastMessage?.createdAt || null,
+			updatedAt,
+		});
+
+		return true;
+	}
+
 	getHealth(): EternalAiHealthResponse {
 		const config = this.getConfig();
 		const hasApiKey = Boolean(config.eternalAiApiKey);
