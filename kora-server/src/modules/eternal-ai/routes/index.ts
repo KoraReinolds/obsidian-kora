@@ -81,4 +81,65 @@ export function registerEternalAiRoutes(app: Express): void {
 			res.status(500).json({ success: false, error: error.message });
 		}
 	});
+
+	app.get(
+		'/eternal_ai/creative-effects',
+		async (_req: Request, res: Response) => {
+			try {
+				const service = getEternalAiService();
+				const effects = await service.listCreativeEffects();
+				res.json({ success: true, effects });
+			} catch (error: any) {
+				res.status(500).json({ success: false, error: error.message });
+			}
+		}
+	);
+
+	app.post(
+		'/eternal_ai/creative/generate',
+		async (req: Request, res: Response) => {
+			try {
+				const service = getEternalAiService();
+				const result = await service.startCreativeEffect(req.body || {});
+				res.json({
+					success: true,
+					...result,
+				});
+			} catch (error: any) {
+				res.status(500).json({ success: false, error: error.message });
+			}
+		}
+	);
+
+	app.post(
+		'/eternal_ai/custom/generate',
+		async (req: Request, res: Response) => {
+			try {
+				const service = getEternalAiService();
+				const result = await service.startCustomGeneration(req.body || {});
+				res.json({
+					success: true,
+					...result,
+				});
+			} catch (error: any) {
+				res.status(500).json({ success: false, error: error.message });
+			}
+		}
+	);
+
+	app.get(
+		'/eternal_ai/creative/poll/:requestId',
+		async (req: Request, res: Response) => {
+			try {
+				const service = getEternalAiService();
+				const result = await service.pollCreativeEffect(req.params.requestId);
+				res.json({
+					success: true,
+					poll: result,
+				});
+			} catch (error: any) {
+				res.status(500).json({ success: false, error: error.message });
+			}
+		}
+	);
 }

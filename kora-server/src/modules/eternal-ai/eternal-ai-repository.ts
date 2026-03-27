@@ -265,6 +265,131 @@ export class EternalAiRepository {
 		return result.changes > 0;
 	}
 
+	insertEffectJob(input: {
+		requestId: string;
+		conversationId: string;
+		userMessageId: string;
+		effectId: string;
+		effectTag: string | null;
+		status: string;
+		createdAt: string;
+		updatedAt: string;
+	}): void {
+		this.db
+			.prepare(
+				`
+					INSERT INTO eternal_ai_effect_jobs (
+						request_id,
+						conversation_id,
+						user_message_id,
+						effect_id,
+						effect_tag,
+						status,
+						result_url,
+						error_text,
+						assistant_message_id,
+						created_at,
+						updated_at
+					) VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?, ?)
+				`
+			)
+			.run(
+				input.requestId,
+				input.conversationId,
+				input.userMessageId,
+				input.effectId,
+				input.effectTag,
+				input.status,
+				input.createdAt,
+				input.updatedAt
+			);
+	}
+
+	getEffectJob(requestId: string): {
+		request_id: string;
+		conversation_id: string;
+		user_message_id: string;
+		effect_id: string;
+		effect_tag: string | null;
+		status: string;
+		result_url: string | null;
+		error_text: string | null;
+		assistant_message_id: string | null;
+	} | null {
+		const row = this.db
+			.prepare(
+				`
+					SELECT
+						request_id,
+						conversation_id,
+						user_message_id,
+						effect_id,
+						effect_tag,
+						status,
+						result_url,
+						error_text,
+						assistant_message_id
+					FROM eternal_ai_effect_jobs
+					WHERE request_id = ?
+				`
+			)
+			.get(requestId) as
+			| {
+					request_id: string;
+					conversation_id: string;
+					user_message_id: string;
+					effect_id: string;
+					effect_tag: string | null;
+					status: string;
+					result_url: string | null;
+					error_text: string | null;
+					assistant_message_id: string | null;
+			  }
+			| undefined;
+
+		return row || null;
+	}
+
+	updateEffectJob(
+		requestId: string,
+		patch: {
+			status?: string;
+			result_url?: string | null;
+			error_text?: string | null;
+			assistant_message_id?: string | null;
+			updatedAt: string;
+		}
+	): void {
+		const current = this.getEffectJob(requestId);
+		if (!current) {
+			return;
+		}
+
+		this.db
+			.prepare(
+				`
+					UPDATE eternal_ai_effect_jobs
+					SET
+						status = ?,
+						result_url = ?,
+						error_text = ?,
+						assistant_message_id = ?,
+						updated_at = ?
+					WHERE request_id = ?
+				`
+			)
+			.run(
+				patch.status ?? current.status,
+				patch.result_url !== undefined ? patch.result_url : current.result_url,
+				patch.error_text !== undefined ? patch.error_text : current.error_text,
+				patch.assistant_message_id !== undefined
+					? patch.assistant_message_id
+					: current.assistant_message_id,
+				patch.updatedAt,
+				requestId
+			);
+	}
+
 	private mapConversation(row: ConversationRow): EternalAiConversationSummary {
 		return {
 			id: row.id,

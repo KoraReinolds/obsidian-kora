@@ -16,5 +16,9 @@ export function createEternalAiBridgeAdapter(
 		sendMessage: request => bridge.sendMessage(request),
 		deleteConversation: conversationId =>
 			bridge.deleteConversation(conversationId),
+		listCreativeEffects: () => bridge.listCreativeEffects(),
+		startCreativeEffect: request => bridge.startCreativeEffect(request),
+		startCustomGeneration: request => bridge.startCustomGeneration(request),
+		pollCreativeEffect: requestId => bridge.pollCreativeEffect(requestId),
 	};
 }

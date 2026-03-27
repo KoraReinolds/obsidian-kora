@@ -19,6 +19,7 @@ export interface ChatTimelineAttachment {
 	description?: string;
 	previewSrc?: string | null;
 	isImage?: boolean;
+	isVideo?: boolean;
 	size?: number | null;
 	mimeType?: string | null;
 }

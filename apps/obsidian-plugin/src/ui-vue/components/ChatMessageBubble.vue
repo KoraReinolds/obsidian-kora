@@ -129,6 +129,13 @@ const handleReplyClick = (): void => {
 					alt=""
 					class="block max-h-72 w-full object-cover"
 				/>
+				<video
+					v-else-if="attachment.isVideo && attachment.previewSrc"
+					:src="attachment.previewSrc || undefined"
+					class="block max-h-72 w-full object-cover"
+					controls
+					playsinline
+				/>
 				<div class="p-3">
 					<div class="text-sm font-medium">
 						{{ attachment.name }}

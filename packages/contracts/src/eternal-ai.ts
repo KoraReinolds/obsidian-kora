@@ -56,3 +56,71 @@ export interface EternalAiHealthResponse {
 	hasApiKey: boolean;
 	error?: string;
 }
+
+/**
+ * @description Публичные поля визуального эффекта после санитизации на сервере
+ * (без AES/md5 и прочих чувствительных полей исходного JSON Eternal).
+ */
+export interface EternalAiCreativeEffectItem {
+	effect_id: string;
+	tag: string;
+	effect_type: 'image' | 'video';
+	price: number;
+	model_id: string;
+	sampleInputURL?: string;
+	sampleOutputURL?: string;
+	duration?: number;
+	is_blurred?: boolean;
+	is_staging?: boolean;
+	room_tier?: number;
+	fix_artifacted?: boolean;
+	created_at?: string;
+}
+
+export interface StartCreativeEffectRequest {
+	conversationId?: string | null;
+	effect_id: string;
+	effect_tag: string;
+	/** Base64 data URL или публичный URL изображения (как в API Eternal). */
+	images: string[];
+}
+
+export interface StartCreativeEffectResponse {
+	request_id: string;
+	conversation: EternalAiConversationSummary;
+	userMessage: EternalAiMessageRecord;
+}
+
+/**
+ * @description Ответ прокси poll; поля зеркалят типичный JSON Eternal `poll-result`.
+ */
+export interface EternalAiCreativePollResponse {
+	request_id: string;
+	status?: string;
+	progress?: number;
+	result_url?: string | null;
+	error?: string | null;
+	detail?: string | null;
+	/** true, если сервер записал финальное сообщение ассистента в SQLite. */
+	completed?: boolean;
+	assistantMessage?: EternalAiMessageRecord | null;
+	conversation?: EternalAiConversationSummary | null;
+}
+
+export type EternalAiCustomMode =
+	| 'photo_generate'
+	| 'photo_edit'
+	| 'video_generate';
+
+export interface StartCustomGenerationRequest {
+	conversationId?: string | null;
+	mode: EternalAiCustomMode;
+	prompt: string;
+	images?: string[];
+}
+
+export interface StartCustomGenerationResponse {
+	request_id: string;
+	conversation: EternalAiConversationSummary;
+	userMessage: EternalAiMessageRecord;
+}

@@ -70,6 +70,23 @@ export class EternalAiDatabase {
 				ON eternal_ai_messages(conversation_id, created_at ASC);
 			CREATE INDEX IF NOT EXISTS idx_eternal_ai_conversations_updated
 				ON eternal_ai_conversations(updated_at DESC);
+
+			CREATE TABLE IF NOT EXISTS eternal_ai_effect_jobs (
+				request_id TEXT PRIMARY KEY,
+				conversation_id TEXT NOT NULL,
+				user_message_id TEXT NOT NULL,
+				effect_id TEXT NOT NULL,
+				effect_tag TEXT,
+				status TEXT NOT NULL,
+				result_url TEXT,
+				error_text TEXT,
+				assistant_message_id TEXT,
+				created_at TEXT NOT NULL,
+				updated_at TEXT NOT NULL,
+				FOREIGN KEY (conversation_id) REFERENCES eternal_ai_conversations(id) ON DELETE CASCADE
+			);
+			CREATE INDEX IF NOT EXISTS idx_eternal_ai_effect_jobs_conversation
+				ON eternal_ai_effect_jobs(conversation_id, created_at DESC);
 		`);
 	}
 

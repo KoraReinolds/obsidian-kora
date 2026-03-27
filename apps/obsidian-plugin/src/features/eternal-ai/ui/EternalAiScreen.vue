@@ -41,6 +41,23 @@ const {
 	startNewConversation,
 	sendCurrentDraft,
 	handleDeleteConversation,
+	leftTab,
+	effectsQuery,
+	selectedEffectId,
+	selectedEffect,
+	filteredEffects,
+	effectSourceDataUrl,
+	isLoadingEffects,
+	isCreativeRunning,
+	customMode,
+	customPrompt,
+	customSourceDataUrl,
+	isCustomRunning,
+	selectEffect,
+	setEffectSourceFromFileList,
+	runCreativeEffect,
+	setCustomSourceFromFileList,
+	runCustomGeneration,
 } = model;
 
 const handleDraftKeydown = async (event: KeyboardEvent): Promise<void> => {
@@ -74,7 +91,9 @@ void refreshData();
 						icon="rotate-ccw"
 						label="Обновить Eternal AI экран"
 						title="Обновить"
-						:disabled="isRefreshing || isSending"
+						:disabled="
+							isRefreshing || isSending || isCreativeRunning || isCustomRunning
+						"
 						:loading="isRefreshing"
 						@click="refreshData()"
 					/>
@@ -100,62 +119,257 @@ void refreshData();
 		>
 			<EntityListPane class="min-h-0">
 				<div
-					class="shrink-0 border-b border-solid border-[var(--background-modifier-border)] pb-3"
+					class="mb-3 flex shrink-0 gap-1 rounded-2xl border border-solid border-[var(--background-modifier-border)] p-1"
 				>
-					<div
-						class="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]"
+					<button
+						type="button"
+						class="flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition-colors"
+						:class="
+							leftTab === 'chats'
+								? 'bg-[var(--interactive-accent)] text-white'
+								: 'text-[var(--text-muted)] hover:bg-[var(--background-modifier-hover)]'
+						"
+						@click="leftTab = 'chats'"
 					>
-						История диалогов
-					</div>
-					<div class="mt-2 text-xs text-[var(--text-muted)]">
-						Kora server хранит диалоги локально и отправляет полный контекст в
-						Eternal AI как OpenAI-compatible chat completion.
-					</div>
+						Диалоги
+					</button>
+					<button
+						type="button"
+						class="flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition-colors"
+						:class="
+							leftTab === 'effects'
+								? 'bg-[var(--interactive-accent)] text-white'
+								: 'text-[var(--text-muted)] hover:bg-[var(--background-modifier-hover)]'
+						"
+						@click="leftTab = 'effects'"
+					>
+						Эффекты
+					</button>
+					<button
+						type="button"
+						class="flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition-colors"
+						:class="
+							leftTab === 'custom'
+								? 'bg-[var(--interactive-accent)] text-white'
+								: 'text-[var(--text-muted)] hover:bg-[var(--background-modifier-hover)]'
+						"
+						@click="leftTab = 'custom'"
+					>
+						Кастом
+					</button>
 				</div>
 
 				<div
-					class="mt-3 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1"
+					v-if="leftTab === 'chats'"
+					class="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden"
 				>
-					<EmptyState
-						v-if="conversations.length === 0"
-						text="Локальная история пуста. Начните новый чат справа."
-					/>
 					<div
-						v-for="conversation in conversations"
-						:key="conversation.id"
-						class="flex items-center gap-1.5"
+						class="shrink-0 border-b border-solid border-[var(--background-modifier-border)] pb-3"
 					>
-						<button
-							type="button"
-							class="flex min-w-0 flex-1 cursor-pointer flex-col items-start gap-1 rounded-2xl border border-solid px-3 py-3 text-left shadow-sm transition-[border-color,box-shadow] hover:border-[var(--interactive-accent-hover)] hover:shadow"
-							:class="
-								selectedConversationId === conversation.id
-									? 'border-[var(--interactive-accent)] bg-[var(--background-modifier-hover)] ring-1 ring-[var(--interactive-accent)]/25'
-									: 'border-[var(--background-modifier-border)] bg-[var(--background-primary)]'
-							"
-							@click="selectConversation(conversation.id)"
+						<div
+							class="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]"
 						>
-							<div class="min-w-0 w-full truncate text-sm font-semibold">
-								{{ conversation.title }}
-							</div>
-							<div class="text-xs text-[var(--text-muted)]">
-								{{ conversation.model }} · {{ conversation.messageCount }}
-								сообщений
-							</div>
-							<div class="line-clamp-2 text-xs text-[var(--text-muted)]">
-								{{ conversation.lastMessagePreview || 'Пока без ответов' }}
-							</div>
-						</button>
-						<IconButton
-							size="sm"
-							variant="danger"
-							icon="trash-2"
-							label="Удалить Eternal AI диалог"
-							title="Удалить"
-							:disabled="isDeletingConversationId === conversation.id"
-							:loading="isDeletingConversationId === conversation.id"
-							@click.stop="handleDeleteConversation(conversation.id)"
+							История диалогов
+						</div>
+						<div class="mt-2 text-xs text-[var(--text-muted)]">
+							Kora server хранит диалоги локально и отправляет полный контекст в
+							Eternal AI как OpenAI-compatible chat completion.
+						</div>
+					</div>
+
+					<div
+						class="mt-1 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1"
+					>
+						<EmptyState
+							v-if="conversations.length === 0"
+							text="Локальная история пуста. Начните новый чат справа."
 						/>
+						<div
+							v-for="conversation in conversations"
+							:key="conversation.id"
+							class="flex items-center gap-1.5"
+						>
+							<button
+								type="button"
+								class="flex min-w-0 flex-1 cursor-pointer flex-col items-start gap-1 rounded-2xl border border-solid px-3 py-3 text-left shadow-sm transition-[border-color,box-shadow] hover:border-[var(--interactive-accent-hover)] hover:shadow"
+								:class="
+									selectedConversationId === conversation.id
+										? 'border-[var(--interactive-accent)] bg-[var(--background-modifier-hover)] ring-1 ring-[var(--interactive-accent)]/25'
+										: 'border-[var(--background-modifier-border)] bg-[var(--background-primary)]'
+								"
+								@click="selectConversation(conversation.id)"
+							>
+								<div class="min-w-0 w-full truncate text-sm font-semibold">
+									{{ conversation.title }}
+								</div>
+								<div class="text-xs text-[var(--text-muted)]">
+									{{ conversation.model }} · {{ conversation.messageCount }}
+									сообщений
+								</div>
+								<div class="line-clamp-2 text-xs text-[var(--text-muted)]">
+									{{ conversation.lastMessagePreview || 'Пока без ответов' }}
+								</div>
+							</button>
+							<IconButton
+								size="sm"
+								variant="danger"
+								icon="trash-2"
+								label="Удалить Eternal AI диалог"
+								title="Удалить"
+								:disabled="isDeletingConversationId === conversation.id"
+								:loading="isDeletingConversationId === conversation.id"
+								@click.stop="handleDeleteConversation(conversation.id)"
+							/>
+						</div>
+					</div>
+				</div>
+
+				<div v-else class="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+					<div v-if="leftTab === 'effects'" class="contents">
+						<div class="shrink-0">
+							<div
+								class="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]"
+							>
+								Creative / Easy Effect
+							</div>
+							<div class="mt-2 text-xs text-[var(--text-muted)]">
+								Каталог проксируется через Kora server (без AES-полей). Выберите
+								эффект и исходный кадр справа.
+							</div>
+							<input
+								v-model="effectsQuery"
+								type="search"
+								class="mt-3 w-full rounded-xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-secondary)] px-3 py-2 text-sm text-[var(--text-normal)] outline-none"
+								placeholder="Поиск по названию…"
+							/>
+						</div>
+
+						<div
+							class="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1"
+						>
+							<EmptyState
+								v-if="!isLoadingEffects && filteredEffects.length === 0"
+								text="Эффекты не найдены. Смените фильтр или обновите экран."
+							/>
+							<div
+								v-if="isLoadingEffects"
+								class="text-xs text-[var(--text-muted)]"
+							>
+								Загрузка каталога…
+							</div>
+							<button
+								v-for="effect in filteredEffects"
+								:key="effect.effect_id"
+								type="button"
+								class="flex w-full flex-col gap-2 rounded-2xl border border-solid px-2 py-2 text-left shadow-sm transition-[border-color,box-shadow] hover:border-[var(--interactive-accent-hover)] hover:shadow"
+								:class="
+									selectedEffectId === effect.effect_id
+										? 'border-[var(--interactive-accent)] bg-[var(--background-modifier-hover)] ring-1 ring-[var(--interactive-accent)]/25'
+										: 'border-[var(--background-modifier-border)] bg-[var(--background-primary)]'
+								"
+								@click="selectEffect(effect.effect_id)"
+							>
+								<div class="relative overflow-hidden rounded-xl bg-black/20">
+									<img
+										v-if="effect.sampleOutputURL"
+										:src="effect.sampleOutputURL"
+										alt=""
+										class="h-28 w-full object-cover"
+										:class="effect.is_blurred ? 'blur-md scale-105' : ''"
+										loading="lazy"
+									/>
+									<div
+										class="absolute left-2 top-2 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-semibold uppercase text-white"
+									>
+										<span v-text="effect.effect_type" />
+									</div>
+								</div>
+								<div class="px-1">
+									<div class="line-clamp-2 text-sm font-semibold">
+										<span v-text="effect.tag" />
+									</div>
+									<div
+										class="mt-1 flex flex-wrap gap-2 text-[11px] text-[var(--text-muted)]"
+									>
+										<span v-text="`Цена: ${effect.price}`" />
+										<span
+											v-if="effect.duration"
+											v-text="`· ${effect.duration}s`"
+										/>
+									</div>
+								</div>
+							</button>
+						</div>
+					</div>
+					<div
+						v-else
+						class="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden"
+					>
+						<div class="shrink-0">
+							<div
+								class="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]"
+							>
+								Кастомная генерация
+							</div>
+							<div class="mt-2 text-xs text-[var(--text-muted)]">
+								Режимы сосуществуют с эффектами: фото, редактирование фото,
+								видео.
+							</div>
+						</div>
+						<div class="grid gap-2">
+							<select
+								v-model="customMode"
+								class="rounded-xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-secondary)] px-3 py-2 text-sm text-[var(--text-normal)] outline-none"
+							>
+								<option value="photo_generate">Генерация фото</option>
+								<option value="photo_edit">Редактирование фото</option>
+								<option value="video_generate">Генерация видео</option>
+							</select>
+							<textarea
+								v-model="customPrompt"
+								class="min-h-[92px] w-full resize-y rounded-xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-secondary)] px-3 py-2 text-sm text-[var(--text-normal)] outline-none"
+								placeholder="Опишите желаемое изменение..."
+							/>
+							<label
+								class="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-secondary)] px-3 py-2 text-xs font-semibold text-[var(--text-normal)]"
+							>
+								<input
+									class="hidden"
+									type="file"
+									accept="image/png,image/jpeg,image/webp"
+									@change="
+										event =>
+											setCustomSourceFromFileList(
+												(event.target as HTMLInputElement).files
+											)
+									"
+								/>
+								Исходное изображение (опционально для фото)
+							</label>
+							<img
+								v-if="customSourceDataUrl"
+								:src="customSourceDataUrl"
+								alt=""
+								class="max-h-40 w-full rounded-xl object-contain"
+							/>
+							<IconButton
+								size="sm"
+								variant="accent"
+								icon="wand-2"
+								label="Запустить кастомную генерацию"
+								title="Запустить кастом"
+								:disabled="
+									isCustomRunning ||
+									!customPrompt.trim() ||
+									((customMode === 'photo_edit' ||
+										customMode === 'video_generate') &&
+										!customSourceDataUrl) ||
+									health?.status !== 'healthy'
+								"
+								:loading="isCustomRunning"
+								@click="runCustomGeneration"
+							/>
+						</div>
 					</div>
 				</div>
 			</EntityListPane>
@@ -194,6 +408,71 @@ void refreshData();
 								}`"
 							/>
 						</div>
+					</div>
+
+					<div
+						class="shrink-0 rounded-2xl border border-dashed border-[var(--background-modifier-border)] bg-[var(--background-primary)]/40 p-3"
+					>
+						<div class="text-xs font-semibold text-[var(--text-muted)]">
+							Easy Effect
+						</div>
+						<div class="mt-2 text-xs text-[var(--text-muted)]">
+							Выберите эффект во вкладке «Эффекты», загрузите исходное
+							изображение и запустите генерацию. Результат появится в ленте
+							ниже.
+						</div>
+						<div
+							v-if="selectedEffect"
+							class="mt-3 flex flex-wrap items-center gap-2"
+						>
+							<SummaryChip
+								:text="`Эффект: ${selectedEffect.tag} (${selectedEffect.effect_type})`"
+							/>
+							<SummaryChip :text="`ID: ${selectedEffect.effect_id}`" />
+						</div>
+						<div class="mt-3 flex flex-wrap items-center gap-3">
+							<label
+								class="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-secondary)] px-3 py-2 text-xs font-semibold text-[var(--text-normal)]"
+							>
+								<input
+									class="hidden"
+									type="file"
+									accept="image/png,image/jpeg,image/webp"
+									@change="
+										event =>
+											setEffectSourceFromFileList(
+												(event.target as HTMLInputElement).files
+											)
+									"
+								/>
+								Исходное изображение
+							</label>
+							<div class="text-xs text-[var(--text-muted)]">
+								<span v-if="effectSourceDataUrl" v-text="'Файл загружен'" />
+								<span v-else v-text="'Файл не выбран'" />
+							</div>
+							<IconButton
+								size="sm"
+								variant="accent"
+								icon="wand-2"
+								label="Запустить визуальный эффект"
+								title="Запустить эффект"
+								:disabled="
+									isCreativeRunning ||
+									!selectedEffect ||
+									!effectSourceDataUrl ||
+									health?.status !== 'healthy'
+								"
+								:loading="isCreativeRunning"
+								@click="runCreativeEffect"
+							/>
+						</div>
+						<img
+							v-if="effectSourceDataUrl"
+							:src="effectSourceDataUrl"
+							alt=""
+							class="mt-3 max-h-40 w-full rounded-xl object-contain"
+						/>
 					</div>
 
 					<ChatTimeline

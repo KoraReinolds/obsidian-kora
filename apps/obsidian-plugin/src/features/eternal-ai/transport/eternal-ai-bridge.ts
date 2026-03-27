@@ -9,10 +9,16 @@ import {
 } from '../../../telegram/core/base-http-client';
 import type {
 	EternalAiConversationSummary,
+	EternalAiCreativeEffectItem,
+	EternalAiCreativePollResponse,
 	EternalAiHealthResponse,
 	EternalAiMessageRecord,
 	SendEternalAiMessageRequest,
 	SendEternalAiMessageResponse,
+	StartCustomGenerationRequest,
+	StartCustomGenerationResponse,
+	StartCreativeEffectRequest,
+	StartCreativeEffectResponse,
 } from '../../../../../../packages/contracts/src/eternal-ai';
 
 interface EternalAiConversationsResponse {
@@ -35,6 +41,28 @@ interface EternalAiSendResponse extends SendEternalAiMessageResponse {
 interface EternalAiDeleteResponse {
 	success: boolean;
 	deleted?: boolean;
+	error?: string;
+}
+
+interface EternalAiCreativeEffectsResponse {
+	success: boolean;
+	effects?: EternalAiCreativeEffectItem[];
+	error?: string;
+}
+
+interface EternalAiCreativeGenerateResponse extends StartCreativeEffectResponse {
+	success: boolean;
+	error?: string;
+}
+
+interface EternalAiCreativePollApiResponse {
+	success: boolean;
+	poll?: EternalAiCreativePollResponse;
+	error?: string;
+}
+
+interface EternalAiCustomGenerateResponse extends StartCustomGenerationResponse {
+	success: boolean;
 	error?: string;
 }
 
@@ -113,5 +141,74 @@ export class EternalAiBridge extends BaseHttpClient {
 		}
 
 		return { deleted: response.deleted === true };
+	}
+
+	async listCreativeEffects(): Promise<EternalAiCreativeEffectItem[]> {
+		const response = await this.handleRequest<EternalAiCreativeEffectsResponse>(
+			'/eternal_ai/creative-effects',
+			{},
+			'Ошибка загрузки каталога эффектов Eternal AI'
+		);
+
+		if (!response?.success) {
+			throw new Error(response?.error || 'Не удалось загрузить эффекты');
+		}
+
+		return response.effects || [];
+	}
+
+	async startCreativeEffect(
+		request: StartCreativeEffectRequest
+	): Promise<StartCreativeEffectResponse> {
+		const response =
+			await this.handleRequest<EternalAiCreativeGenerateResponse>(
+				'/eternal_ai/creative/generate',
+				{ method: 'POST', body: request, timeout: 120000 },
+				'Ошибка запуска генерации Eternal AI'
+			);
+
+		if (!response?.success) {
+			throw new Error(
+				response?.error || 'Не удалось запустить визуальный эффект'
+			);
+		}
+
+		return response;
+	}
+
+	async startCustomGeneration(
+		request: StartCustomGenerationRequest
+	): Promise<StartCustomGenerationResponse> {
+		const response = await this.handleRequest<EternalAiCustomGenerateResponse>(
+			'/eternal_ai/custom/generate',
+			{ method: 'POST', body: request, timeout: 120000 },
+			'Ошибка запуска кастомной генерации Eternal AI'
+		);
+
+		if (!response?.success) {
+			throw new Error(
+				response?.error || 'Не удалось запустить кастомную генерацию'
+			);
+		}
+
+		return response;
+	}
+
+	async pollCreativeEffect(
+		requestId: string
+	): Promise<EternalAiCreativePollResponse> {
+		const response = await this.handleRequest<EternalAiCreativePollApiResponse>(
+			`/eternal_ai/creative/poll/${encodeURIComponent(requestId)}`,
+			{},
+			'Ошибка poll Eternal AI'
+		);
+
+		if (!response?.success || !response.poll) {
+			throw new Error(
+				response?.error || 'Не удалось получить статус генерации'
+			);
+		}
+
+		return response.poll;
 	}
 }
