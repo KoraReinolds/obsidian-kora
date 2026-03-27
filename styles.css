@@ -93,7 +93,6 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 		--radius-xl: 0.75rem;
 		--radius-2xl: 1rem;
 		--animate-spin: spin 1s linear infinite;
-		--blur-md: 12px;
 		--default-transition-duration: 150ms;
 		--default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 		--default-font-family: var(--font-sans);
@@ -1751,7 +1750,6 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 }
 
 /* Vue SFC compiled styles */
-/* sfc-style:C:\Users\reino\Documents\Obsidian\.obsidian\plugins\obsidian-kora\apps\obsidian-plugin\src\ui-vue\components\ChatTimeline.vue?type=style&index=0 */
 .kora-chat-timeline[data-v-4556b573] {
 	scrollbar-width: thin;
 	scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
@@ -1766,4 +1764,3 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 .kora-chat-timeline[data-v-4556b573]::-webkit-scrollbar-track {
 	background: transparent;
 }
-/*# sourceMappingURL=data:application/json;base64,ewogICJ2ZXJzaW9uIjogMywKICAic291cmNlcyI6IFsic2ZjLXN0eWxlOkM6XFxVc2Vyc1xccmVpbm9cXERvY3VtZW50c1xcT2JzaWRpYW5cXC5vYnNpZGlhblxccGx1Z2luc1xcb2JzaWRpYW4ta29yYVxcYXBwc1xcb2JzaWRpYW4tcGx1Z2luXFxzcmNcXHVpLXZ1ZVxcY29tcG9uZW50c1xcQ2hhdFRpbWVsaW5lLnZ1ZT90eXBlPXN0eWxlJmluZGV4PTAiXSwKICAic291cmNlc0NvbnRlbnQiOiBbIlxuLmtvcmEtY2hhdC10aW1lbGluZVtkYXRhLXYtNDU1NmI1NzNdIHtcblx0c2Nyb2xsYmFyLXdpZHRoOiB0aGluO1xuXHRzY3JvbGxiYXItY29sb3I6IHJnYmEoMjU1LCAyNTUsIDI1NSwgMC4xOCkgdHJhbnNwYXJlbnQ7XG59XG4ua29yYS1jaGF0LXRpbWVsaW5lW2RhdGEtdi00NTU2YjU3M106Oi13ZWJraXQtc2Nyb2xsYmFyIHtcblx0d2lkdGg6IDEwcHg7XG59XG4ua29yYS1jaGF0LXRpbWVsaW5lW2RhdGEtdi00NTU2YjU3M106Oi13ZWJraXQtc2Nyb2xsYmFyLXRodW1iIHtcblx0Ym9yZGVyLXJhZGl1czogOTk5cHg7XG5cdGJhY2tncm91bmQ6IHJnYmEoMjU1LCAyNTUsIDI1NSwgMC4xNCk7XG59XG4ua29yYS1jaGF0LXRpbWVsaW5lW2RhdGEtdi00NTU2YjU3M106Oi13ZWJraXQtc2Nyb2xsYmFyLXRyYWNrIHtcblx0YmFja2dyb3VuZDogdHJhbnNwYXJlbnQ7XG59XG4iXSwKICAibWFwcGluZ3MiOiAiO0FBQ0E7QUFDQztBQUNBO0FBQUE7QUFFRDtBQUNDO0FBQUE7QUFFRDtBQUNDO0FBQ0E7QUFBQTtBQUVEO0FBQ0M7QUFBQTsiLAogICJuYW1lcyI6IFtdCn0K */

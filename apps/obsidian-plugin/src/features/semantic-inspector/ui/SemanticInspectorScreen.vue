@@ -9,14 +9,12 @@
 
 import {
 	AppShell,
-	DetailsPane,
 	DiffPreview,
-	EmptyState,
-	EntityListPane,
 	IconButton,
 	IconTextField,
-	LoadingState,
 	MessageCard,
+	PanelFrame,
+	PlaceholderState,
 	SectionHeader,
 	StatusBanner,
 	SummaryChip,
@@ -236,7 +234,7 @@ const backendVariant = computed<
 			<div
 				class="grid min-h-0 flex-1 grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]"
 			>
-				<EntityListPane padding="sm" gap="sm" scroll>
+				<PanelFrame padding="sm" gap="sm" scroll>
 					<template #header>
 						<SectionHeader
 							title="Список"
@@ -248,25 +246,29 @@ const backendVariant = computed<
 						/>
 					</template>
 
-					<LoadingState
+					<PlaceholderState
 						v-if="screen.isRefreshing.value && !screen.hasActiveNote.value"
+						variant="loading"
 						text="Загружаем контекст…"
 					/>
 
-					<EmptyState
+					<PlaceholderState
 						v-else-if="!screen.hasActiveNote.value"
+						variant="empty"
 						title="Нет активной заметки"
 						text="Открой markdown-заметку с frontmatter `date created`."
 					/>
 
-					<EmptyState
+					<PlaceholderState
 						v-else-if="!screen.hasUnifiedRows.value"
+						variant="empty"
 						title="Нет строк"
 						text="Нет локальных чанков и записей индекса для объединённого списка."
 					/>
 
-					<EmptyState
+					<PlaceholderState
 						v-else-if="screen.filteredUnifiedRows.value.length === 0"
+						variant="empty"
 						title="Ничего не найдено"
 						text="Фильтр не совпал ни с одной строкой."
 					/>
@@ -338,9 +340,9 @@ const backendVariant = computed<
 							</template>
 						</MessageCard>
 					</div>
-				</EntityListPane>
+				</PanelFrame>
 
-				<DetailsPane padding="sm" gap="sm" scroll>
+				<PanelFrame padding="sm" gap="sm" scroll>
 					<template #header>
 						<SectionHeader
 							title="Детали"
@@ -352,8 +354,9 @@ const backendVariant = computed<
 						/>
 					</template>
 
-					<EmptyState
+					<PlaceholderState
 						v-if="!screen.selectedUnifiedRow.value"
+						variant="empty"
 						title="Нет выбранной строки"
 						text="Выбери строку в списке: локальный чанк, индекс и diff ниже."
 					/>
@@ -465,7 +468,7 @@ const backendVariant = computed<
 							</MessageCard>
 						</template>
 					</template>
-				</DetailsPane>
+				</PanelFrame>
 			</div>
 		</div>
 	</AppShell>

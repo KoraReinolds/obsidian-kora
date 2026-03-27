@@ -4,10 +4,13 @@
  * Компонент не знает ничего о Telegram archive или Eternal AI и опирается только
  * на нормализованный `ChatTimelineItem`.
  */
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed } from 'vue';
 import type { ChatTimelineItem } from '../types';
+import { useImageLightbox } from '../composables';
 import AttachmentPreviewThumb from './AttachmentPreviewThumb.vue';
-import UiHostIcon from './UiHostIcon.vue';
+import IconButton from './IconButton.vue';
+import ImageLightbox from './ImageLightbox.vue';
+import SummaryChip from './SummaryChip.vue';
 
 const props = withDefaults(
 	defineProps<{
@@ -44,18 +47,11 @@ const handleReplyClick = (): void => {
 	emit('jump', props.item.replyPreview.targetId);
 };
 
-const lightboxSrc = ref<string | null>(null);
-
-const openLightbox = (src?: string | null): void => {
-	if (!src) {
-		return;
-	}
-	lightboxSrc.value = src;
-};
-
-const closeLightbox = (): void => {
-	lightboxSrc.value = null;
-};
+const {
+	src: lightboxSrc,
+	open: openLightbox,
+	close: closeLightbox,
+} = useImageLightbox();
 
 const inlineAttachment = computed(() => {
 	const attachments = props.item.attachments || [];
@@ -104,19 +100,11 @@ const deleteMessage = (): void => {
 	emit('delete', props.item.id);
 };
 
-const handleEscape = (event: KeyboardEvent): void => {
-	if (event.key === 'Escape' && lightboxSrc.value) {
-		closeLightbox();
-	}
-};
-
-onMounted(() => {
-	window.addEventListener('keydown', handleEscape);
-});
-
-onBeforeUnmount(() => {
-	window.removeEventListener('keydown', handleEscape);
-});
+/**
+ * @description Текст для чипа реакции (лейбл + счётчик).
+ */
+const reactionLabel = (label: string, count?: number): string =>
+	count ? `${label} ${count}` : label;
 </script>
 
 <template>
@@ -271,84 +259,54 @@ onBeforeUnmount(() => {
 				v-if="(item.reactions || []).length"
 				class="mt-2 flex flex-wrap gap-1.5"
 			>
-				<div
+				<SummaryChip
 					v-for="reaction in item.reactions || []"
 					:key="reaction.id"
-					class="rounded-full border border-solid px-2 py-0.5 text-xs"
-					:style="{
-						borderColor: 'rgba(255, 255, 255, 0.08)',
-						backgroundColor: 'rgba(255, 255, 255, 0.05)',
-					}"
-				>
-					{{ reaction.label }}
-					<span v-if="reaction.count"> {{ reaction.count }}</span>
-				</div>
+					size="xs"
+					variant="neutral"
+					:text="reactionLabel(reaction.label, reaction.count)"
+				/>
 			</div>
 
 			<div
 				v-if="(item.badges || []).length"
 				class="mt-2 flex flex-wrap gap-1.5"
 			>
-				<div
+				<SummaryChip
 					v-for="badge in item.badges || []"
 					:key="badge"
-					class="rounded-full px-2 py-0.5 text-[11px] text-[var(--text-muted)]"
-					:style="{ backgroundColor: 'rgba(255, 255, 255, 0.04)' }"
-				>
-					{{ badge }}
-				</div>
+					size="xs"
+					variant="neutral"
+					:text="badge"
+				/>
 			</div>
 
 			<div class="mt-2 flex items-center justify-end gap-2">
-				<button
-					type="button"
-					class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-solid border-[rgba(255,255,255,0.12)] text-[var(--text-muted)] transition-colors hover:text-[var(--text-normal)]"
+				<IconButton
+					shape="pill"
+					size="sm"
+					variant="muted"
+					icon="copy"
+					label="Скопировать"
 					title="Скопировать"
-					aria-label="Скопировать"
 					@click="copyMessage"
-				>
-					<UiHostIcon
-						name="copy"
-						label="Скопировать"
-						icon-class="h-3.5 w-3.5 [&>svg]:h-3.5 [&>svg]:w-3.5"
-					/>
-				</button>
-				<button
-					type="button"
-					class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-solid border-[rgba(255,255,255,0.12)] text-[var(--text-muted)] transition-colors hover:text-[var(--text-error)]"
+				/>
+				<IconButton
+					shape="pill"
+					size="sm"
+					variant="danger"
+					icon="trash-2"
+					label="Удалить"
 					title="Удалить"
-					aria-label="Удалить"
 					@click="deleteMessage"
-				>
-					<UiHostIcon
-						name="trash-2"
-						label="Удалить"
-						icon-class="h-3.5 w-3.5 [&>svg]:h-3.5 [&>svg]:w-3.5"
-					/>
-				</button>
+				/>
 			</div>
 		</div>
 	</div>
 
-	<Teleport to="body">
-		<div
-			v-if="lightboxSrc"
-			class="fixed inset-0 z-[99999] flex h-screen w-screen items-center justify-center bg-black/85 p-4"
-			@click="closeLightbox"
-		>
-			<button
-				type="button"
-				class="absolute right-4 top-4 rounded-full border border-solid border-white/25 bg-black/30 px-3 py-1 text-sm text-white"
-				@click.stop="closeLightbox"
-			>
-				Close
-			</button>
-			<img
-				:src="lightboxSrc"
-				alt=""
-				class="max-h-[96vh] max-w-[96vw] object-contain"
-				@click.stop
-			/>
-		</div>
-	</Teleport>
+	<ImageLightbox
+		v-if="lightboxSrc"
+		:image-url="lightboxSrc"
+		@close="closeLightbox"
+	/>
 </template>

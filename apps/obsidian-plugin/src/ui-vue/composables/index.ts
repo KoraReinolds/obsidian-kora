@@ -6,3 +6,4 @@ export * from './use-filter-query';
 export * from './use-selection';
 export * from './use-screen-message';
 export * from './use-paginated-list';
+export * from './use-image-lightbox';

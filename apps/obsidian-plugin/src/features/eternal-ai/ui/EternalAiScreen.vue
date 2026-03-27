@@ -1,19 +1,18 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue';
 import {
 	AppShell,
 	AttachmentPreviewThumb,
 	ChatTimeline,
-	DetailsPane,
-	EmptyState,
-	EntityListPane,
 	IconButton,
-	LoadingState,
+	ImageLightbox,
 	MessageCard,
+	PanelFrame,
+	PlaceholderState,
 	SectionHeader,
 	StatusBanner,
 	SummaryChip,
 	Toolbar,
+	useImageLightbox,
 } from '../../../ui-vue';
 import { useEternalAiScreen } from '../model/use-eternal-ai-screen';
 import type { EternalAiTransportPort } from '../ports/eternal-ai-transport-port';
@@ -67,24 +66,11 @@ const {
 	runCustomGeneration,
 } = model;
 
-const lightboxSrc = ref<string | null>(null);
-
-const openLightbox = (src?: string | null): void => {
-	if (!src) {
-		return;
-	}
-	lightboxSrc.value = src;
-};
-
-const closeLightbox = (): void => {
-	lightboxSrc.value = null;
-};
-
-const handleEscape = (event: KeyboardEvent): void => {
-	if (event.key === 'Escape' && lightboxSrc.value) {
-		closeLightbox();
-	}
-};
+const {
+	src: lightboxSrc,
+	open: openLightbox,
+	close: closeLightbox,
+} = useImageLightbox();
 
 const handleDraftKeydown = async (event: KeyboardEvent): Promise<void> => {
 	if (event.key !== 'Enter' || event.shiftKey) {
@@ -94,14 +80,6 @@ const handleDraftKeydown = async (event: KeyboardEvent): Promise<void> => {
 	event.preventDefault();
 	await sendCurrentDraft();
 };
-
-onMounted(() => {
-	window.addEventListener('keydown', handleEscape);
-});
-
-onBeforeUnmount(() => {
-	window.removeEventListener('keydown', handleEscape);
-});
 
 void refreshData();
 </script>
@@ -151,7 +129,7 @@ void refreshData();
 		<div
 			class="grid h-full min-h-0 flex-1 grid-cols-1 items-stretch gap-3 overflow-hidden lg:grid-cols-[minmax(280px,360px)_minmax(0,1fr)]"
 		>
-			<EntityListPane class="min-h-0" :scroll="true">
+			<PanelFrame class="min-h-0" :scroll="true">
 				<div
 					class="mb-3 flex shrink-0 gap-1 rounded-2xl border border-solid border-[var(--background-modifier-border)] p-1"
 				>
@@ -212,8 +190,9 @@ void refreshData();
 					</div>
 
 					<div class="mt-1 flex min-h-0 flex-1 flex-col gap-2 pr-1">
-						<EmptyState
+						<PlaceholderState
 							v-if="conversations.length === 0"
+							variant="empty"
 							text="Локальная история пуста. Начните новый чат справа."
 						/>
 						<div
@@ -274,11 +253,16 @@ void refreshData();
 						</div>
 
 						<div class="min-h-0 flex-1 pr-1">
-							<EmptyState
+							<PlaceholderState
 								v-if="!isLoadingEffects && filteredEffects.length === 0"
+								variant="empty"
 								text="Эффекты не найдены. Смените фильтр или обновите экран."
 							/>
-							<LoadingState v-if="isLoadingEffects" text="Загрузка каталога…" />
+							<PlaceholderState
+								v-if="isLoadingEffects"
+								variant="loading"
+								text="Загрузка каталога…"
+							/>
 							<div v-else class="grid grid-cols-1 gap-2 pb-1 md:grid-cols-2">
 								<MessageCard
 									v-for="effect in filteredEffects"
@@ -412,9 +396,9 @@ void refreshData();
 						</div>
 					</div>
 				</div>
-			</EntityListPane>
+			</PanelFrame>
 
-			<DetailsPane
+			<PanelFrame
 				class="min-h-0 overflow-hidden"
 				padding="md"
 				gap="md"
@@ -555,29 +539,13 @@ void refreshData();
 						</div>
 					</div>
 				</div>
-			</DetailsPane>
+			</PanelFrame>
 		</div>
 	</AppShell>
 
-	<Teleport to="body">
-		<div
-			v-if="lightboxSrc"
-			class="fixed inset-0 z-[99999] flex h-screen w-screen items-center justify-center bg-black/85 p-4"
-			@click="closeLightbox"
-		>
-			<button
-				type="button"
-				class="absolute right-4 top-4 rounded-full border border-solid border-white/25 bg-black/30 px-3 py-1 text-sm text-white"
-				@click.stop="closeLightbox"
-			>
-				Close
-			</button>
-			<img
-				:src="lightboxSrc"
-				alt=""
-				class="max-h-[96vh] max-w-[96vw] object-contain"
-				@click.stop
-			/>
-		</div>
-	</Teleport>
+	<ImageLightbox
+		v-if="lightboxSrc"
+		:image-url="lightboxSrc"
+		@close="closeLightbox"
+	/>
 </template>

@@ -4,8 +4,7 @@
  * контейнер, пустые состояния и прокидывает jump-события наружу, чтобы feature
  * сам решал, как искать reply target в своей предметной модели.
  */
-import EmptyState from './EmptyState.vue';
-import LoadingState from './LoadingState.vue';
+import PlaceholderState from './PlaceholderState.vue';
 import ChatMessageBubble from './ChatMessageBubble.vue';
 import type { ChatTimelineItem } from '../types';
 
@@ -31,8 +30,16 @@ const emit = defineEmits<{
 
 <template>
 	<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-		<LoadingState v-if="loading" text="Загружаем сообщения..." />
-		<EmptyState v-else-if="items.length === 0" :text="emptyText" />
+		<PlaceholderState
+			v-if="loading"
+			variant="loading"
+			text="Загружаем сообщения..."
+		/>
+		<PlaceholderState
+			v-else-if="items.length === 0"
+			variant="empty"
+			:text="emptyText"
+		/>
 		<div
 			v-else
 			class="kora-chat-timeline flex min-h-0 flex-1 flex-col overflow-y-scroll overflow-x-hidden rounded-2xl border border-solid border-[var(--background-modifier-border)] bg-[#161616] p-3"

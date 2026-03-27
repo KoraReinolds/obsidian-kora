@@ -8,14 +8,12 @@
 
 import {
 	AppShell,
-	DetailsPane,
 	DiffPreview,
-	EmptyState,
-	EntityListPane,
 	IconButton,
 	IconTextField,
-	LoadingState,
 	MessageCard,
+	PanelFrame,
+	PlaceholderState,
 	SectionHeader,
 	StatusBanner,
 	SummaryChip,
@@ -288,7 +286,7 @@ void refreshData();
 		<div
 			class="grid h-full min-h-0 flex-1 grid-cols-1 items-stretch gap-3 overflow-hidden xl:grid-cols-[minmax(360px,420px)_minmax(0,1fr)]"
 		>
-			<EntityListPane class="min-h-0">
+			<PanelFrame class="min-h-0">
 				<div
 					class="shrink-0 border-b border-solid border-[var(--background-modifier-border)] pb-3"
 				>
@@ -389,9 +387,9 @@ void refreshData();
 						</template>
 					</MessageCard>
 				</div>
-			</EntityListPane>
+			</PanelFrame>
 
-			<DetailsPane
+			<PanelFrame
 				class="min-h-0 overflow-hidden"
 				padding="md"
 				gap="md"
@@ -422,13 +420,15 @@ void refreshData();
 						</div>
 					</div>
 
-					<LoadingState
+					<PlaceholderState
 						v-if="isLoadingSelection"
+						variant="loading"
 						text="Загружаем selection slice..."
 					/>
 
-					<EmptyState
+					<PlaceholderState
 						v-else-if="!selectedChat"
+						variant="empty"
 						text="Выберите чат слева, чтобы увидеть runtime и прогнать pipeline."
 					/>
 
@@ -638,7 +638,7 @@ void refreshData();
 						</div>
 					</div>
 				</div>
-			</DetailsPane>
+			</PanelFrame>
 		</div>
 	</AppShell>
 	<div v-else class="flex h-full min-h-0 flex-1 flex-col gap-3 overflow-hidden">
@@ -744,7 +744,7 @@ void refreshData();
 		<div
 			class="grid h-full min-h-0 flex-1 grid-cols-1 items-stretch gap-3 overflow-hidden xl:grid-cols-[minmax(360px,420px)_minmax(0,1fr)]"
 		>
-			<EntityListPane class="min-h-0">
+			<PanelFrame class="min-h-0">
 				<div
 					class="shrink-0 border-b border-solid border-[var(--background-modifier-border)] pb-3"
 				>
@@ -840,9 +840,9 @@ void refreshData();
 						</template>
 					</MessageCard>
 				</div>
-			</EntityListPane>
+			</PanelFrame>
 
-			<DetailsPane
+			<PanelFrame
 				class="min-h-0 overflow-hidden"
 				padding="md"
 				gap="md"
@@ -870,13 +870,15 @@ void refreshData();
 						</div>
 					</div>
 
-					<LoadingState
+					<PlaceholderState
 						v-if="isLoadingSelection"
+						variant="loading"
 						text="Loading selection slice..."
 					/>
 
-					<EmptyState
+					<PlaceholderState
 						v-else-if="!selectedChat"
+						variant="empty"
 						text="Select a chat on the left to inspect the runtime and run the pipeline."
 					/>
 
@@ -1082,7 +1084,7 @@ void refreshData();
 						</div>
 					</div>
 				</div>
-			</DetailsPane>
+			</PanelFrame>
 		</div>
 	</div>
 </template>

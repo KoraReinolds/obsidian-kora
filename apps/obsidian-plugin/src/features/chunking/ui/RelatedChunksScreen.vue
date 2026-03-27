@@ -8,12 +8,10 @@
 import { onUnmounted, ref, watch } from 'vue';
 import {
 	AppShell,
-	DetailsPane,
-	EmptyState,
-	EntityListPane,
 	IconButton,
-	LoadingState,
 	MessageCard,
+	PanelFrame,
+	PlaceholderState,
 	SectionHeader,
 	StatusBanner,
 	SummaryChip,
@@ -145,7 +143,7 @@ watch(
 		<div
 			class="grid h-full min-h-0 flex-1 grid-cols-1 gap-2 overflow-hidden lg:grid-cols-[minmax(320px,1fr)_minmax(300px,0.85fr)]"
 		>
-			<EntityListPane class="min-h-0" :scroll="true" padding="sm" gap="sm">
+			<PanelFrame class="min-h-0" :scroll="true" padding="sm" gap="sm">
 				<template #header>
 					<SectionHeader
 						title="Related Results"
@@ -193,16 +191,19 @@ watch(
 						</div>
 					</template>
 				</MessageCard>
-				<LoadingState
+				<PlaceholderState
 					v-if="isLoading || isLoadingRelated"
+					variant="loading"
 					text="Ищем связанные чанки…"
 				/>
-				<EmptyState
+				<PlaceholderState
 					v-else-if="!activeChunk"
+					variant="empty"
 					text="Сфокусируйте курсор на markdown-чанке, чтобы увидеть связанные элементы."
 				/>
-				<EmptyState
+				<PlaceholderState
 					v-else-if="relatedChunks.length === 0"
+					variant="empty"
 					text="Связанные чанки не найдены."
 				/>
 				<div v-else class="flex min-h-0 flex-1 flex-col gap-1.5">
@@ -249,17 +250,18 @@ watch(
 						</template>
 					</MessageCard>
 				</div>
-			</EntityListPane>
+			</PanelFrame>
 
-			<DetailsPane class="min-h-0" :scroll="true" padding="sm" gap="sm">
+			<PanelFrame class="min-h-0" :scroll="true" padding="sm" gap="sm">
 				<template #header>
 					<SectionHeader
 						title="Unsynced Notes"
 						:subtitle="`/Organize not indexed: ${unsyncedNotes.length}`"
 					/>
 				</template>
-				<EmptyState
+				<PlaceholderState
 					v-if="unsyncedNotes.length === 0"
+					variant="empty"
 					text="Все заметки из /Organize уже синхронизированы."
 				/>
 				<div v-else class="flex flex-col gap-1.5">
@@ -272,7 +274,7 @@ watch(
 						body="Нужна индексация для векторного поиска."
 					/>
 				</div>
-			</DetailsPane>
+			</PanelFrame>
 		</div>
 	</AppShell>
 </template>

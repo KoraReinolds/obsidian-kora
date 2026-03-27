@@ -2,11 +2,10 @@
 import {
 	AppShell,
 	ChatTimeline,
-	DetailsPane,
-	EmptyState,
-	EntityListPane,
 	IconButton,
 	IconTextField,
+	PanelFrame,
+	PlaceholderState,
 	StatusBanner,
 	SummaryChip,
 	Toolbar,
@@ -219,7 +218,7 @@ void refreshData();
 			v-if="activeTab === 'archive'"
 			class="grid h-full min-h-0 flex-1 grid-cols-1 items-stretch gap-3 overflow-hidden lg:grid-cols-[minmax(320px,400px)_minmax(0,1fr)]"
 		>
-			<EntityListPane class="min-h-0">
+			<PanelFrame class="min-h-0">
 				<div
 					class="shrink-0 border-b border-solid border-[var(--background-modifier-border)] pb-3"
 				>
@@ -257,8 +256,9 @@ void refreshData();
 				<div
 					class="isolate mt-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden pb-2 pr-1"
 				>
-					<EmptyState
+					<PlaceholderState
 						v-if="filteredChats.length === 0"
+						variant="empty"
 						:text="
 							chats.length === 0
 								? 'Архив пока пуст. Импортируйте Telegram Desktop export сверху.'
@@ -305,9 +305,9 @@ void refreshData();
 						/>
 					</div>
 				</div>
-			</EntityListPane>
+			</PanelFrame>
 
-			<DetailsPane
+			<PanelFrame
 				class="min-h-0 overflow-hidden"
 				padding="md"
 				gap="md"
@@ -430,7 +430,7 @@ void refreshData();
 						Импортируйте архив Telegram Desktop export или выберите чат слева.
 					</div>
 				</div>
-			</DetailsPane>
+			</PanelFrame>
 		</div>
 		<div v-else class="flex min-h-0 flex-1 overflow-hidden">
 			<PipelineRuntimeScreen
@@ -441,7 +441,11 @@ void refreshData();
 				:default-gap-minutes="defaultGapMinutes || 30"
 				:embedded="true"
 			/>
-			<EmptyState v-else text="Pipeline transport недоступен." />
+			<PlaceholderState
+				v-else
+				variant="empty"
+				text="Pipeline transport недоступен."
+			/>
 		</div>
 	</AppShell>
 </template>
