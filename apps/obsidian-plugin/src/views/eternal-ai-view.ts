@@ -13,6 +13,8 @@ import {
 	EternalAiBridge,
 } from '../features/eternal-ai';
 import {
+	createHostChatMessageContextMenuHandler,
+	createHostImageContextMenuHandler,
 	mountVueInObsidian,
 	ObsidianLucideIcon,
 	unmountVueInObsidian,
@@ -58,7 +60,13 @@ export class EternalAiView extends ItemView {
 				defaultSystemPrompt:
 					this.plugin.settings.eternalAiSettings.defaultSystemPrompt || '',
 			},
-			{ hostLucideIcon: ObsidianLucideIcon }
+			{
+				hostLucideIcon: ObsidianLucideIcon,
+				hostImageContextMenu: createHostImageContextMenuHandler(this.app),
+				hostChatMessageContextMenu: createHostChatMessageContextMenuHandler(
+					this.app
+				),
+			}
 		);
 	}
 

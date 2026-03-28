@@ -30,7 +30,7 @@ interface MessageRow {
 	role: 'user' | 'assistant' | 'system';
 	content_text: string;
 	model: string | null;
-	status: 'complete' | 'error';
+	status: 'complete' | 'error' | 'pending';
 	error_text: string | null;
 	attachments_json: string | null;
 	metadata_json: string | null;
@@ -48,7 +48,7 @@ export interface InsertMessageInput {
 	role: 'user' | 'assistant' | 'system';
 	contentText: string;
 	model?: string | null;
-	status: 'complete' | 'error';
+	status: 'complete' | 'error' | 'pending';
 	errorText?: string | null;
 	attachments?: Array<Record<string, unknown>> | null;
 	metadata?: Record<string, unknown> | null;
@@ -258,6 +258,93 @@ export class EternalAiRepository {
 		return this.mapMessage(row);
 	}
 
+	/**
+	 * @description Загрузка сообщения по первичному ключу (для poll creative и слияния метаданных).
+	 * @param {string} messageId - UUID сообщения
+	 * @returns {EternalAiMessageRecord | null}
+	 */
+	getMessageById(messageId: string): EternalAiMessageRecord | null {
+		const row = this.db
+			.prepare(
+				`
+					SELECT
+						id,
+						conversation_id,
+						role,
+						content_text,
+						model,
+						status,
+						error_text,
+						attachments_json,
+						metadata_json,
+						created_at
+					FROM eternal_ai_messages
+					WHERE id = ?
+				`
+			)
+			.get(messageId) as MessageRow | undefined;
+
+		return row ? this.mapMessage(row) : null;
+	}
+
+	/**
+	 * @description Обновляет строку сообщения (дозапись результата генерации в то же сообщение ассистента).
+	 * @param {string} messageId - id сообщения
+	 * @param {object} patch - Поля для замены; {@code metadata} сливается поверх существующего JSON.
+	 * @returns {EternalAiMessageRecord | null}
+	 */
+	updateMessage(
+		messageId: string,
+		patch: {
+			contentText?: string;
+			status?: 'complete' | 'error' | 'pending';
+			errorText?: string | null;
+			attachments?: Array<Record<string, unknown>> | null;
+			metadata?: Record<string, unknown> | null;
+		}
+	): EternalAiMessageRecord | null {
+		const current = this.getMessageById(messageId);
+		if (!current) {
+			return null;
+		}
+
+		const nextMeta =
+			patch.metadata !== undefined
+				? { ...(current.metadata || {}), ...patch.metadata }
+				: current.metadata;
+
+		const nextContent = patch.contentText ?? current.contentText;
+		const nextStatus = patch.status ?? current.status;
+		const nextError =
+			patch.errorText !== undefined ? patch.errorText : current.errorText;
+		const nextAttachments =
+			patch.attachments !== undefined ? patch.attachments : current.attachments;
+
+		this.db
+			.prepare(
+				`
+					UPDATE eternal_ai_messages
+					SET
+						content_text = ?,
+						status = ?,
+						error_text = ?,
+						attachments_json = ?,
+						metadata_json = ?
+					WHERE id = ?
+				`
+			)
+			.run(
+				nextContent,
+				nextStatus,
+				nextError || null,
+				nextAttachments ? JSON.stringify(nextAttachments) : null,
+				nextMeta ? JSON.stringify(nextMeta) : null,
+				messageId
+			);
+
+		return this.getMessageById(messageId);
+	}
+
 	deleteConversation(conversationId: string): boolean {
 		const result = this.db
 			.prepare('DELETE FROM eternal_ai_conversations WHERE id = ?')
@@ -280,6 +367,7 @@ export class EternalAiRepository {
 	insertEffectJob(input: {
 		requestId: string;
 		conversationId: string;
+		/** id якорного сообщения: для новых задач — pending assistant; для старых дампов — user. */
 		userMessageId: string;
 		effectId: string;
 		effectTag: string | null;

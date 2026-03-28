@@ -1,10 +1,13 @@
 <script setup lang="ts">
+import { inject } from 'vue';
 import IconButton from './IconButton.vue';
+import { HOST_IMAGE_CONTEXT_MENU } from '../injection-keys';
 
 /**
  * @description Миниатюра вложения: превью картинки/видео или пустая плитка.
  * При {@code emptyPickable} клик по пустому состоянию эмитит {@code pick} (выбор файла снаружи).
  * При {@code clearable} и непустом {@code src} — кнопка сброса справа сверху, {@code clear}.
+ * По ПКМ на картинке — host-меню ({@link HOST_IMAGE_CONTEXT_MENU}), если provide задан.
  */
 const props = withDefaults(
 	defineProps<{
@@ -16,6 +19,8 @@ const props = withDefaults(
 		emptyPickable?: boolean;
 		/** Показать кнопку удаления превью (только если есть src). */
 		clearable?: boolean;
+		/** Подсказка имени при «Сохранить в хранилище» из контекстного меню. */
+		contextMenuSuggestedName?: string | null;
 	}>(),
 	{
 		src: null,
@@ -24,20 +29,45 @@ const props = withDefaults(
 		zoomable: false,
 		emptyPickable: false,
 		clearable: false,
+		contextMenuSuggestedName: null,
 	}
 );
 
 const emit = defineEmits<{
-	(event: 'open', src: string): void;
+	(
+		event: 'open',
+		src: string,
+		meta?: { suggestedFileName?: string | null }
+	): void;
 	(event: 'pick'): void;
 	(event: 'clear'): void;
 }>();
+
+const hostImageContextMenu = inject(HOST_IMAGE_CONTEXT_MENU, undefined);
 
 const handleOpen = (): void => {
 	if (!props.src) {
 		return;
 	}
-	emit('open', props.src);
+	emit('open', props.src, {
+		suggestedFileName: props.contextMenuSuggestedName,
+	});
+};
+
+/**
+ * @description ПКМ: нативное меню host (Obsidian) или стандартное меню браузера.
+ * @param {MouseEvent} event - {@code contextmenu}.
+ * @returns {void}
+ */
+const onImageContextMenu = (event: MouseEvent): void => {
+	if (!props.src || !props.isImage || !hostImageContextMenu) {
+		return;
+	}
+	event.preventDefault();
+	event.stopPropagation();
+	hostImageContextMenu(event, props.src, {
+		suggestedFileName: props.contextMenuSuggestedName ?? undefined,
+	});
 };
 
 const handleRootClick = (): void => {
@@ -68,6 +98,7 @@ const handleRootClick = (): void => {
 			class="h-full w-full object-cover"
 			:class="zoomable ? 'cursor-zoom-in' : ''"
 			@click.stop="zoomable ? handleOpen() : undefined"
+			@contextmenu="onImageContextMenu"
 		/>
 		<video
 			v-else-if="isVideo && src"

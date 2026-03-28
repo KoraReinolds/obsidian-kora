@@ -47,7 +47,7 @@ const emit = defineEmits<{
 			</div>
 			<div
 				v-else
-				class="flex min-h-0 flex-1 flex-col overflow-y-scroll overflow-x-hidden p-3"
+				class="kora-chat-timeline-scroll flex min-h-0 flex-1 select-text flex-col overflow-y-scroll overflow-x-hidden p-3"
 			>
 				<div
 					v-for="item in items"

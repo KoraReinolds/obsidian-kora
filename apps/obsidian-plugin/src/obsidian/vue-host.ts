@@ -7,7 +7,13 @@
 
 import type { App, Component } from 'vue';
 import { createApp } from 'vue';
-import { HOST_LUCIDE_ICON } from '../ui-vue/injection-keys';
+import {
+	HOST_CHAT_MESSAGE_CONTEXT_MENU,
+	HOST_IMAGE_CONTEXT_MENU,
+	HOST_LUCIDE_ICON,
+	type HostChatMessageContextMenuFn,
+	type HostImageContextMenuFn,
+} from '../ui-vue/injection-keys';
 
 /**
  * @description Опции монтирования: подстановка host-компонентов через provide.
@@ -15,6 +21,10 @@ import { HOST_LUCIDE_ICON } from '../ui-vue/injection-keys';
 export interface MountVueInObsidianOptions {
 	/** Реализация Lucide через Obsidian `setIcon` для inject в core {@link UiHostIcon}. */
 	hostLucideIcon?: Component;
+	/** Контекстное меню по ПКМ на превью изображений ({@link HOST_IMAGE_CONTEXT_MENU}). */
+	hostImageContextMenu?: HostImageContextMenuFn;
+	/** Контекстное меню по ПКМ на пузыре сообщения ({@link HOST_CHAT_MESSAGE_CONTEXT_MENU}). */
+	hostChatMessageContextMenu?: HostChatMessageContextMenuFn;
 }
 
 /**
@@ -35,6 +45,15 @@ export function mountVueInObsidian<TProps>(
 	const app = createApp(component, (props as Record<string, unknown>) || {});
 	if (options?.hostLucideIcon) {
 		app.provide(HOST_LUCIDE_ICON, options.hostLucideIcon);
+	}
+	if (options?.hostImageContextMenu) {
+		app.provide(HOST_IMAGE_CONTEXT_MENU, options.hostImageContextMenu);
+	}
+	if (options?.hostChatMessageContextMenu) {
+		app.provide(
+			HOST_CHAT_MESSAGE_CONTEXT_MENU,
+			options.hostChatMessageContextMenu
+		);
 	}
 	app.mount(container);
 	return app;

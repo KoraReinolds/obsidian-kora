@@ -41,7 +41,7 @@ const emit = defineEmits<{
 	submit: [];
 	'image-files': [files: FileList | null];
 	'clear-image': [];
-	'preview-open': [src: string];
+	'preview-open': [src: string, meta?: { suggestedFileName?: string | null }];
 }>();
 
 const fileInputRef = ref<HTMLInputElement | null>(null);
@@ -56,8 +56,11 @@ const triggerPickImage = (): void => {
 	fileInputRef.value?.click();
 };
 
-const onPreviewOpen = (src: string): void => {
-	emit('preview-open', src);
+const onPreviewOpen = (
+	src: string,
+	meta?: { suggestedFileName?: string | null }
+): void => {
+	emit('preview-open', src, meta);
 };
 
 const onClearImage = (): void => {
@@ -93,6 +96,7 @@ const onKeydown = (event: KeyboardEvent): void => {
 					:is-image="true"
 					:zoomable="Boolean(visualSrc)"
 					:clearable="visualClearable"
+					context-menu-suggested-name="Кадр композера"
 					empty-pickable
 					@pick="triggerPickImage"
 					@open="onPreviewOpen"

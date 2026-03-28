@@ -60,6 +60,7 @@ const mapMessageAttachments = (
 			description:
 				typeof rec.description === 'string' ? rec.description : undefined,
 			previewSrc: typeof rec.previewSrc === 'string' ? rec.previewSrc : null,
+			isGenerating: Boolean(rec.isGenerating),
 			isImage: Boolean(rec.isImage),
 			isVideo: Boolean(rec.isVideo),
 			size: typeof rec.size === 'number' ? rec.size : null,
@@ -248,13 +249,27 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 		return normalized.length <= 96 ? normalized : `${normalized.slice(0, 95)}…`;
 	});
 
-	const loadMessages = async (conversationId: string | null): Promise<void> => {
+	/**
+	 * @description Подгружает историю выбранного диалога. Режим {@code silent} не
+	 * включает полноэкранный loading у ленты — контейнер с scroll не размонтируется,
+	 * позиция прокрутки сохраняется (нужно при poll генерации).
+	 * @param {string | null} conversationId - id диалога или null
+	 * @param {{ silent?: boolean }} loadOpts - {@code silent: true} — без isLoadingMessages
+	 * @returns {Promise<void>}
+	 */
+	const loadMessages = async (
+		conversationId: string | null,
+		loadOpts?: { silent?: boolean }
+	): Promise<void> => {
 		if (!conversationId) {
 			messages.value = [];
 			return;
 		}
 
-		isLoadingMessages.value = true;
+		const silent = Boolean(loadOpts?.silent);
+		if (!silent) {
+			isLoadingMessages.value = true;
+		}
 		try {
 			messages.value = await options.transport.listMessages(conversationId);
 		} catch (error) {
@@ -263,7 +278,9 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 				`Не удалось загрузить историю Eternal AI: ${(error as Error).message}`
 			);
 		} finally {
-			isLoadingMessages.value = false;
+			if (!silent) {
+				isLoadingMessages.value = false;
+			}
 		}
 	};
 
@@ -281,14 +298,25 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 		}
 	};
 
+	/**
+	 * @description Полное обновление экрана. {@code silentMessages} — обновить список
+	 * сообщений без сброса scroll ленты; {@code skipCreativeEffects} — не дергать каталог
+	 * эффектов (после завершения генерации).
+	 * @param {string | null} [nextConversationId] - Выбрать диалог после загрузки списка
+	 * @param {{ silentMessages?: boolean; skipCreativeEffects?: boolean }} [refreshOpts] - Опции
+	 * @returns {Promise<void>}
+	 */
 	const refreshData = async (
-		nextConversationId?: string | null
+		nextConversationId?: string | null,
+		refreshOpts?: { silentMessages?: boolean; skipCreativeEffects?: boolean }
 	): Promise<void> => {
 		isRefreshing.value = true;
 		try {
 			health.value = await options.transport.getHealth();
 			conversations.value = await options.transport.listConversations();
-			await loadCreativeEffects();
+			if (!refreshOpts?.skipCreativeEffects) {
+				await loadCreativeEffects();
+			}
 
 			const hasRequestedConversation =
 				nextConversationId &&
@@ -309,7 +337,9 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 				selectedConversationId.value = conversations.value[0]?.id || null;
 			}
 
-			await loadMessages(selectedConversationId.value);
+			await loadMessages(selectedConversationId.value, {
+				silent: refreshOpts?.silentMessages,
+			});
 
 			if (health.value.status !== 'healthy') {
 				screen.setMessage(
@@ -382,13 +412,6 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 	const handleDeleteConversation = async (
 		conversationId: string
 	): Promise<void> => {
-		const confirmed = window.confirm(
-			'Удалить этот Eternal AI диалог из локальной истории?'
-		);
-		if (!confirmed) {
-			return;
-		}
-
 		isDeletingConversationId.value = conversationId;
 		try {
 			await options.transport.deleteConversation(conversationId);
@@ -410,11 +433,6 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 	const handleDeleteMessage = async (messageId: string): Promise<void> => {
 		const conversationId = selectedConversationId.value;
 		if (!conversationId) {
-			return;
-		}
-
-		const confirmed = window.confirm('Удалить это сообщение из локальной БД?');
-		if (!confirmed) {
 			return;
 		}
 
@@ -509,7 +527,7 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 			});
 
 			selectedConversationId.value = start.conversation.id;
-			await loadMessages(start.conversation.id);
+			await loadMessages(start.conversation.id, { silent: true });
 
 			let attempts = 0;
 			const maxAttempts = 180;
@@ -529,7 +547,10 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 				await sleep(2000);
 			}
 
-			await refreshData(start.conversation.id);
+			await refreshData(start.conversation.id, {
+				silentMessages: true,
+				skipCreativeEffects: true,
+			});
 			leftTab.value = 'chats';
 
 			if (!finished) {
@@ -618,7 +639,7 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 			});
 
 			selectedConversationId.value = start.conversation.id;
-			await loadMessages(start.conversation.id);
+			await loadMessages(start.conversation.id, { silent: true });
 
 			let attempts = 0;
 			const maxAttempts = 180;
@@ -633,7 +654,10 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 				await sleep(2000);
 			}
 
-			await refreshData(start.conversation.id);
+			await refreshData(start.conversation.id, {
+				silentMessages: true,
+				skipCreativeEffects: true,
+			});
 			leftTab.value = 'chats';
 		} catch (error) {
 			screen.setMessage(

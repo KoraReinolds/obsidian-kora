@@ -13,6 +13,8 @@ import { ArchiveScreen, createArchiveBridgeAdapter } from '../telegram/archive';
 import { createPipelineRuntimeBridgeAdapter } from '../telegram/pipeline';
 import { VectorBridge } from '../vector';
 import {
+	createHostChatMessageContextMenuHandler,
+	createHostImageContextMenuHandler,
 	mountVueInObsidian,
 	ObsidianLucideIcon,
 	unmountVueInObsidian,
@@ -73,7 +75,13 @@ export class ArchiveView extends ItemView {
 				defaultChunkSize: 6,
 				defaultGapMinutes: 30,
 			},
-			{ hostLucideIcon: ObsidianLucideIcon }
+			{
+				hostLucideIcon: ObsidianLucideIcon,
+				hostImageContextMenu: createHostImageContextMenuHandler(this.app),
+				hostChatMessageContextMenu: createHostChatMessageContextMenuHandler(
+					this.app
+				),
+			}
 		);
 	}
 

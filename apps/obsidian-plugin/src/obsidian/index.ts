@@ -17,3 +17,5 @@ export {
 export { default as ObsidianLucideIcon } from './ui-vue/ObsidianLucideIcon.vue';
 export { VaultOperations } from './vault-operations';
 export { mountVueInObsidian, unmountVueInObsidian } from './vue-host';
+export { createHostImageContextMenuHandler } from './host-image-context-menu';
+export { createHostChatMessageContextMenuHandler } from './host-chat-message-context-menu';

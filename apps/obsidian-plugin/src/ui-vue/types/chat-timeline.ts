@@ -18,6 +18,8 @@ export interface ChatTimelineAttachment {
 	name: string;
 	description?: string;
 	previewSrc?: string | null;
+	/** Медиа ещё генерируется (Eternal AI poll). */
+	isGenerating?: boolean;
 	isImage?: boolean;
 	isVideo?: boolean;
 	size?: number | null;

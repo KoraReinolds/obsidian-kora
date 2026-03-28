@@ -1,9 +1,9 @@
 /**
  * @module modules/eternal-ai/eternal-ai-service
  * @description Оркестратор Eternal AI чатов. Сервис хранит локальную историю,
- * формирует OpenAI-compatible payload и записывает оба сообщения пары
- * user/assistant в SQLite, чтобы экран в Obsidian всегда открывался из локального
- * состояния.
+ * формирует OpenAI-compatible payload и записывает пары user/assistant в SQLite.
+ * Визуальная генерация (Easy Effect / custom) создаёт одно pending-сообщение
+ * ассистента с промптом и плейсхолдером; poll дозаписывает медиа в ту же строку.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -345,7 +345,7 @@ export class EternalAiService {
 	}
 
 	/**
-	 * @description Стартует генерацию по Easy Effect: запрос к `/generate`, локальная запись job.
+	 * @description Стартует генерацию по Easy Effect: запрос к `/generate`, pending-сообщение ассистента и job.
 	 * @param {StartCreativeEffectRequest} request - effect_id и изображения (URL или data URL).
 	 * @returns {Promise<StartCreativeEffectResponse>}
 	 */
@@ -403,26 +403,38 @@ export class EternalAiService {
 			throw new Error('Eternal generate: в ответе нет request_id.');
 		}
 
-		const userMessage = this.repository.insertMessage({
+		const placeholderAttachmentId = randomUUID();
+		const assistantMessage = this.repository.insertMessage({
 			id: randomUUID(),
 			conversationId: conversation.id,
-			role: 'user',
-			contentText: `Визуальный эффект: ${request.effect_tag}`,
+			role: 'assistant',
+			contentText: request.effect_tag,
 			model,
-			status: 'complete',
+			status: 'pending',
 			createdAt: now,
 			metadata: {
+				creativeGenerating: true,
 				creativeEffect: true,
 				effectId: request.effect_id,
 				effectTag: request.effect_tag,
 				requestId,
 			},
+			attachments: [
+				{
+					id: placeholderAttachmentId,
+					kind: 'image',
+					name: 'Изображение',
+					isImage: true,
+					isGenerating: true,
+					previewSrc: null,
+				},
+			],
 		});
 
 		this.repository.insertEffectJob({
 			requestId,
 			conversationId: conversation.id,
-			userMessageId: userMessage.id,
+			userMessageId: assistantMessage.id,
 			effectId: request.effect_id,
 			effectTag: request.effect_tag,
 			status: 'pending',
@@ -433,7 +445,7 @@ export class EternalAiService {
 		this.repository.updateConversationMetadata({
 			conversationId: conversation.id,
 			model,
-			lastMessagePreview: this.buildPreview(userMessage.contentText),
+			lastMessagePreview: this.buildPreview(assistantMessage.contentText),
 			lastMessageAt: now,
 			updatedAt: now,
 		});
@@ -443,7 +455,7 @@ export class EternalAiService {
 			conversation: this.repository.getConversation(
 				conversation.id
 			) as EternalAiConversationSummary,
-			userMessage,
+			assistantMessage,
 		};
 	}
 
@@ -511,25 +523,39 @@ export class EternalAiService {
 			throw new Error('Eternal custom generate: в ответе нет request_id.');
 		}
 
-		const userMessage = this.repository.insertMessage({
+		const isVideoMode = request.mode === 'video_generate';
+		const placeholderAttachmentId = randomUUID();
+		const assistantMessage = this.repository.insertMessage({
 			id: randomUUID(),
 			conversationId: conversation.id,
-			role: 'user',
-			contentText: `[Custom ${request.mode}] ${request.prompt}`,
+			role: 'assistant',
+			contentText: request.prompt,
 			model,
-			status: 'complete',
+			status: 'pending',
 			createdAt: now,
 			metadata: {
+				creativeGenerating: true,
 				customGeneration: true,
 				mode: request.mode,
 				requestId,
 			},
+			attachments: [
+				{
+					id: placeholderAttachmentId,
+					kind: isVideoMode ? 'video' : 'image',
+					name: isVideoMode ? 'Видео' : 'Изображение',
+					isImage: !isVideoMode,
+					isVideo: isVideoMode,
+					isGenerating: true,
+					previewSrc: null,
+				},
+			],
 		});
 
 		this.repository.insertEffectJob({
 			requestId,
 			conversationId: conversation.id,
-			userMessageId: userMessage.id,
+			userMessageId: assistantMessage.id,
 			effectId: `custom:${request.mode}`,
 			effectTag: `Custom ${request.mode}`,
 			status: 'pending',
@@ -540,7 +566,7 @@ export class EternalAiService {
 		this.repository.updateConversationMetadata({
 			conversationId: conversation.id,
 			model,
-			lastMessagePreview: this.buildPreview(userMessage.contentText),
+			lastMessagePreview: this.buildPreview(assistantMessage.contentText),
 			lastMessageAt: now,
 			updatedAt: now,
 		});
@@ -550,7 +576,7 @@ export class EternalAiService {
 			conversation: this.repository.getConversation(
 				conversation.id
 			) as EternalAiConversationSummary,
-			userMessage,
+			assistantMessage,
 		};
 	}
 
@@ -634,7 +660,8 @@ export class EternalAiService {
 	}
 
 	/**
-	 * @description Проксирует poll-result и при успехе записывает ответ ассистента в историю.
+	 * @description Проксирует poll-result. Для текущего потока дозаполняет то же pending-сообщение
+	 * ассистента; для старых задач (якорь — user) создаёт отдельное сообщение, как раньше.
 	 * @param {string} requestId - Идентификатор задачи Eternal.
 	 * @returns {Promise<EternalAiCreativePollResponse>}
 	 */
@@ -669,6 +696,15 @@ export class EternalAiService {
 				completed: true,
 			};
 		}
+
+		const anchorJobMessage = job.user_message_id
+			? this.repository.getMessageById(job.user_message_id)
+			: null;
+		const pendingAssistantFlow = Boolean(
+			anchorJobMessage &&
+			anchorJobMessage.role === 'assistant' &&
+			anchorJobMessage.status === 'pending'
+		);
 
 		const pollUrl = `${ETERNAL_OPEN_ORIGIN}/poll-result/${encodeURIComponent(requestId)}`;
 		const response = await fetch(pollUrl, {
@@ -715,6 +751,71 @@ export class EternalAiService {
 			normalized === 'processing';
 
 		const updatedAt = new Date().toISOString();
+
+		if (resultUrl && pendingAssistantFlow && anchorJobMessage) {
+			const isVideo = /\.(mp4|webm|mov)(\?|$)/i.test(resultUrl);
+			const prevAtt = anchorJobMessage.attachments?.[0] as
+				| Record<string, unknown>
+				| undefined;
+			const attId = typeof prevAtt?.id === 'string' ? prevAtt.id : randomUUID();
+			const resultMeta: Record<string, unknown> = {
+				creativeGenerating: false,
+				resultUrl,
+				requestId,
+			};
+			if (String(job.effect_id).startsWith('custom:')) {
+				resultMeta.customGenerationComplete = true;
+			} else {
+				resultMeta.creativeEffectResult = true;
+			}
+			const assistantMessage = this.repository.updateMessage(
+				anchorJobMessage.id,
+				{
+					status: 'complete',
+					attachments: [
+						{
+							id: attId,
+							kind: isVideo ? 'video' : 'image',
+							name: isVideo ? 'Видео' : 'Изображение',
+							previewSrc: resultUrl,
+							isImage: !isVideo,
+							isVideo,
+							isGenerating: false,
+						},
+					],
+					metadata: resultMeta,
+				}
+			);
+			if (!assistantMessage) {
+				throw new Error('Не удалось обновить сообщение ассистента.');
+			}
+
+			this.repository.updateEffectJob(requestId, {
+				status: 'success',
+				result_url: resultUrl,
+				assistant_message_id: assistantMessage.id,
+				updatedAt,
+			});
+
+			this.repository.updateConversationMetadata({
+				conversationId: job.conversation_id,
+				lastMessagePreview: this.buildPreview(assistantMessage.contentText),
+				lastMessageAt: updatedAt,
+				updatedAt,
+			});
+
+			return {
+				request_id: requestId,
+				status: 'success',
+				progress: progress ?? 100,
+				result_url: resultUrl,
+				completed: true,
+				assistantMessage,
+				conversation: this.repository.getConversation(
+					job.conversation_id
+				) as EternalAiConversationSummary,
+			};
+		}
 
 		if (resultUrl && !job.assistant_message_id) {
 			const isVideo = /\.(mp4|webm|mov)(\?|$)/i.test(resultUrl);
@@ -786,6 +887,54 @@ export class EternalAiService {
 				'Генерация завершилась ошибкой.';
 
 			if (!job.assistant_message_id) {
+				if (pendingAssistantFlow && anchorJobMessage) {
+					const assistantMessage = this.repository.updateMessage(
+						anchorJobMessage.id,
+						{
+							status: 'error',
+							errorText: String(detail),
+							attachments: [],
+							metadata: {
+								creativeGenerating: false,
+								creativeEffectError: true,
+								effectId: job.effect_id,
+								requestId,
+							},
+						}
+					);
+					if (!assistantMessage) {
+						throw new Error(
+							'Не удалось записать ошибку в сообщение ассистента.'
+						);
+					}
+
+					this.repository.updateEffectJob(requestId, {
+						status: 'error',
+						error_text: String(detail),
+						assistant_message_id: assistantMessage.id,
+						updatedAt,
+					});
+
+					this.repository.updateConversationMetadata({
+						conversationId: job.conversation_id,
+						lastMessagePreview: this.buildPreview(assistantMessage.contentText),
+						lastMessageAt: updatedAt,
+						updatedAt,
+					});
+
+					return {
+						request_id: requestId,
+						status: 'error',
+						error: String(detail),
+						progress,
+						completed: true,
+						assistantMessage,
+						conversation: this.repository.getConversation(
+							job.conversation_id
+						) as EternalAiConversationSummary,
+					};
+				}
+
 				this.repository.updateEffectJob(requestId, {
 					status: 'error',
 					error_text: String(detail),

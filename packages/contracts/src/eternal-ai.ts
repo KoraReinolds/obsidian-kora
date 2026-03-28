@@ -22,7 +22,8 @@ export interface EternalAiMessageRecord {
 	role: 'user' | 'assistant' | 'system';
 	contentText: string;
 	model?: string | null;
-	status: 'complete' | 'error';
+	/** {@code pending} — визуальная генерация (Easy Effect / custom), ждём poll. */
+	status: 'complete' | 'error' | 'pending';
 	errorText?: string | null;
 	attachments?: Array<Record<string, unknown>> | null;
 	metadata?: Record<string, unknown> | null;
@@ -88,7 +89,8 @@ export interface StartCreativeEffectRequest {
 export interface StartCreativeEffectResponse {
 	request_id: string;
 	conversation: EternalAiConversationSummary;
-	userMessage: EternalAiMessageRecord;
+	/** Сообщение ассистента с промптом и плейсхолдером медиа до завершения poll. */
+	assistantMessage: EternalAiMessageRecord;
 }
 
 /**
@@ -122,7 +124,7 @@ export interface StartCustomGenerationRequest {
 export interface StartCustomGenerationResponse {
 	request_id: string;
 	conversation: EternalAiConversationSummary;
-	userMessage: EternalAiMessageRecord;
+	assistantMessage: EternalAiMessageRecord;
 }
 
 /**

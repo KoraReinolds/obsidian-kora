@@ -66,6 +66,7 @@ const {
 
 const {
 	src: lightboxSrc,
+	suggestedFileName: lightboxSuggestedName,
 	open: openLightbox,
 	close: closeLightbox,
 } = useImageLightbox();
@@ -164,8 +165,11 @@ const onComposerClearImage = (): void => {
 	setVisualSourceFromFileList(null);
 };
 
-const onComposerPreviewOpen = (src: string): void => {
-	openLightbox(src);
+const onComposerPreviewOpen = (
+	src: string,
+	meta?: { suggestedFileName?: string | null }
+): void => {
+	openLightbox(src, meta);
 };
 
 void refreshData();
@@ -455,6 +459,7 @@ void refreshData();
 	<ImageLightbox
 		v-if="lightboxSrc"
 		:image-url="lightboxSrc"
+		:suggested-file-name="lightboxSuggestedName"
 		@close="closeLightbox"
 	/>
 </template>

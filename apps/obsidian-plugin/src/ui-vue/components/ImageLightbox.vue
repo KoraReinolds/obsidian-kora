@@ -2,16 +2,42 @@
 /**
  * @description Полноэкранный просмотр изображения поверх интерфейса (Teleport в body).
  */
-import { onBeforeUnmount, onMounted } from 'vue';
+import { inject, onBeforeUnmount, onMounted } from 'vue';
+import { HOST_IMAGE_CONTEXT_MENU } from '../injection-keys';
 
-defineProps<{
-	/** URL изображения (родитель монтирует компонент только при непустом URL). */
-	imageUrl: string;
-}>();
+const props = withDefaults(
+	defineProps<{
+		/** URL изображения (родитель монтирует компонент только при непустом URL). */
+		imageUrl: string;
+		/** Подсказка имени файла для контекстного меню при сохранении в vault. */
+		suggestedFileName?: string | null;
+	}>(),
+	{
+		suggestedFileName: null,
+	}
+);
 
 const emit = defineEmits<{
 	close: [];
 }>();
+
+const hostImageContextMenu = inject(HOST_IMAGE_CONTEXT_MENU, undefined);
+
+/**
+ * @description Контекстное меню на полноразмерном изображении (тот же host, что и на превью).
+ * @param {MouseEvent} event - {@code contextmenu}.
+ * @returns {void}
+ */
+const onImageContextMenu = (event: MouseEvent): void => {
+	if (!hostImageContextMenu) {
+		return;
+	}
+	event.preventDefault();
+	event.stopPropagation();
+	hostImageContextMenu(event, props.imageUrl, {
+		suggestedFileName: props.suggestedFileName ?? undefined,
+	});
+};
 
 /**
  * @description Закрытие по Escape без всплытия к остальному UI.
@@ -51,6 +77,7 @@ onBeforeUnmount(() => {
 				alt=""
 				class="max-h-[96vh] max-w-[96vw] object-contain"
 				@click.stop
+				@contextmenu="onImageContextMenu"
 			/>
 		</div>
 	</Teleport>
