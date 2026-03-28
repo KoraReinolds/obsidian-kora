@@ -13,6 +13,8 @@ import type {
 	EternalAiCreativePollResponse,
 	EternalAiHealthResponse,
 	EternalAiMessageRecord,
+	EternalAiS4SafetyCheckRequest,
+	EternalAiS4SafetyCheckResponse,
 	SendEternalAiMessageRequest,
 	SendEternalAiMessageResponse,
 	StartCustomGenerationRequest,
@@ -63,6 +65,12 @@ interface EternalAiCreativePollApiResponse {
 
 interface EternalAiCustomGenerateResponse extends StartCustomGenerationResponse {
 	success: boolean;
+	error?: string;
+}
+
+interface EternalAiS4SafetyCheckApiResponse {
+	success: boolean;
+	result?: EternalAiS4SafetyCheckResponse;
 	error?: string;
 }
 
@@ -227,5 +235,22 @@ export class EternalAiBridge extends BaseHttpClient {
 		}
 
 		return response.poll;
+	}
+
+	async safetyCheckS4(
+		request: EternalAiS4SafetyCheckRequest
+	): Promise<EternalAiS4SafetyCheckResponse> {
+		const response =
+			await this.handleRequest<EternalAiS4SafetyCheckApiResponse>(
+				'/eternal_ai/safety-check',
+				{ method: 'POST', body: request, timeout: 120000 },
+				'Ошибка S4 safety-check Eternal AI'
+			);
+
+		if (!response?.success || !response.result) {
+			throw new Error(response?.error || 'Не удалось выполнить проверку S4');
+		}
+
+		return response.result;
 	}
 }

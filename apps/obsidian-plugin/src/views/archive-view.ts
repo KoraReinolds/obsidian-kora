@@ -66,6 +66,10 @@ export class ArchiveView extends ItemView {
 				defaultSyncLimit: this.plugin.settings.archiveSettings.defaultSyncLimit,
 				recentMessagesLimit:
 					this.plugin.settings.archiveSettings.recentMessagesLimit,
+				resolveAttachmentSrc: (absolutePath: string) =>
+					this.plugin.app.vault.adapter.getResourcePath(
+						absolutePath.replace(/\\/g, '/')
+					),
 				defaultChunkSize: 6,
 				defaultGapMinutes: 30,
 			},

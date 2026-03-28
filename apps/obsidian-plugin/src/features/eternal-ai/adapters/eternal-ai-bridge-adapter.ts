@@ -22,5 +22,6 @@ export function createEternalAiBridgeAdapter(
 		startCreativeEffect: request => bridge.startCreativeEffect(request),
 		startCustomGeneration: request => bridge.startCustomGeneration(request),
 		pollCreativeEffect: requestId => bridge.pollCreativeEffect(requestId),
+		safetyCheckS4: request => bridge.safetyCheckS4(request),
 	};
 }

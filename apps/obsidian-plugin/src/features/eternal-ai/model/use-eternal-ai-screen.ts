@@ -6,13 +6,14 @@
  * каталог Creative (Easy Effect) и асинхронную генерацию через poll.
  */
 
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import type {
 	EternalAiConversationSummary,
 	EternalAiCustomMode,
 	EternalAiCreativeEffectItem,
 	EternalAiHealthResponse,
 	EternalAiMessageRecord,
+	EternalAiS4SafetyCheckResponse,
 } from '../../../../../../packages/contracts/src/eternal-ai';
 import { useScreenMessage } from '../../../ui-vue';
 import type { ChatTimelineItem } from '../../../ui-vue';
@@ -72,6 +73,49 @@ const sleep = (ms: number): Promise<void> =>
 		setTimeout(resolve, ms);
 	});
 
+/**
+ * @description Три «виртуальных» пункта каталога: base generate без effect_id Eternal.
+ * Показываются первыми в списке с фиксированными ценами (условные единицы API).
+ */
+const KORA_CUSTOM_CATALOG_ITEMS: EternalAiCreativeEffectItem[] = [
+	{
+		effect_id: '__kora_custom_photo_generate__',
+		tag: 'Генерация фото (свой промпт)',
+		effect_type: 'image',
+		price: 0.76,
+		model_id: 'custom-base',
+	},
+	{
+		effect_id: '__kora_custom_photo_edit__',
+		tag: 'Редактирование фото',
+		effect_type: 'image',
+		price: 0.76,
+		model_id: 'custom-base',
+	},
+	{
+		effect_id: '__kora_custom_video_generate__',
+		tag: 'Генерация видео',
+		effect_type: 'video',
+		price: 4,
+		model_id: 'custom-base',
+	},
+];
+
+const KORA_CUSTOM_ID_TO_MODE: Record<string, EternalAiCustomMode> = {
+	__kora_custom_photo_generate__: 'photo_generate',
+	__kora_custom_photo_edit__: 'photo_edit',
+	__kora_custom_video_generate__: 'video_generate',
+};
+
+/**
+ * @description Проверка id эффекта из блока KORA_CUSTOM_CATALOG_ITEMS.
+ * @param {string} effectId - effect_id карточки
+ * @returns {boolean}
+ */
+function isKoraCustomCatalogEffectId(effectId: string): boolean {
+	return Boolean(KORA_CUSTOM_ID_TO_MODE[effectId]);
+}
+
 export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 	const conversations = ref<EternalAiConversationSummary[]>([]);
 	const selectedConversationId = ref<string | null>(null);
@@ -84,19 +128,27 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 	const isDeletingConversationId = ref<string | null>(null);
 	const isDeletingMessageId = ref<string | null>(null);
 
-	const leftTab = ref<'chats' | 'effects' | 'custom'>('chats');
+	const leftTab = ref<'chats' | 'effects'>('chats');
 	const creativeEffects = ref<EternalAiCreativeEffectItem[]>([]);
 	const effectsQuery = ref('');
 	const selectedEffectId = ref<string | null>(null);
-	const effectSourceDataUrl = ref<string | null>(null);
+	/** Общий исходный кадр для Easy Effect и кастомных карточек каталога. */
+	const visualSourceDataUrl = ref<string | null>(null);
 	const isLoadingEffects = ref(false);
 	const isCreativeRunning = ref(false);
 	const customMode = ref<EternalAiCustomMode>('photo_generate');
-	const customPrompt = ref('');
-	const customSourceDataUrl = ref<string | null>(null);
 	const isCustomRunning = ref(false);
+	/**
+	 * @description Текст отладки под композером: ошибка S4 или отказ по is_s4 перед base generate.
+	 * Очищается при правке черновика и смене кадра.
+	 */
+	const customS4DebugError = ref<string | null>(null);
 
 	const screen = useScreenMessage();
+
+	watch(draft, () => {
+		customS4DebugError.value = null;
+	});
 
 	const selectedConversation = computed(
 		() =>
@@ -105,21 +157,38 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 			) || null
 	);
 
-	const selectedEffect = computed(
-		() =>
-			creativeEffects.value.find(
-				effect => effect.effect_id === selectedEffectId.value
-			) || null
+	const selectedEffect = computed((): EternalAiCreativeEffectItem | null => {
+		const id = selectedEffectId.value;
+		if (!id) {
+			return null;
+		}
+		const builtin = KORA_CUSTOM_CATALOG_ITEMS.find(
+			effect => effect.effect_id === id
+		);
+		if (builtin) {
+			return builtin;
+		}
+		return (
+			creativeEffects.value.find(effect => effect.effect_id === id) || null
+		);
+	});
+
+	const isCustomCatalogEffectSelected = computed(() =>
+		selectedEffectId.value
+			? isKoraCustomCatalogEffectId(selectedEffectId.value)
+			: false
 	);
 
-	const filteredEffects = computed(() => {
+	const filteredEffects = computed((): EternalAiCreativeEffectItem[] => {
 		const query = effectsQuery.value.trim().toLowerCase();
-		const items = creativeEffects.value;
-		if (!query) {
-			return items;
-		}
+		const remote = creativeEffects.value;
+		const match = (tag: string): boolean =>
+			!query || tag.toLowerCase().includes(query);
 
-		return items.filter(effect => effect.tag.toLowerCase().includes(query));
+		const head = KORA_CUSTOM_CATALOG_ITEMS.filter(e => match(e.tag));
+		const tail = !query ? remote : remote.filter(effect => match(effect.tag));
+
+		return [...head, ...tail];
 	});
 
 	const timelineItems = computed<ChatTimelineItem[]>(() => {
@@ -364,42 +433,32 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 	};
 
 	const selectEffect = (effectId: string): void => {
+		customS4DebugError.value = null;
 		selectedEffectId.value = effectId;
+		const mode = KORA_CUSTOM_ID_TO_MODE[effectId];
+		if (mode) {
+			customMode.value = mode;
+		}
 	};
 
-	const setEffectSourceFromFileList = (files: FileList | null): void => {
+	/**
+	 * @description Один исходный кадр для каталога Easy Effect и кастомных карточек.
+	 */
+	const setVisualSourceFromFileList = (files: FileList | null): void => {
+		customS4DebugError.value = null;
 		const file = files?.[0];
 		if (!file) {
-			effectSourceDataUrl.value = null;
+			visualSourceDataUrl.value = null;
 			return;
 		}
 
 		const reader = new FileReader();
 		reader.onload = () => {
 			const result = reader.result;
-			effectSourceDataUrl.value = typeof result === 'string' ? result : null;
+			visualSourceDataUrl.value = typeof result === 'string' ? result : null;
 		};
 		reader.onerror = () => {
-			effectSourceDataUrl.value = null;
-			screen.setMessage('error', 'Не удалось прочитать файл изображения.');
-		};
-		reader.readAsDataURL(file);
-	};
-
-	const setCustomSourceFromFileList = (files: FileList | null): void => {
-		const file = files?.[0];
-		if (!file) {
-			customSourceDataUrl.value = null;
-			return;
-		}
-
-		const reader = new FileReader();
-		reader.onload = () => {
-			const result = reader.result;
-			customSourceDataUrl.value = typeof result === 'string' ? result : null;
-		};
-		reader.onerror = () => {
-			customSourceDataUrl.value = null;
+			visualSourceDataUrl.value = null;
 			screen.setMessage('error', 'Не удалось прочитать файл изображения.');
 		};
 		reader.readAsDataURL(file);
@@ -416,7 +475,15 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 			return;
 		}
 
-		if (!effectSourceDataUrl.value) {
+		if (isKoraCustomCatalogEffectId(effect.effect_id)) {
+			screen.setMessage(
+				'warning',
+				'Base-режим: запуск через композер под лентой (та же кнопка отправки).'
+			);
+			return;
+		}
+
+		if (!visualSourceDataUrl.value) {
 			screen.setMessage(
 				'warning',
 				'Нужен исходный кадр: загрузите изображение (jpg/png/webp).'
@@ -438,7 +505,7 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 				conversationId: selectedConversationId.value,
 				effect_id: effect.effect_id,
 				effect_tag: effect.tag,
-				images: [effectSourceDataUrl.value],
+				images: [visualSourceDataUrl.value],
 			});
 
 			selectedConversationId.value = start.conversation.id;
@@ -494,16 +561,19 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 			return;
 		}
 
-		const prompt = customPrompt.value.trim();
+		const prompt = draft.value.trim();
 		if (!prompt) {
-			screen.setMessage('warning', 'Введите prompt для кастомной генерации.');
+			screen.setMessage(
+				'warning',
+				'Введите промпт в поле сообщения внизу для base-генерации.'
+			);
 			return;
 		}
 
 		if (
 			(customMode.value === 'photo_edit' ||
 				customMode.value === 'video_generate') &&
-			!customSourceDataUrl.value
+			!visualSourceDataUrl.value
 		) {
 			screen.setMessage(
 				'warning',
@@ -513,12 +583,38 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 		}
 
 		isCustomRunning.value = true;
+		customS4DebugError.value = null;
 		try {
+			const images = visualSourceDataUrl.value
+				? [visualSourceDataUrl.value]
+				: [];
+			let s4: EternalAiS4SafetyCheckResponse;
+			try {
+				s4 = await options.transport.safetyCheckS4({
+					prompt,
+					images,
+				});
+			} catch (s4Error) {
+				customS4DebugError.value = `[S4] ${(s4Error as Error).message}`;
+				return;
+			}
+
+			if (s4.is_s4) {
+				const detailParts = [
+					...(s4.detail?.text ?? []),
+					...(s4.detail?.image ?? []),
+				];
+				const detail =
+					detailParts.length > 0 ? detailParts.join('; ') : 'без деталей';
+				customS4DebugError.value = `[S4] is_s4=true, генерация не запущена. ${detail}`;
+				return;
+			}
+
 			const start = await options.transport.startCustomGeneration({
 				conversationId: selectedConversationId.value,
 				mode: customMode.value,
 				prompt,
-				images: customSourceDataUrl.value ? [customSourceDataUrl.value] : [],
+				images: visualSourceDataUrl.value ? [visualSourceDataUrl.value] : [],
 			});
 
 			selectedConversationId.value = start.conversation.id;
@@ -576,18 +672,17 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 		selectedEffectId,
 		selectedEffect,
 		filteredEffects,
-		effectSourceDataUrl,
+		visualSourceDataUrl,
 		isLoadingEffects,
 		isCreativeRunning,
 		loadCreativeEffects,
 		selectEffect,
-		setEffectSourceFromFileList,
+		setVisualSourceFromFileList,
 		runCreativeEffect,
+		isCustomCatalogEffectSelected,
 		customMode,
-		customPrompt,
-		customSourceDataUrl,
 		isCustomRunning,
-		setCustomSourceFromFileList,
 		runCustomGeneration,
+		customS4DebugError,
 	};
 }

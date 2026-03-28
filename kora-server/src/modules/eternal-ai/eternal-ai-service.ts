@@ -13,6 +13,8 @@ import type {
 	EternalAiCreativePollResponse,
 	EternalAiHealthResponse,
 	EternalAiMessageRecord,
+	EternalAiS4SafetyCheckRequest,
+	EternalAiS4SafetyCheckResponse,
 	SendEternalAiMessageRequest,
 	SendEternalAiMessageResponse,
 	StartCustomGenerationRequest,
@@ -447,6 +449,8 @@ export class EternalAiService {
 
 	/**
 	 * @description Запускает кастомную генерацию (фото/видео/редактирование) через base/generate.
+	 * В теле к Eternal обязательно передаётся {@code type}: {@code image} для photo_generate/photo_edit
+	 * и {@code video} для video_generate — иначе API отвечает валидацией {@code type} must be image|video.
 	 * @param {StartCustomGenerationRequest} request - Режим, prompt и optional images.
 	 * @returns {Promise<StartCustomGenerationResponse>}
 	 */
@@ -469,12 +473,10 @@ export class EternalAiService {
 
 		const payload: Record<string, unknown> = {
 			prompt: request.prompt,
+			type: request.mode === 'video_generate' ? 'video' : 'image',
 		};
 		if (request.images?.length) {
 			payload.images = request.images;
-		}
-		if (request.mode === 'video_generate') {
-			payload.output_type = 'video';
 		}
 
 		const generateResponse = await fetch(
@@ -549,6 +551,85 @@ export class EternalAiService {
 				conversation.id
 			) as EternalAiConversationSummary,
 			userMessage,
+		};
+	}
+
+	/**
+	 * @description Проверка S4 (промпт + изображения) без записи в историю чата.
+	 * {@code images} может быть пустым — проксируется в Eternal (валидация на стороне API).
+	 * @param {EternalAiS4SafetyCheckRequest} request - Те же поля, что у Eternal `/safety-check`.
+	 * @returns {Promise<EternalAiS4SafetyCheckResponse>}
+	 */
+	async safetyCheckS4(
+		request: EternalAiS4SafetyCheckRequest
+	): Promise<EternalAiS4SafetyCheckResponse> {
+		const config = this.getConfig();
+		if (!config.eternalAiApiKey) {
+			throw new Error('ETERNAL_AI_API_KEY не задан в конфигурации сервера.');
+		}
+
+		if (!request.prompt?.trim()) {
+			throw new Error('S4: нужен непустой prompt.');
+		}
+
+		const images = Array.isArray(request.images) ? request.images : [];
+
+		const response = await fetch(`${ETERNAL_OPEN_ORIGIN}/safety-check`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'x-api-key': config.eternalAiApiKey,
+			},
+			body: JSON.stringify({
+				prompt: request.prompt.trim(),
+				images,
+			}),
+		});
+
+		const payload = (await response.json().catch(() => null)) as Record<
+			string,
+			unknown
+		> | null;
+
+		if (!response.ok) {
+			const detail =
+				(typeof payload?.detail === 'string' ? payload.detail : null) ||
+				(typeof payload?.error === 'string' ? payload.error : null) ||
+				`HTTP ${response.status}`;
+			throw new Error(`Eternal S4 safety-check: ${detail}`);
+		}
+
+		const is_s4 = Boolean(payload?.is_s4);
+		const rawDetail = payload?.detail;
+		let detail: EternalAiS4SafetyCheckResponse['detail'];
+		if (
+			rawDetail &&
+			typeof rawDetail === 'object' &&
+			!Array.isArray(rawDetail)
+		) {
+			const d = rawDetail as Record<string, unknown>;
+			const text = Array.isArray(d.text)
+				? d.text.filter((x): x is string => typeof x === 'string')
+				: undefined;
+			const image = Array.isArray(d.image)
+				? d.image.filter((x): x is string => typeof x === 'string')
+				: undefined;
+			detail = {};
+			if (text?.length) {
+				detail.text = text;
+			}
+			if (image?.length) {
+				detail.image = image;
+			}
+		}
+
+		const request_id =
+			typeof payload?.request_id === 'string' ? payload.request_id : undefined;
+
+		return {
+			is_s4,
+			...(detail && Object.keys(detail).length ? { detail } : {}),
+			...(request_id ? { request_id } : {}),
 		};
 	}
 

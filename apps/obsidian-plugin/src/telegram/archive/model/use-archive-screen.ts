@@ -19,6 +19,7 @@ export interface ArchiveScreenModelOptions {
 	defaultPeer?: string;
 	defaultSyncLimit: number;
 	recentMessagesLimit: number;
+	resolveAttachmentSrc?: (absolutePath: string) => string | null;
 }
 
 export function useArchiveScreen(options: ArchiveScreenModelOptions) {
@@ -310,6 +311,48 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 		);
 	};
 
+	const normalizeFilePath = (value: string): string =>
+		value.replace(/\\/g, '/');
+
+	const getDesktopFilePath = (file: File): string | null => {
+		const candidate = (file as File & { path?: unknown }).path;
+		return typeof candidate === 'string' && candidate.trim()
+			? candidate.trim()
+			: null;
+	};
+
+	const resolveDesktopExportFolderPath = (
+		file: File,
+		relativePath: string
+	): string | null => {
+		const desktopFilePath = getDesktopFilePath(file);
+		if (!desktopFilePath) {
+			return null;
+		}
+
+		const normalizedFilePath = normalizeFilePath(desktopFilePath);
+		const normalizedRelativePath = normalizeFilePath(relativePath);
+		if (
+			normalizedRelativePath &&
+			normalizedFilePath.endsWith(`/${normalizedRelativePath}`)
+		) {
+			return desktopFilePath.slice(
+				0,
+				desktopFilePath.length - normalizedRelativePath.length
+			);
+		}
+
+		const lastSlashIndex = Math.max(
+			desktopFilePath.lastIndexOf('/'),
+			desktopFilePath.lastIndexOf('\\')
+		);
+		if (lastSlashIndex === -1) {
+			return null;
+		}
+
+		return desktopFilePath.slice(0, lastSlashIndex);
+	};
+
 	const handleDesktopExportSelection = async (
 		files: FileList | File[]
 	): Promise<void> => {
@@ -346,12 +389,23 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 		isSyncing.value = true;
 		screen.setMessage('neutral', `Импортируем архив "${folderLabel}"...`);
 		try {
-			const rawText = await resultJsonFile.text();
-			const exportData = JSON.parse(rawText) as Record<string, unknown>;
-			const result = await options.transport.importDesktopArchive({
-				folderLabel,
-				exportData,
-			});
+			const folderPath = resolveDesktopExportFolderPath(
+				resultJsonFile,
+				relativePath
+			);
+			const result = folderPath
+				? await options.transport.importDesktopArchive({
+						folderLabel,
+						folderPath,
+					})
+				: await (async () => {
+						const rawText = await resultJsonFile.text();
+						const exportData = JSON.parse(rawText) as Record<string, unknown>;
+						return options.transport.importDesktopArchive({
+							folderLabel,
+							exportData,
+						});
+					})();
 
 			await loadChats();
 			selectedChatId.value = result.chatId || selectedChatId.value;
@@ -564,6 +618,10 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 	): string | null => {
 		const absolutePath = String(attachment.absolutePath || '');
 		if (!absolutePath) return null;
+		const resolved = options.resolveAttachmentSrc?.(absolutePath);
+		if (resolved) {
+			return resolved;
+		}
 		return `file:///${absolutePath.replace(/\\/g, '/')}`;
 	};
 

@@ -124,3 +124,25 @@ export interface StartCustomGenerationResponse {
 	conversation: EternalAiConversationSummary;
 	userMessage: EternalAiMessageRecord;
 }
+
+/**
+ * @description Запрос к S4 Safety Check API Eternal (промпт + изображения).
+ * @see https://docs.eternalai.org/api/uncensored-ai-api/s4-safety-check-api
+ */
+export interface EternalAiS4SafetyCheckRequest {
+	prompt: string;
+	/** Base64 data URL или публичный URL. Пустой массив — если кадра нет (например, только текст). */
+	images: string[];
+}
+
+/**
+ * @description Ответ S4: флаг нарушения и разбор по тексту/картинке.
+ */
+export interface EternalAiS4SafetyCheckResponse {
+	is_s4: boolean;
+	detail?: {
+		text?: string[];
+		image?: string[];
+	};
+	request_id?: string;
+}

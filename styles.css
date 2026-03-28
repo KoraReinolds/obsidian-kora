@@ -342,6 +342,9 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 		white-space: nowrap;
 		border-width: 0;
 	}
+	.\!absolute {
+		position: absolute !important;
+	}
 	.absolute {
 		position: absolute;
 	}
@@ -363,11 +366,17 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 	.end {
 		inset-inline-end: var(--spacing);
 	}
+	.top-0\.5 {
+		top: calc(var(--spacing) * 0.5);
+	}
 	.top-2 {
 		top: calc(var(--spacing) * 2);
 	}
 	.top-4 {
 		top: calc(var(--spacing) * 4);
+	}
+	.right-0\.5 {
+		right: calc(var(--spacing) * 0.5);
 	}
 	.right-4 {
 		right: calc(var(--spacing) * 4);
@@ -377,6 +386,9 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 	}
 	.isolate {
 		isolation: isolate;
+	}
+	.z-\[1\] {
+		z-index: 1;
 	}
 	.z-\[99999\] {
 		z-index: 99999;
@@ -425,6 +437,9 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 	}
 	.mr-1 {
 		margin-right: calc(var(--spacing) * 1);
+	}
+	.mr-auto {
+		margin-right: auto;
 	}
 	.mb-0\.5 {
 		margin-bottom: calc(var(--spacing) * 0.5);
@@ -507,8 +522,8 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 	.h-screen {
 		height: 100vh;
 	}
-	.max-h-40 {
-		max-height: calc(var(--spacing) * 40);
+	.max-h-20 {
+		max-height: calc(var(--spacing) * 20);
 	}
 	.max-h-\[96vh\] {
 		max-height: 96vh;
@@ -521,9 +536,6 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 	}
 	.min-h-\[1\.25em\] {
 		min-height: 1.25em;
-	}
-	.min-h-\[92px\] {
-		min-height: 92px;
 	}
 	.min-h-\[108px\] {
 		min-height: 108px;
@@ -1159,6 +1171,9 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 	.text-\[var\(--interactive-accent\)\] {
 		color: var(--interactive-accent);
 	}
+	.text-\[var\(--text-error\)\] {
+		color: var(--text-error);
+	}
 	.text-\[var\(--text-muted\)\] {
 		color: var(--text-muted);
 	}
@@ -1415,6 +1430,32 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 				box-shadow:
 					var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
 					var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+			}
+		}
+	}
+	.hover\:ring-1 {
+		&:hover {
+			@media (hover: hover) {
+				--tw-ring-shadow: var(--tw-ring-inset,) 0 0 0
+					calc(1px + var(--tw-ring-offset-width))
+					var(--tw-ring-color, currentcolor);
+				box-shadow:
+					var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
+					var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+			}
+		}
+	}
+	.hover\:ring-\[var\(--interactive-accent\)\]\/40 {
+		&:hover {
+			@media (hover: hover) {
+				--tw-ring-color: var(--interactive-accent);
+				@supports (color: color-mix(in lab, red, red)) {
+					--tw-ring-color: color-mix(
+						in oklab,
+						var(--interactive-accent) 40%,
+						transparent
+					);
+				}
 			}
 		}
 	}
@@ -1750,6 +1791,7 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 }
 
 /* Vue SFC compiled styles */
+/* sfc-style:C:\Users\reino\Documents\Obsidian\.obsidian\plugins\obsidian-kora\apps\obsidian-plugin\src\ui-vue\components\ChatTimeline.vue?type=style&index=0 */
 .kora-chat-timeline[data-v-4556b573] {
 	scrollbar-width: thin;
 	scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
@@ -1764,3 +1806,4 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 .kora-chat-timeline[data-v-4556b573]::-webkit-scrollbar-track {
 	background: transparent;
 }
+/*# sourceMappingURL=data:application/json;base64,ewogICJ2ZXJzaW9uIjogMywKICAic291cmNlcyI6IFsic2ZjLXN0eWxlOkM6XFxVc2Vyc1xccmVpbm9cXERvY3VtZW50c1xcT2JzaWRpYW5cXC5vYnNpZGlhblxccGx1Z2luc1xcb2JzaWRpYW4ta29yYVxcYXBwc1xcb2JzaWRpYW4tcGx1Z2luXFxzcmNcXHVpLXZ1ZVxcY29tcG9uZW50c1xcQ2hhdFRpbWVsaW5lLnZ1ZT90eXBlPXN0eWxlJmluZGV4PTAiXSwKICAic291cmNlc0NvbnRlbnQiOiBbIlxuLmtvcmEtY2hhdC10aW1lbGluZVtkYXRhLXYtNDU1NmI1NzNdIHtcblx0c2Nyb2xsYmFyLXdpZHRoOiB0aGluO1xuXHRzY3JvbGxiYXItY29sb3I6IHJnYmEoMjU1LCAyNTUsIDI1NSwgMC4xOCkgdHJhbnNwYXJlbnQ7XG59XG4ua29yYS1jaGF0LXRpbWVsaW5lW2RhdGEtdi00NTU2YjU3M106Oi13ZWJraXQtc2Nyb2xsYmFyIHtcblx0d2lkdGg6IDEwcHg7XG59XG4ua29yYS1jaGF0LXRpbWVsaW5lW2RhdGEtdi00NTU2YjU3M106Oi13ZWJraXQtc2Nyb2xsYmFyLXRodW1iIHtcblx0Ym9yZGVyLXJhZGl1czogOTk5cHg7XG5cdGJhY2tncm91bmQ6IHJnYmEoMjU1LCAyNTUsIDI1NSwgMC4xNCk7XG59XG4ua29yYS1jaGF0LXRpbWVsaW5lW2RhdGEtdi00NTU2YjU3M106Oi13ZWJraXQtc2Nyb2xsYmFyLXRyYWNrIHtcblx0YmFja2dyb3VuZDogdHJhbnNwYXJlbnQ7XG59XG4iXSwKICAibWFwcGluZ3MiOiAiO0FBQ0E7QUFDQztBQUNBO0FBQUE7QUFFRDtBQUNDO0FBQUE7QUFFRDtBQUNDO0FBQ0E7QUFBQTtBQUVEO0FBQ0M7QUFBQTsiLAogICJuYW1lcyI6IFtdCn0K */

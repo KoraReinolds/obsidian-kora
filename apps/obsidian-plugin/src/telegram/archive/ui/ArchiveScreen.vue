@@ -24,6 +24,7 @@ const props = defineProps<{
 	recentMessagesLimit: number;
 	defaultChunkSize?: number;
 	defaultGapMinutes?: number;
+	resolveAttachmentSrc?: (absolutePath: string) => string | null;
 }>();
 
 const model = useArchiveScreen({
@@ -31,6 +32,7 @@ const model = useArchiveScreen({
 	defaultPeer: props.defaultPeer,
 	defaultSyncLimit: props.defaultSyncLimit,
 	recentMessagesLimit: props.recentMessagesLimit,
+	resolveAttachmentSrc: props.resolveAttachmentSrc,
 });
 
 const {

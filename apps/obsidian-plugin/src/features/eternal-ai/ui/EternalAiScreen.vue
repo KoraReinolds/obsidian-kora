@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import {
 	AppShell,
-	AttachmentPreviewThumb,
 	ChatTimeline,
 	IconButton,
 	ImageLightbox,
@@ -16,6 +16,7 @@ import {
 } from '../../../ui-vue';
 import { useEternalAiScreen } from '../model/use-eternal-ai-screen';
 import type { EternalAiTransportPort } from '../ports/eternal-ai-transport-port';
+import EternalAiMessageComposer from './EternalAiMessageComposer.vue';
 
 const props = defineProps<{
 	transport: EternalAiTransportPort;
@@ -52,18 +53,17 @@ const {
 	selectedEffectId,
 	selectedEffect,
 	filteredEffects,
-	effectSourceDataUrl,
+	visualSourceDataUrl,
 	isLoadingEffects,
 	isCreativeRunning,
+	isCustomCatalogEffectSelected,
 	customMode,
-	customPrompt,
-	customSourceDataUrl,
 	isCustomRunning,
 	selectEffect,
-	setEffectSourceFromFileList,
+	setVisualSourceFromFileList,
 	runCreativeEffect,
-	setCustomSourceFromFileList,
 	runCustomGeneration,
+	customS4DebugError,
 } = model;
 
 const {
@@ -72,13 +72,102 @@ const {
 	close: closeLightbox,
 } = useImageLightbox();
 
-const handleDraftKeydown = async (event: KeyboardEvent): Promise<void> => {
-	if (event.key !== 'Enter' || event.shiftKey) {
+const draftPlaceholder = computed(() =>
+	isCustomCatalogEffectSelected.value
+		? 'Промпт для base: перед генерацией автоматически вызывается S4. Или сообщение в чат — Enter как кнопка отправки.'
+		: 'Сообщение в чат. При выбранном эффекте и кадре Enter запускает эффект. Shift+Enter — новая строка.'
+);
+
+const composerFooterDebug = computed(() =>
+	isCustomCatalogEffectSelected.value ? customS4DebugError.value : null
+);
+
+const isEasyEffectReady = computed(() =>
+	Boolean(
+		selectedEffect.value &&
+		!selectedEffect.value.effect_id.startsWith('__kora_custom_') &&
+		visualSourceDataUrl.value
+	)
+);
+
+const composerSubmitTitle = computed(() => {
+	if (isCustomCatalogEffectSelected.value) {
+		return 'Запустить base generate';
+	}
+	if (isEasyEffectReady.value) {
+		return 'Запустить эффект';
+	}
+	return 'Отправить в чат';
+});
+
+const composerTextareaDisabled = computed(
+	() => isSending.value || isCreativeRunning.value || isCustomRunning.value
+);
+
+const composerSubmitLoading = computed(
+	() => isSending.value || isCreativeRunning.value || isCustomRunning.value
+);
+
+const composerSubmitDisabled = computed(() => {
+	if (health.value?.status !== 'healthy') {
+		return true;
+	}
+	if (
+		isSending.value ||
+		isCreativeRunning.value ||
+		isCustomRunning.value ||
+		Boolean(isDeletingMessageId.value)
+	) {
+		return true;
+	}
+	if (isCustomCatalogEffectSelected.value) {
+		const text = draft.value.trim();
+		if (!text) {
+			return true;
+		}
+		if (
+			(customMode.value === 'photo_edit' ||
+				customMode.value === 'video_generate') &&
+			!visualSourceDataUrl.value
+		) {
+			return true;
+		}
+		return false;
+	}
+	if (isEasyEffectReady.value) {
+		return false;
+	}
+	return !draft.value.trim();
+});
+
+/**
+ * @description Один сабмит композера: родитель решает — base generate, Easy Effect (кадр + эффект из каталога) или сообщение в чат.
+ */
+const handleComposerSubmit = async (): Promise<void> => {
+	if (composerSubmitDisabled.value) {
 		return;
 	}
-
-	event.preventDefault();
+	if (isCustomCatalogEffectSelected.value) {
+		await runCustomGeneration();
+		return;
+	}
+	if (isEasyEffectReady.value) {
+		await runCreativeEffect();
+		return;
+	}
 	await sendCurrentDraft();
+};
+
+const onComposerImageFiles = (files: FileList | null): void => {
+	setVisualSourceFromFileList(files);
+};
+
+const onComposerClearImage = (): void => {
+	setVisualSourceFromFileList(null);
+};
+
+const onComposerPreviewOpen = (src: string): void => {
+	openLightbox(src);
 };
 
 void refreshData();
@@ -157,18 +246,6 @@ void refreshData();
 					>
 						Эффекты
 					</button>
-					<button
-						type="button"
-						class="flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition-colors"
-						:class="
-							leftTab === 'custom'
-								? 'bg-[var(--interactive-accent)] text-white'
-								: 'text-[var(--text-muted)] hover:bg-[var(--background-modifier-hover)]'
-						"
-						@click="leftTab = 'custom'"
-					>
-						Кастом
-					</button>
 				</div>
 
 				<div
@@ -236,164 +313,108 @@ void refreshData();
 				</div>
 
 				<div v-else class="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
-					<div v-if="leftTab === 'effects'" class="contents">
-						<div
-							class="shrink-0 rounded-2xl border border-solid border-[var(--background-modifier-border)] p-2.5"
-						>
-							<SectionHeader
-								title="Creative / Easy Effect"
-								subtitle="Каталог проксируется через Kora server (без AES-полей). Выберите эффект и исходный кадр справа."
-							/>
-							<input
-								v-model="effectsQuery"
-								type="search"
-								class="mt-2.5 w-full rounded-xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-secondary)] px-3 py-2 text-sm text-[var(--text-normal)] outline-none"
-								placeholder="Поиск по названию…"
-							/>
-						</div>
+					<div
+						class="shrink-0 rounded-2xl border border-solid border-[var(--background-modifier-border)] p-2.5"
+					>
+						<SectionHeader
+							title="Creative / Easy Effect"
+							subtitle="Первые три карточки — base (0.76 / 0.76 / 4), далее каталог Eternal. Кадр и отправка — в композере под лентой чата."
+						/>
+						<input
+							v-model="effectsQuery"
+							type="search"
+							class="mt-2.5 w-full rounded-xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-secondary)] px-3 py-2 text-sm text-[var(--text-normal)] outline-none"
+							placeholder="Поиск по названию…"
+						/>
+					</div>
 
-						<div class="min-h-0 flex-1 pr-1">
-							<PlaceholderState
-								v-if="!isLoadingEffects && filteredEffects.length === 0"
-								variant="empty"
-								text="Эффекты не найдены. Смените фильтр или обновите экран."
-							/>
-							<PlaceholderState
-								v-if="isLoadingEffects"
-								variant="loading"
-								text="Загрузка каталога…"
-							/>
-							<div v-else class="grid grid-cols-1 gap-2 pb-1 md:grid-cols-2">
-								<MessageCard
-									v-for="effect in filteredEffects"
-									:key="effect.effect_id"
-									:title="effect.tag"
-									:subtitle="`ID: ${effect.effect_id}`"
-									:selected="selectedEffectId === effect.effect_id"
-									:clickable="true"
-									:compact="true"
-									class="overflow-hidden"
-									@click="selectEffect(effect.effect_id)"
-								>
-									<template #meta>
-										<div class="flex flex-wrap items-center gap-1">
-											<SummaryChip :text="effect.effect_type" />
-											<SummaryChip :text="`Цена: ${effect.price}`" />
-											<SummaryChip
-												v-if="effect.duration"
-												:text="`${effect.duration}s`"
-											/>
-										</div>
-									</template>
-									<template #body>
+					<div class="min-h-0 flex-1 pr-1">
+						<PlaceholderState
+							v-if="!isLoadingEffects && filteredEffects.length === 0"
+							variant="empty"
+							text="Эффекты не найдены. Смените фильтр или обновите экран."
+						/>
+						<PlaceholderState
+							v-if="isLoadingEffects"
+							variant="loading"
+							text="Загрузка каталога…"
+						/>
+						<div v-else class="grid grid-cols-1 gap-2 pb-1 md:grid-cols-2">
+							<MessageCard
+								v-for="effect in filteredEffects"
+								:key="effect.effect_id"
+								:title="effect.tag"
+								:subtitle="
+									effect.effect_id.startsWith('__kora_custom_')
+										? 'Kora · base'
+										: `ID: ${effect.effect_id}`
+								"
+								:selected="selectedEffectId === effect.effect_id"
+								:clickable="true"
+								:compact="true"
+								class="overflow-hidden"
+								@click="selectEffect(effect.effect_id)"
+							>
+								<template #meta>
+									<div class="flex flex-wrap items-center gap-1">
+										<SummaryChip :text="effect.effect_type" />
+										<SummaryChip :text="`Цена: ${effect.price}`" />
+										<SummaryChip
+											v-if="effect.duration"
+											:text="`${effect.duration}s`"
+										/>
+									</div>
+								</template>
+								<template #body>
+									<div class="relative overflow-hidden rounded-xl bg-black/20">
+										<video
+											v-if="
+												effect.effect_type === 'video' && effect.sampleOutputURL
+											"
+											:src="effect.sampleOutputURL"
+											class="h-32 w-full object-cover"
+											muted
+											playsinline
+											loop
+											preload="metadata"
+										/>
+										<img
+											v-else-if="effect.sampleOutputURL"
+											:src="effect.sampleOutputURL"
+											alt=""
+											class="h-32 w-full object-cover"
+											loading="lazy"
+										/>
 										<div
-											class="relative overflow-hidden rounded-xl bg-black/20"
+											v-else
+											class="flex h-32 w-full items-center justify-center text-xs text-[var(--text-muted)]"
 										>
-											<video
-												v-if="
-													effect.effect_type === 'video' &&
-													effect.sampleOutputURL
-												"
-												:src="effect.sampleOutputURL"
-												class="h-32 w-full object-cover"
-												muted
-												playsinline
-												loop
-												preload="metadata"
-											/>
-											<img
-												v-else-if="effect.sampleOutputURL"
-												:src="effect.sampleOutputURL"
-												alt=""
-												class="h-32 w-full object-cover"
-												loading="lazy"
-											/>
-											<div
-												v-else
-												class="flex h-32 w-full items-center justify-center text-xs text-[var(--text-muted)]"
-											>
-												Нет превью
-											</div>
-											<div
-												class="absolute left-2 top-2 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-semibold uppercase text-white"
-											>
-												<span v-text="effect.effect_type" />
-											</div>
+											Нет превью
 										</div>
-									</template>
-								</MessageCard>
-							</div>
+										<div
+											class="absolute left-2 top-2 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-semibold uppercase text-white"
+										>
+											<span v-text="effect.effect_type" />
+										</div>
+									</div>
+								</template>
+							</MessageCard>
 						</div>
 					</div>
 					<div
-						v-else
-						class="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden"
+						v-if="isCustomCatalogEffectSelected"
+						class="shrink-0 rounded-2xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-primary)]/40 p-3"
 					>
-						<div class="shrink-0">
-							<div
-								class="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]"
-							>
-								Кастомная генерация
-							</div>
-							<div class="mt-2 text-xs text-[var(--text-muted)]">
-								Режимы сосуществуют с эффектами: фото, редактирование фото,
-								видео.
-							</div>
-						</div>
-						<div class="grid gap-2">
-							<select
-								v-model="customMode"
-								class="rounded-xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-secondary)] px-3 py-2 text-sm text-[var(--text-normal)] outline-none"
-							>
-								<option value="photo_generate">Генерация фото</option>
-								<option value="photo_edit">Редактирование фото</option>
-								<option value="video_generate">Генерация видео</option>
-							</select>
-							<textarea
-								v-model="customPrompt"
-								class="min-h-[92px] w-full resize-y rounded-xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-secondary)] px-3 py-2 text-sm text-[var(--text-normal)] outline-none"
-								placeholder="Опишите желаемое изменение..."
-							/>
-							<label
-								class="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-secondary)] px-3 py-2 text-xs font-semibold text-[var(--text-normal)]"
-							>
-								<input
-									class="hidden"
-									type="file"
-									accept="image/png,image/jpeg,image/webp"
-									@change="
-										event =>
-											setCustomSourceFromFileList(
-												(event.target as HTMLInputElement).files
-											)
-									"
-								/>
-								Исходное изображение (опционально для фото)
-							</label>
-							<img
-								v-if="customSourceDataUrl"
-								:src="customSourceDataUrl"
-								alt=""
-								class="max-h-40 w-full rounded-xl object-contain"
-							/>
-							<IconButton
-								size="sm"
-								variant="accent"
-								icon="wand-2"
-								label="Запустить кастомную генерацию"
-								title="Запустить кастом"
-								:disabled="
-									isCustomRunning ||
-									!customPrompt.trim() ||
-									((customMode === 'photo_edit' ||
-										customMode === 'video_generate') &&
-										!customSourceDataUrl) ||
-									health?.status !== 'healthy'
-								"
-								:loading="isCustomRunning"
-								@click="runCustomGeneration"
-							/>
-						</div>
+						<div
+							class="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]"
+							v-text="'Base-режим'"
+						/>
+						<p
+							class="mt-1 text-xs leading-snug text-[var(--text-muted)]"
+							v-text="
+								'Промпт и кадр — в композере под лентой. S4 выполняется автоматически перед base generate.'
+							"
+						/>
 					</div>
 				</div>
 			</PanelFrame>
@@ -435,72 +456,13 @@ void refreshData();
 					</div>
 
 					<div
-						class="shrink-0 rounded-2xl border border-dashed border-[var(--background-modifier-border)] bg-[var(--background-primary)]/40 p-3"
+						v-if="selectedEffect"
+						class="flex shrink-0 flex-wrap items-center gap-2 border-b border-solid border-[var(--background-modifier-border)] pb-2"
 					>
-						<div class="text-xs font-semibold text-[var(--text-muted)]">
-							Easy Effect
-						</div>
-						<div class="mt-2 text-xs text-[var(--text-muted)]">
-							Выберите эффект во вкладке «Эффекты», загрузите исходное
-							изображение и запустите генерацию. Результат появится в ленте
-							ниже.
-						</div>
-						<div class="mt-3 flex items-start gap-3">
-							<AttachmentPreviewThumb
-								:src="effectSourceDataUrl"
-								:is-image="true"
-								:zoomable="true"
-								@open="openLightbox"
-							/>
-							<div class="min-w-0 flex-1">
-								<div
-									v-if="selectedEffect"
-									class="flex flex-wrap items-center gap-2"
-								>
-									<SummaryChip
-										:text="`Эффект: ${selectedEffect.tag} (${selectedEffect.effect_type})`"
-									/>
-									<SummaryChip :text="`ID: ${selectedEffect.effect_id}`" />
-								</div>
-								<div class="mt-3 flex flex-wrap items-center gap-3">
-									<label
-										class="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-secondary)] px-3 py-2 text-xs font-semibold text-[var(--text-normal)]"
-									>
-										<input
-											class="hidden"
-											type="file"
-											accept="image/png,image/jpeg,image/webp"
-											@change="
-												event =>
-													setEffectSourceFromFileList(
-														(event.target as HTMLInputElement).files
-													)
-											"
-										/>
-										Исходное изображение
-									</label>
-									<div class="text-xs text-[var(--text-muted)]">
-										<span v-if="effectSourceDataUrl" v-text="'Файл загружен'" />
-										<span v-else v-text="'Файл не выбран'" />
-									</div>
-									<IconButton
-										size="sm"
-										variant="accent"
-										icon="wand-2"
-										label="Запустить визуальный эффект"
-										title="Запустить эффект"
-										:disabled="
-											isCreativeRunning ||
-											!selectedEffect ||
-											!effectSourceDataUrl ||
-											health?.status !== 'healthy'
-										"
-										:loading="isCreativeRunning"
-										@click="runCreativeEffect"
-									/>
-								</div>
-							</div>
-						</div>
+						<SummaryChip
+							:text="`Эффект: ${selectedEffect.tag} (${selectedEffect.effect_type})`"
+						/>
+						<SummaryChip :text="`ID: ${selectedEffect.effect_id}`" />
 					</div>
 
 					<ChatTimeline
@@ -510,34 +472,21 @@ void refreshData();
 						@delete="handleDeleteMessage"
 					/>
 
-					<div
-						class="shrink-0 rounded-2xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-primary)] p-3"
-					>
-						<textarea
-							v-model="draft"
-							class="min-h-[108px] w-full resize-y rounded-xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-secondary)] px-3 py-2 text-sm text-[var(--text-normal)] outline-none"
-							placeholder="Напишите сообщение Eternal AI. Enter отправляет, Shift+Enter добавляет новую строку."
-							:disabled="isSending"
-							@keydown="handleDraftKeydown"
-						/>
-						<div class="mt-3 flex items-center justify-between gap-2">
-							<div class="text-xs text-[var(--text-muted)]">
-								Контекст диалога хранится локально в Kora server.
-							</div>
-							<IconButton
-								size="sm"
-								variant="accent"
-								icon="send"
-								label="Отправить сообщение Eternal AI"
-								title="Отправить"
-								:disabled="
-									isSending || Boolean(isDeletingMessageId) || !draft.trim()
-								"
-								:loading="isSending"
-								@click="sendCurrentDraft"
-							/>
-						</div>
-					</div>
+					<EternalAiMessageComposer
+						v-model="draft"
+						:visual-src="visualSourceDataUrl"
+						visual-clearable
+						:placeholder="draftPlaceholder"
+						:textarea-disabled="composerTextareaDisabled"
+						:submit-disabled="composerSubmitDisabled"
+						:submit-loading="composerSubmitLoading"
+						:submit-title="composerSubmitTitle"
+						:footer-debug-text="composerFooterDebug"
+						@submit="handleComposerSubmit"
+						@image-files="onComposerImageFiles"
+						@clear-image="onComposerClearImage"
+						@preview-open="onComposerPreviewOpen"
+					/>
 				</div>
 			</PanelFrame>
 		</div>

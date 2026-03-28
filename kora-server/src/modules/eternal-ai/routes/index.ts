@@ -145,6 +145,19 @@ export function registerEternalAiRoutes(app: Express): void {
 		}
 	);
 
+	app.post('/eternal_ai/safety-check', async (req: Request, res: Response) => {
+		try {
+			const service = getEternalAiService();
+			const result = await service.safetyCheckS4(req.body || {});
+			res.json({
+				success: true,
+				result,
+			});
+		} catch (error: any) {
+			res.status(500).json({ success: false, error: error.message });
+		}
+	});
+
 	app.get(
 		'/eternal_ai/creative/poll/:requestId',
 		async (req: Request, res: Response) => {

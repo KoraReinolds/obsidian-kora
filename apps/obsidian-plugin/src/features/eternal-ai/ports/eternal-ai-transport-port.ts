@@ -9,6 +9,8 @@ import type {
 	EternalAiCreativePollResponse,
 	EternalAiHealthResponse,
 	EternalAiMessageRecord,
+	EternalAiS4SafetyCheckRequest,
+	EternalAiS4SafetyCheckResponse,
 	SendEternalAiMessageRequest,
 	SendEternalAiMessageResponse,
 	StartCustomGenerationRequest,
@@ -37,4 +39,7 @@ export interface EternalAiTransportPort {
 		request: StartCustomGenerationRequest
 	): Promise<StartCustomGenerationResponse>;
 	pollCreativeEffect(requestId: string): Promise<EternalAiCreativePollResponse>;
+	safetyCheckS4(
+		request: EternalAiS4SafetyCheckRequest
+	): Promise<EternalAiS4SafetyCheckResponse>;
 }
