@@ -31,7 +31,6 @@ const model = useEternalAiScreen({
 const {
 	conversations,
 	selectedConversationId,
-	selectedConversation,
 	draft,
 	health,
 	isRefreshing,
@@ -41,7 +40,6 @@ const {
 	isDeletingMessageId,
 	screenMessage,
 	timelineItems,
-	systemPromptSummary,
 	refreshData,
 	selectConversation,
 	startNewConversation,
@@ -174,7 +172,7 @@ void refreshData();
 </script>
 
 <template>
-	<AppShell title="Eternal AI">
+	<AppShell title="">
 		<template #toolbar>
 			<Toolbar>
 				<div class="flex min-w-0 w-full flex-wrap items-center gap-2">
@@ -343,27 +341,31 @@ void refreshData();
 							<MessageCard
 								v-for="effect in filteredEffects"
 								:key="effect.effect_id"
-								:title="effect.tag"
-								:subtitle="
-									effect.effect_id.startsWith('__kora_custom_')
-										? 'Kora · base'
-										: `ID: ${effect.effect_id}`
-								"
+								subtitle=""
 								:selected="selectedEffectId === effect.effect_id"
 								:clickable="true"
 								:compact="true"
 								class="overflow-hidden"
 								@click="selectEffect(effect.effect_id)"
 							>
-								<template #meta>
-									<div class="flex flex-wrap items-center gap-1">
-										<SummaryChip :text="effect.effect_type" />
-										<SummaryChip :text="`Цена: ${effect.price}`" />
-										<SummaryChip
-											v-if="effect.duration"
-											:text="`${effect.duration}s`"
+								<template #title>
+									<div class="min-w-0 truncate pr-1" v-text="effect.tag" />
+								</template>
+								<template #actions>
+									<span
+										class="flex shrink-0 items-baseline gap-0.5 text-xs tabular-nums text-[var(--text-muted)]"
+										:title="`Цена: ${effect.price}`"
+									>
+										<span
+											aria-hidden="true"
+											class="select-none font-semibold opacity-60"
+											v-text="'¤'"
 										/>
-									</div>
+										<span
+											class="font-medium text-[var(--text-normal)]"
+											v-text="String(effect.price)"
+										/>
+									</span>
 								</template>
 								<template #body>
 									<div class="relative overflow-hidden rounded-xl bg-black/20">
@@ -391,11 +393,6 @@ void refreshData();
 										>
 											Нет превью
 										</div>
-										<div
-											class="absolute left-2 top-2 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-semibold uppercase text-white"
-										>
-											<span v-text="effect.effect_type" />
-										</div>
 									</div>
 								</template>
 							</MessageCard>
@@ -421,50 +418,13 @@ void refreshData();
 
 			<PanelFrame
 				class="min-h-0 overflow-hidden"
-				padding="md"
-				gap="md"
+				padding="none"
+				gap="none"
 				:scroll="false"
 			>
-				<div class="flex h-full min-h-0 flex-1 flex-col gap-3 overflow-hidden">
-					<div
-						class="flex shrink-0 flex-wrap items-start justify-between gap-2 border-b border-solid border-[var(--background-modifier-border)] pb-3"
-					>
-						<div class="min-w-0 flex-1">
-							<div class="text-sm font-semibold leading-snug">
-								{{ selectedConversation?.title || 'Новый чат Eternal AI' }}
-							</div>
-							<div class="mt-1 text-xs text-[var(--text-muted)]">
-								{{ systemPromptSummary }}
-							</div>
-						</div>
-						<div class="flex flex-wrap gap-2">
-							<SummaryChip
-								:text="`Модель: ${
-									selectedConversation?.model || health?.model || 'n/a'
-								}`"
-							/>
-							<SummaryChip
-								:text="`Последнее: ${
-									selectedConversation?.lastMessageAt
-										? new Date(
-												selectedConversation.lastMessageAt
-											).toLocaleString()
-										: 'ещё не было'
-								}`"
-							/>
-						</div>
-					</div>
-
-					<div
-						v-if="selectedEffect"
-						class="flex shrink-0 flex-wrap items-center gap-2 border-b border-solid border-[var(--background-modifier-border)] pb-2"
-					>
-						<SummaryChip
-							:text="`Эффект: ${selectedEffect.tag} (${selectedEffect.effect_type})`"
-						/>
-						<SummaryChip :text="`ID: ${selectedEffect.effect_id}`" />
-					</div>
-
+				<div
+					class="flex h-full min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-hidden"
+				>
 					<ChatTimeline
 						:items="timelineItems"
 						:loading="isLoadingMessages"

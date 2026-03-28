@@ -21,7 +21,7 @@ const props = withDefaults(
 		submitLoading?: boolean;
 		/** Подсказка для кнопки отправки (a11y). */
 		submitTitle?: string;
-		/** Отладочная строка слева от кнопки (ошибки S4 и т.п.). */
+		/** Отладочная строка под строкой ввода (ошибки S4 и т.п.). */
 		footerDebugText?: string | null;
 	}>(),
 	{
@@ -79,7 +79,7 @@ const onKeydown = (event: KeyboardEvent): void => {
 	<div
 		class="shrink-0 rounded-2xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-primary)] p-3"
 	>
-		<div class="flex min-w-0 items-start gap-2">
+		<div class="flex min-w-0 items-end gap-2">
 			<div class="shrink-0">
 				<input
 					ref="fileInputRef"
@@ -99,38 +99,37 @@ const onKeydown = (event: KeyboardEvent): void => {
 					@clear="onClearImage"
 				/>
 			</div>
-			<textarea
-				:value="modelValue"
-				class="min-h-[108px] min-w-0 flex-1 resize-y rounded-xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-secondary)] px-3 py-2 text-sm text-[var(--text-normal)] outline-none"
-				:placeholder="placeholder"
-				:disabled="textareaDisabled"
-				@input="
-					emit(
-						'update:modelValue',
-						($event.target as HTMLTextAreaElement).value
-					)
-				"
-				@keydown="onKeydown"
-			/>
+			<div class="flex min-w-0 flex-1 items-end gap-2">
+				<textarea
+					:value="modelValue"
+					class="min-h-[108px] min-w-0 flex-1 resize-y rounded-xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-secondary)] px-3 py-2 text-sm text-[var(--text-normal)] outline-none"
+					:placeholder="placeholder"
+					:disabled="textareaDisabled"
+					@input="
+						emit(
+							'update:modelValue',
+							($event.target as HTMLTextAreaElement).value
+						)
+					"
+					@keydown="onKeydown"
+				/>
+				<IconButton
+					class="shrink-0"
+					size="sm"
+					variant="accent"
+					icon="send"
+					:label="submitTitle"
+					:title="submitTitle"
+					:disabled="submitDisabled"
+					:loading="submitLoading"
+					@click="emit('submit')"
+				/>
+			</div>
 		</div>
-
-		<div class="mt-2 flex min-w-0 items-end justify-end gap-2">
-			<p
-				v-if="footerDebugText"
-				class="mr-auto max-h-20 min-w-0 flex-1 overflow-y-auto font-mono text-[10px] leading-snug text-[var(--text-error)]"
-				v-text="footerDebugText"
-			/>
-			<IconButton
-				class="shrink-0"
-				size="sm"
-				variant="accent"
-				icon="send"
-				:label="submitTitle"
-				:title="submitTitle"
-				:disabled="submitDisabled"
-				:loading="submitLoading"
-				@click="emit('submit')"
-			/>
-		</div>
+		<p
+			v-if="footerDebugText"
+			class="mt-2 max-h-20 min-w-0 overflow-y-auto font-mono text-[10px] leading-snug text-[var(--text-error)]"
+			v-text="footerDebugText"
+		/>
 	</div>
 </template>

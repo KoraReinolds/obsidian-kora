@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /**
- * @description Переиспользуемая прокручиваемая лента сообщений. Хранит единый
- * контейнер, пустые состояния и прокидывает jump-события наружу, чтобы feature
- * сам решал, как искать reply target в своей предметной модели.
+ * @description Переиспользуемая прокручиваемая лента сообщений. Одна рамка и один
+ * слой внутренних отступов (p-3): загрузка, пусто и список — внутри того же блока,
+ * чтобы родитель мог не дублировать внешний padding (например колонка Eternal AI).
  */
 import PlaceholderState from './PlaceholderState.vue';
 import ChatMessageBubble from './ChatMessageBubble.vue';
@@ -30,32 +30,38 @@ const emit = defineEmits<{
 
 <template>
 	<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-		<PlaceholderState
-			v-if="loading"
-			variant="loading"
-			text="Загружаем сообщения..."
-		/>
-		<PlaceholderState
-			v-else-if="items.length === 0"
-			variant="empty"
-			:text="emptyText"
-		/>
 		<div
-			v-else
-			class="kora-chat-timeline flex min-h-0 flex-1 flex-col overflow-y-scroll overflow-x-hidden rounded-2xl border border-solid border-[var(--background-modifier-border)] bg-[#161616] p-3"
+			class="kora-chat-timeline flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-solid border-[var(--background-modifier-border)] bg-[#161616]"
 		>
 			<div
-				v-for="item in items"
-				:key="item.id"
-				class="mb-3 flex last:mb-0"
-				:class="item.align === 'end' ? 'justify-end' : 'justify-start'"
+				v-if="loading"
+				class="flex min-h-0 flex-1 items-center justify-center p-3"
 			>
-				<ChatMessageBubble
-					:item="item"
-					:highlighted="highlightedItemId === item.id"
-					@jump="emit('jump', $event)"
-					@delete="emit('delete', $event)"
-				/>
+				<PlaceholderState variant="loading" text="Загружаем сообщения..." />
+			</div>
+			<div
+				v-else-if="items.length === 0"
+				class="flex min-h-0 flex-1 items-center justify-center p-3"
+			>
+				<PlaceholderState variant="empty" :text="emptyText" />
+			</div>
+			<div
+				v-else
+				class="flex min-h-0 flex-1 flex-col overflow-y-scroll overflow-x-hidden p-3"
+			>
+				<div
+					v-for="item in items"
+					:key="item.id"
+					class="mb-3 flex last:mb-0"
+					:class="item.align === 'end' ? 'justify-end' : 'justify-start'"
+				>
+					<ChatMessageBubble
+						:item="item"
+						:highlighted="highlightedItemId === item.id"
+						@jump="emit('jump', $event)"
+						@delete="emit('delete', $event)"
+					/>
+				</div>
 			</div>
 		</div>
 	</div>
