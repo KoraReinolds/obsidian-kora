@@ -4,6 +4,7 @@
  * диалогов, загрузкой истории из Kora server и отправкой новых сообщений в
  * OpenAI-compatible Eternal endpoint через серверный модуль. Поддерживает
  * каталог Creative (Easy Effect) и асинхронную генерацию через poll.
+ * Список моделей чата подгружается из `openclaw.json` (Open Claw).
  */
 
 import { computed, ref, watch } from 'vue';
@@ -18,10 +19,16 @@ import type {
 import { useScreenMessage } from '../../../ui-vue';
 import type { ChatTimelineItem } from '../../../ui-vue';
 import type { EternalAiTransportPort } from '../ports/eternal-ai-transport-port';
+import { loadOpenClawChatModelsFromDisk } from '../lib/load-openclaw-chat-models';
+import type { OpenClawChatModelOption } from '../lib/load-openclaw-chat-models';
 
 export interface EternalAiScreenModelOptions {
 	transport: EternalAiTransportPort;
 	defaultSystemPrompt?: string;
+	/** Текущая строка модели: legacy id без `/` или ref `provider/model` (настройки плагина / сервер). */
+	getPersistedChatModelId: () => string;
+	/** Сохранить выбранную модель и синхронизировать Kora server (saveSettings плагина). */
+	persistChatModelId: (modelRef: string) => Promise<void>;
 }
 
 const formatDate = (value?: string | null): string => {
@@ -144,6 +151,13 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 	 * Очищается при правке черновика и смене кадра.
 	 */
 	const customS4DebugError = ref<string | null>(null);
+
+	const chatModelOptions = ref<OpenClawChatModelOption[]>([]);
+	const openClawConfigPath = ref<string | null>(null);
+	const openClawCatalogError = ref<string | null>(null);
+	const selectedChatModelRef = ref(
+		options.getPersistedChatModelId().trim() || 'uncensored-eternal-ai-1.0'
+	);
 
 	const screen = useScreenMessage();
 
@@ -299,6 +313,81 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 	};
 
 	/**
+	 * @description Перечитывает `openclaw.json` и заполняет список опций моделей чата.
+	 * @returns {ReturnType<typeof loadOpenClawChatModelsFromDisk>} Последний снимок Open Claw для reconcile.
+	 */
+	const syncOpenClawChatModels = (): ReturnType<
+		typeof loadOpenClawChatModelsFromDisk
+	> => {
+		const oc = loadOpenClawChatModelsFromDisk();
+		openClawConfigPath.value = oc.configPath;
+		if (oc.error) {
+			openClawCatalogError.value = oc.error;
+		} else if (oc.options.length === 0) {
+			openClawCatalogError.value =
+				'В openclaw.json нет моделей для чата: задайте agents.defaults.models или models.providers (OpenAI-compatible / Eternal).';
+		} else {
+			openClawCatalogError.value = null;
+		}
+		const fb =
+			options.getPersistedChatModelId().trim() || 'uncensored-eternal-ai-1.0';
+		const fbApi = fb.includes('/') ? fb.slice(fb.indexOf('/') + 1) : fb;
+		chatModelOptions.value =
+			oc.options.length > 0
+				? oc.options
+				: [
+						{
+							openClawRef: fb,
+							apiModelId: fbApi,
+							label: `${fb} (только настройки Kora)`,
+						},
+					];
+		return oc;
+	};
+
+	/**
+	 * @description Согласует выбранную модель с каталогом Open Claw и настройками плагина.
+	 * @param {{ defaultOpenClawRef: string | null }} oc - результат последнего `syncOpenClawChatModels`
+	 * @returns {Promise<void>}
+	 */
+	const reconcileChatModelSelection = async (oc: {
+		defaultOpenClawRef: string | null;
+	}): Promise<void> => {
+		const effective = chatModelOptions.value;
+		if (effective.length === 0) {
+			return;
+		}
+		const persisted = options.getPersistedChatModelId().trim();
+		let nextRef =
+			persisted || effective[0]?.openClawRef || 'uncensored-eternal-ai-1.0';
+		if (!effective.some(option => option.openClawRef === nextRef)) {
+			const primary =
+				oc.defaultOpenClawRef &&
+				effective.some(option => option.openClawRef === oc.defaultOpenClawRef)
+					? oc.defaultOpenClawRef
+					: null;
+			nextRef = primary || effective[0].openClawRef;
+		}
+		selectedChatModelRef.value = nextRef;
+		if (nextRef !== persisted) {
+			await options.persistChatModelId(nextRef);
+		}
+	};
+
+	/**
+	 * @description Устанавливает ref модели чата, сохраняет в настройках и на сервере.
+	 * @param {string} modelRef - legacy id или `provider/model`
+	 * @returns {Promise<void>}
+	 */
+	const setSelectedChatModelRef = async (modelRef: string): Promise<void> => {
+		if (selectedChatModelRef.value === modelRef) {
+			return;
+		}
+		selectedChatModelRef.value = modelRef;
+		await options.persistChatModelId(modelRef);
+	};
+
+	/**
 	 * @description Полное обновление экрана. {@code silentMessages} — обновить список
 	 * сообщений без сброса scroll ленты; {@code skipCreativeEffects} — не дергать каталог
 	 * эффектов (после завершения генерации).
@@ -312,6 +401,9 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 	): Promise<void> => {
 		isRefreshing.value = true;
 		try {
+			const ocSnapshot = syncOpenClawChatModels();
+			await reconcileChatModelSelection(ocSnapshot);
+
 			health.value = await options.transport.getHealth();
 			conversations.value = await options.transport.listConversations();
 			if (!refreshOpts?.skipCreativeEffects) {
@@ -390,6 +482,7 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 			const result = await options.transport.sendMessage({
 				conversationId: selectedConversationId.value || undefined,
 				text: nextDraft,
+				model: selectedChatModelRef.value,
 				systemPrompt:
 					selectedConversationId.value === null
 						? options.defaultSystemPrompt || undefined
@@ -708,5 +801,10 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 		isCustomRunning,
 		runCustomGeneration,
 		customS4DebugError,
+		chatModelOptions,
+		openClawConfigPath,
+		openClawCatalogError,
+		selectedChatModelRef,
+		setSelectedChatModelRef,
 	};
 }

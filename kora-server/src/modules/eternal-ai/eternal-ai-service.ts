@@ -21,15 +21,31 @@ import type {
 	StartCustomGenerationResponse,
 	StartCreativeEffectRequest,
 	StartCreativeEffectResponse,
-} from '../../../../packages/contracts/src/eternal-ai';
+} from '../../../../packages/contracts/src/eternal-ai.js';
+import { isEternalStyleOpenClawProviderId } from '../../../../packages/contracts/src/openclaw-chat-builtins.js';
 import type { ServerConfig } from '../../services/config-service.js';
 import {
 	EternalAiRepository,
 	type CreateConversationInput,
 } from './eternal-ai-repository.js';
+import { resolveChatCompletionTransport } from './resolve-openclaw-chat-completion.js';
 
 const ETERNAL_OPEN_ORIGIN = 'https://open.eternalai.org';
 const CREATIVE_EFFECTS_URL = `${ETERNAL_OPEN_ORIGIN}/creative-ai/effects`;
+
+/**
+ * @description Нужен ли для строки модели ключ Eternal (x-api-key).
+ * @param {string} modelRef - legacy id или `provider/model`
+ * @returns {boolean}
+ */
+function usesEternalApiKeyForChatModel(modelRef: string): boolean {
+	const trimmed = modelRef.trim();
+	if (!trimmed.includes('/')) {
+		return true;
+	}
+	const providerId = trimmed.slice(0, trimmed.indexOf('/'));
+	return isEternalStyleOpenClawProviderId(providerId);
+}
 
 /** @description Ключи, которые не должны уходить в плагин из ответа Eternal. */
 const STRIPPED_EFFECT_KEYS = new Set([
@@ -119,13 +135,13 @@ export class EternalAiService {
 		request: SendEternalAiMessageRequest
 	): Promise<SendEternalAiMessageResponse> {
 		const config = this.getConfig();
-		if (!config.eternalAiApiKey) {
-			throw new Error('ETERNAL_AI_API_KEY не задан в конфигурации сервера.');
-		}
-
 		const now = new Date().toISOString();
 		const model =
 			request.model || config.eternalAiModel || 'uncensored-eternal-ai-1.0';
+
+		if (usesEternalApiKeyForChatModel(model) && !config.eternalAiApiKey) {
+			throw new Error('ETERNAL_AI_API_KEY не задан в конфигурации сервера.');
+		}
 		const conversation = this.ensureConversation({
 			conversationId: request.conversationId,
 			model,
@@ -222,9 +238,11 @@ export class EternalAiService {
 		systemPrompt?: string;
 	}): Promise<string> {
 		const config = this.getConfig();
-		const baseUrl = (
-			config.eternalAiBaseUrl || 'https://open.eternalai.org/v1'
-		).replace(/\/$/, '');
+		const transport = resolveChatCompletionTransport(params.model, {
+			baseUrl: config.eternalAiBaseUrl || 'https://open.eternalai.org/v1',
+			apiKey: config.eternalAiApiKey || '',
+		});
+
 		const messages = this.repository
 			.listMessages(params.conversationId)
 			.map(message => ({
@@ -239,14 +257,20 @@ export class EternalAiService {
 			});
 		}
 
-		const response = await fetch(`${baseUrl}/chat/completions`, {
+		const headers: Record<string, string> = {
+			'Content-Type': 'application/json',
+		};
+		if (transport.kind === 'eternal_x_api_key') {
+			headers['x-api-key'] = transport.apiKey;
+		} else {
+			headers.Authorization = `Bearer ${transport.apiKey}`;
+		}
+
+		const response = await fetch(`${transport.baseUrl}/chat/completions`, {
 			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				'x-api-key': config.eternalAiApiKey as string,
-			},
+			headers,
 			body: JSON.stringify({
-				model: params.model,
+				model: transport.upstreamModelId,
 				stream: false,
 				messages,
 			}),
@@ -258,7 +282,7 @@ export class EternalAiService {
 				.catch(() => null)) as EternalChatCompletionResponse | null;
 			throw new Error(
 				errorPayload?.error?.message ||
-					`Eternal AI HTTP ${response.status}: ${response.statusText}`
+					`Chat completions HTTP ${response.status}: ${response.statusText}`
 			);
 		}
 
@@ -267,7 +291,7 @@ export class EternalAiService {
 		const text = this.extractContentText(content);
 
 		if (!text) {
-			throw new Error('Eternal AI вернул пустой ответ.');
+			throw new Error('Модель вернула пустой ответ.');
 		}
 
 		return text;

@@ -620,6 +620,7 @@ __metadata:
     dotenv: "npm:^17.2.0"
     express: "npm:^4.18.2"
     input: "npm:^1.0.1"
+    json5: "npm:^2.2.3"
     openai: "npm:^4.68.4"
     telegram: "npm:^2.22.2"
     tsc-watch: "npm:^7.2.0"
@@ -4948,6 +4949,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"json5@npm:^2.2.3":
+  version: 2.2.3
+  resolution: "json5@npm:2.2.3"
+  bin:
+    json5: lib/cli.js
+  checksum: 10/1db67b853ff0de3534085d630691d3247de53a2ed1390ba0ddff681ea43e9b3e30ecbdb65c5e9aab49435e44059c23dbd6fee8ee619419ba37465bb0dd7135da
+  languageName: node
+  linkType: hard
+
 "jsprim@npm:^2.0.2":
   version: 2.0.2
   resolution: "jsprim@npm:2.0.2"
@@ -5792,6 +5802,7 @@ __metadata:
     express: "npm:^4.18.2"
     husky: "npm:^9.1.7"
     input: "npm:^1.0.1"
+    json5: "npm:^2.2.3"
     lint-staged: "npm:^16.1.5"
     node-telegram-bot-api: "npm:^0.66.0"
     nodemon: "npm:^3.1.10"

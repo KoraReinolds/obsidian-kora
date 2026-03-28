@@ -21,11 +21,15 @@ import EternalAiMessageComposer from './EternalAiMessageComposer.vue';
 const props = defineProps<{
 	transport: EternalAiTransportPort;
 	defaultSystemPrompt?: string;
+	getPersistedChatModelId: () => string;
+	persistChatModelId: (apiModelId: string) => Promise<void>;
 }>();
 
 const model = useEternalAiScreen({
 	transport: props.transport,
 	defaultSystemPrompt: props.defaultSystemPrompt,
+	getPersistedChatModelId: props.getPersistedChatModelId,
+	persistChatModelId: props.persistChatModelId,
 });
 
 const {
@@ -62,6 +66,11 @@ const {
 	runCreativeEffect,
 	runCustomGeneration,
 	customS4DebugError,
+	chatModelOptions,
+	openClawConfigPath,
+	openClawCatalogError,
+	selectedChatModelRef,
+	setSelectedChatModelRef,
 } = model;
 
 const {
@@ -172,6 +181,19 @@ const onComposerPreviewOpen = (
 	openLightbox(src, meta);
 };
 
+/**
+ * @description Смена модели чата: значение из native select → сохранение в настройках и на сервере.
+ * @param {Event} event - change на `<select>`
+ * @returns {Promise<void>}
+ */
+const onChatModelSelect = async (event: Event): Promise<void> => {
+	const target = event.target as HTMLSelectElement | null;
+	if (!target) {
+		return;
+	}
+	await setSelectedChatModelRef(target.value);
+};
+
 void refreshData();
 </script>
 
@@ -200,16 +222,55 @@ void refreshData();
 						:loading="isRefreshing"
 						@click="refreshData()"
 					/>
-					<div class="flex flex-wrap gap-2">
-						<SummaryChip :text="`Диалогов: ${conversations.length}`" />
-						<SummaryChip :text="`Модель: ${health?.model || 'n/a'}`" />
-						<SummaryChip :text="`Статус: ${health?.status || 'loading'}`" />
+					<div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+						<label
+							class="flex min-w-[12rem] max-w-[min(100%,22rem)] flex-col gap-0.5"
+						>
+							<span
+								class="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-muted)]"
+								v-text="'Модель чата (Open Claw)'"
+							/>
+							<select
+								class="kora-eternal-model-select rounded-lg border border-solid border-[var(--background-modifier-border)] bg-[var(--background-primary)] px-2 py-1.5 text-xs text-[var(--text-normal)]"
+								:value="selectedChatModelRef"
+								:title="
+									health?.status !== 'healthy'
+										? 'Модель чата можно менять всегда. Отправка сообщений и эффекты зависят от ключа Eternal и выбранной модели.'
+										: undefined
+								"
+								:disabled="isSending || isCreativeRunning || isCustomRunning"
+								@change="onChatModelSelect"
+							>
+								<option
+									v-for="(opt, idx) in chatModelOptions"
+									:key="opt.openClawRef || `${opt.apiModelId}-${idx}`"
+									:value="opt.openClawRef"
+									v-text="opt.label"
+								/>
+							</select>
+						</label>
+						<div class="flex flex-wrap gap-2">
+							<SummaryChip :text="`Диалогов: ${conversations.length}`" />
+							<SummaryChip
+								:text="`Сервер default: ${health?.model || 'n/a'}`"
+							/>
+							<SummaryChip :text="`Статус: ${health?.status || 'loading'}`" />
+							<SummaryChip
+								v-if="openClawConfigPath"
+								:text="`Open Claw: ${openClawConfigPath}`"
+							/>
+						</div>
 					</div>
 				</div>
 			</Toolbar>
 		</template>
 
 		<template #message>
+			<StatusBanner
+				v-if="openClawCatalogError"
+				kind="warning"
+				:text="`Open Claw: ${openClawCatalogError}`"
+			/>
 			<StatusBanner
 				v-if="screenMessage"
 				:kind="screenMessage.kind"

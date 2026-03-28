@@ -59,6 +59,12 @@ export class EternalAiView extends ItemView {
 				transport: createEternalAiBridgeAdapter(this.bridge),
 				defaultSystemPrompt:
 					this.plugin.settings.eternalAiSettings.defaultSystemPrompt || '',
+				getPersistedChatModelId: () =>
+					this.plugin.settings.eternalAiSettings.model,
+				persistChatModelId: async (modelRef: string) => {
+					this.plugin.settings.eternalAiSettings.model = modelRef;
+					await this.plugin.saveSettings();
+				},
 			},
 			{
 				hostLucideIcon: ObsidianLucideIcon,

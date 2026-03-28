@@ -10,7 +10,7 @@ import type {
 	CreateEternalAiConversationRequest,
 	EternalAiConversationSummary,
 	EternalAiMessageRecord,
-} from '../../../../packages/contracts/src/eternal-ai';
+} from '../../../../packages/contracts/src/eternal-ai.js';
 
 interface ConversationRow {
 	id: string;

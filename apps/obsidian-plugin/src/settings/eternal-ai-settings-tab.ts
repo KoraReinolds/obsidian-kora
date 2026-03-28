@@ -98,7 +98,9 @@ export class EternalAiSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Model id')
-			.setDesc('Default model id sent to Eternal AI chat completions.')
+			.setDesc(
+				'Строка модели на Kora server: legacy id без «/» или ref `provider/model` из Open Claw. Список в экране — из agents.defaults.models (или из models.providers, если allowlist пуст). Картинки/эффекты по-прежнему только Eternal API.'
+			)
 			.addText(text =>
 				text
 					.setPlaceholder('uncensored-eternal-ai-1.0')
