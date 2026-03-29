@@ -72,6 +72,7 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 		--font-mono:
 			ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
 			'Courier New', monospace;
+		--color-red-500: oklch(63.7% 0.237 25.331);
 		--color-black: #000;
 		--color-white: #fff;
 		--spacing: 0.25rem;
@@ -325,6 +326,12 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 	}
 }
 @layer utilities {
+	.pointer-events-auto {
+		pointer-events: auto;
+	}
+	.pointer-events-none {
+		pointer-events: none;
+	}
 	.collapse {
 		visibility: collapse;
 	}
@@ -369,17 +376,26 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 	.top-0\.5 {
 		top: calc(var(--spacing) * 0.5);
 	}
+	.top-2 {
+		top: calc(var(--spacing) * 2);
+	}
 	.top-4 {
 		top: calc(var(--spacing) * 4);
 	}
 	.right-0\.5 {
 		right: calc(var(--spacing) * 0.5);
 	}
+	.right-2 {
+		right: calc(var(--spacing) * 2);
+	}
 	.right-4 {
 		right: calc(var(--spacing) * 4);
 	}
 	.isolate {
 		isolation: isolate;
+	}
+	.z-10 {
+		z-index: 10;
 	}
 	.z-\[1\] {
 		z-index: 1;
@@ -453,6 +469,9 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 		-webkit-box-orient: vertical;
 		-webkit-line-clamp: 2;
 	}
+	.\!table {
+		display: table !important;
+	}
 	.block {
 		display: block;
 	}
@@ -519,6 +538,12 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 	.max-h-20 {
 		max-height: calc(var(--spacing) * 20);
 	}
+	.max-h-40 {
+		max-height: calc(var(--spacing) * 40);
+	}
+	.max-h-48 {
+		max-height: calc(var(--spacing) * 48);
+	}
 	.max-h-\[96vh\] {
 		max-height: 96vh;
 	}
@@ -570,11 +595,20 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 	.w-28 {
 		width: calc(var(--spacing) * 28);
 	}
+	.w-\[12rem\] {
+		width: 12rem;
+	}
 	.w-full {
 		width: 100%;
 	}
 	.w-screen {
 		width: 100vw;
+	}
+	.max-w-\[12rem\] {
+		max-width: 12rem;
+	}
+	.max-w-\[14rem\] {
+		max-width: 14rem;
 	}
 	.max-w-\[96vw\] {
 		max-width: 96vw;
@@ -587,6 +621,9 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 	}
 	.max-w-\[min\(100\%\,48rem\)\] {
 		max-width: min(100%, 48rem);
+	}
+	.max-w-full {
+		max-width: 100%;
 	}
 	.max-w-sm {
 		max-width: var(--container-sm);
@@ -603,6 +640,12 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 	.min-w-\[12rem\] {
 		min-width: 12rem;
 	}
+	.min-w-\[14rem\] {
+		min-width: 14rem;
+	}
+	.min-w-\[18rem\] {
+		min-width: 18rem;
+	}
 	.flex-1 {
 		flex: 1;
 	}
@@ -618,11 +661,17 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 	.basis-0 {
 		flex-basis: calc(var(--spacing) * 0);
 	}
+	.border-collapse {
+		border-collapse: collapse;
+	}
 	.animate-spin {
 		animation: var(--animate-spin);
 	}
 	.cursor-default {
 		cursor: default;
+	}
+	.cursor-grab {
+		cursor: grab;
 	}
 	.cursor-pointer {
 		cursor: pointer;
@@ -707,6 +756,9 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 	.gap-3 {
 		gap: calc(var(--spacing) * 3);
 	}
+	.gap-y-1\.5 {
+		row-gap: calc(var(--spacing) * 1.5);
+	}
 	.self-center {
 		align-self: center;
 	}
@@ -778,6 +830,10 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 		border-style: var(--tw-border-style);
 		border-width: 2px;
 	}
+	.border-t {
+		border-top-style: var(--tw-border-style);
+		border-top-width: 1px;
+	}
 	.border-r {
 		border-right-style: var(--tw-border-style);
 		border-right-width: 1px;
@@ -847,6 +903,16 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 			);
 		}
 	}
+	.border-red-500\/35 {
+		border-color: color-mix(
+			in srgb,
+			oklch(63.7% 0.237 25.331) 35%,
+			transparent
+		);
+		@supports (color: color-mix(in lab, red, red)) {
+			border-color: color-mix(in oklab, var(--color-red-500) 35%, transparent);
+		}
+	}
 	.border-transparent {
 		border-color: transparent;
 	}
@@ -874,9 +940,6 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 	.bg-\[var\(--background-modifier-border\)\] {
 		background-color: var(--background-modifier-border);
 	}
-	.bg-\[var\(--background-modifier-hover\)\] {
-		background-color: var(--background-modifier-hover);
-	}
 	.bg-\[var\(--background-primary\)\] {
 		background-color: var(--background-primary);
 	}
@@ -890,8 +953,28 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 			);
 		}
 	}
+	.bg-\[var\(--background-primary\)\]\/50 {
+		background-color: var(--background-primary);
+		@supports (color: color-mix(in lab, red, red)) {
+			background-color: color-mix(
+				in oklab,
+				var(--background-primary) 50%,
+				transparent
+			);
+		}
+	}
 	.bg-\[var\(--background-secondary\)\] {
 		background-color: var(--background-secondary);
+	}
+	.bg-\[var\(--background-secondary\)\]\/50 {
+		background-color: var(--background-secondary);
+		@supports (color: color-mix(in lab, red, red)) {
+			background-color: color-mix(
+				in oklab,
+				var(--background-secondary) 50%,
+				transparent
+			);
+		}
 	}
 	.bg-\[var\(--color-green\)\]\/15 {
 		background-color: var(--color-green);
@@ -992,6 +1075,20 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 			);
 		}
 	}
+	.bg-red-500\/10 {
+		background-color: color-mix(
+			in srgb,
+			oklch(63.7% 0.237 25.331) 10%,
+			transparent
+		);
+		@supports (color: color-mix(in lab, red, red)) {
+			background-color: color-mix(
+				in oklab,
+				var(--color-red-500) 10%,
+				transparent
+			);
+		}
+	}
 	.bg-transparent {
 		background-color: transparent;
 	}
@@ -1057,11 +1154,14 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 	.py-2\.5 {
 		padding-block: calc(var(--spacing) * 2.5);
 	}
-	.py-3 {
-		padding-block: calc(var(--spacing) * 3);
-	}
 	.py-10 {
 		padding-block: calc(var(--spacing) * 10);
+	}
+	.pt-2 {
+		padding-top: calc(var(--spacing) * 2);
+	}
+	.pt-11 {
+		padding-top: calc(var(--spacing) * 11);
 	}
 	.pr-1 {
 		padding-right: calc(var(--spacing) * 1);
@@ -1095,6 +1195,9 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 	}
 	.text-right {
 		text-align: right;
+	}
+	.align-top {
+		vertical-align: top;
 	}
 	.font-mono {
 		font-family: var(--font-mono);
@@ -1302,14 +1405,6 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 		);
 		transition-duration: var(--tw-duration, var(--default-transition-duration));
 	}
-	.transition-\[border-color\,box-shadow\] {
-		transition-property: border-color, box-shadow;
-		transition-timing-function: var(
-			--tw-ease,
-			var(--default-transition-timing-function)
-		);
-		transition-duration: var(--tw-duration, var(--default-transition-duration));
-	}
 	.transition-colors {
 		transition-property:
 			color, background-color, border-color, outline-color,
@@ -1392,13 +1487,6 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 			--tw-ring-inset: inset;
 		}
 	}
-	.hover\:border-\[var\(--interactive-accent-hover\)\] {
-		&:hover {
-			@media (hover: hover) {
-				border-color: var(--interactive-accent-hover);
-			}
-		}
-	}
 	.hover\:border-\[var\(--text-error\)\] {
 		&:hover {
 			@media (hover: hover) {
@@ -1448,22 +1536,17 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 			}
 		}
 	}
+	.hover\:text-\[var\(--text-normal\)\] {
+		&:hover {
+			@media (hover: hover) {
+				color: var(--text-normal);
+			}
+		}
+	}
 	.hover\:opacity-90 {
 		&:hover {
 			@media (hover: hover) {
 				opacity: 90%;
-			}
-		}
-	}
-	.hover\:shadow {
-		&:hover {
-			@media (hover: hover) {
-				--tw-shadow:
-					0 1px 3px 0 var(--tw-shadow-color, rgb(0 0 0 / 0.1)),
-					0 1px 2px -1px var(--tw-shadow-color, rgb(0 0 0 / 0.1));
-				box-shadow:
-					var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
-					var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
 			}
 		}
 	}
@@ -1551,9 +1634,19 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 			opacity: 40%;
 		}
 	}
+	.md\:col-span-2 {
+		@media (width >= 48rem) {
+			grid-column: span 2 / span 2;
+		}
+	}
 	.md\:grid-cols-2 {
 		@media (width >= 48rem) {
 			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+	.md\:grid-cols-\[minmax\(0\,1fr\)_8rem\] {
+		@media (width >= 48rem) {
+			grid-template-columns: minmax(0, 1fr) 8rem;
 		}
 	}
 	.lg\:grid-cols-\[minmax\(280px\,360px\)_minmax\(0\,1fr\)\] {
@@ -1571,9 +1664,24 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 			grid-template-columns: minmax(320px, 400px) minmax(0, 1fr);
 		}
 	}
+	.xl\:col-span-2 {
+		@media (width >= 80rem) {
+			grid-column: span 2 / span 2;
+		}
+	}
+	.xl\:grid-cols-2 {
+		@media (width >= 80rem) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
 	.xl\:grid-cols-\[minmax\(0\,1\.15fr\)_minmax\(0\,1fr\)\] {
 		@media (width >= 80rem) {
 			grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+		}
+	}
+	.xl\:grid-cols-\[minmax\(240px\,320px\)_minmax\(0\,1fr\)\] {
+		@media (width >= 80rem) {
+			grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
 		}
 	}
 	.xl\:grid-cols-\[minmax\(360px\,420px\)_minmax\(0\,1fr\)\] {

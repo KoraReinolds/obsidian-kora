@@ -65,6 +65,7 @@ export class EternalAiView extends ItemView {
 					this.plugin.settings.eternalAiSettings.model = modelRef;
 					await this.plugin.saveSettings();
 				},
+				openSqliteViewer: () => this.plugin.activateSqliteViewerView(),
 			},
 			{
 				hostLucideIcon: ObsidianLucideIcon,

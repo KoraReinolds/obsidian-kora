@@ -4,6 +4,7 @@ import {
 	ChatTimeline,
 	IconButton,
 	IconTextField,
+	MessageCard,
 	PanelFrame,
 	PlaceholderState,
 	StatusBanner,
@@ -56,6 +57,7 @@ const {
 	isDeletingChatId,
 	highlightedMessageId,
 	screenMessage,
+	clearScreenMessage,
 	refreshData,
 	handleDesktopExportSelection,
 	handleChatSelection,
@@ -213,6 +215,7 @@ void refreshData();
 				v-if="screenMessage"
 				:kind="screenMessage.kind"
 				:text="screenMessage.text"
+				@dismiss="clearScreenMessage"
 			/>
 		</template>
 
@@ -272,27 +275,16 @@ void refreshData();
 						:key="chat?.chatId || `chat-fallback-${index}`"
 						class="flex min-w-0 shrink-0 items-center gap-1.5"
 					>
-						<button
-							type="button"
-							class="flex min-w-0 flex-1 cursor-pointer flex-col items-start gap-1 rounded-2xl border border-solid px-3 py-3 text-left shadow-sm transition-[border-color,box-shadow] hover:border-[var(--interactive-accent-hover)] hover:shadow"
-							:class="
-								selectedChatId === chat?.chatId
-									? 'border-[var(--interactive-accent)] bg-[var(--background-modifier-hover)] ring-1 ring-[var(--interactive-accent)]/25'
-									: 'border-[var(--background-modifier-border)] bg-[var(--background-primary)]'
-							"
+						<MessageCard
+							class="min-w-0 flex-1 shadow-sm"
+							compact
+							:selected="selectedChatId === chat?.chatId"
+							:clickable="true"
+							:title="chat?.title || 'Без названия'"
+							:subtitle="`${chat?.type || 'unknown'} · ${chat?.messageCount || 0} сообщений`"
+							:meta="chat?.chatId != null ? `chatId: ${chat.chatId}` : ''"
 							@click="chat?.chatId && handleChatSelection(chat.chatId)"
-						>
-							<div class="min-w-0 w-full truncate text-sm font-semibold">
-								{{ chat?.title || 'Без названия' }}
-							</div>
-							<div class="text-xs text-[var(--text-muted)]">
-								{{ chat?.type || 'unknown' }} · {{ chat?.messageCount || 0 }}
-								сообщений
-							</div>
-							<div class="text-xs text-[var(--text-muted)]">
-								chatId: {{ chat?.chatId }}
-							</div>
-						</button>
+						/>
 						<IconButton
 							size="sm"
 							variant="danger"

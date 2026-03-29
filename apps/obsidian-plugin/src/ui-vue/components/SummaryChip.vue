@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * @description Компактный чип для вывода статистики и метаданных.
+ * @description Компактный чип для статистики, метаданных и переключателей (фильтры, видимость колонок).
  */
 
 import UiHostIcon from './UiHostIcon.vue';
@@ -14,6 +14,22 @@ const props = withDefaults(
 		outlined?: boolean;
 		icon?: string;
 		interactive?: boolean;
+		/**
+		 * @description Режим переключателя: `role="button"`, `aria-pressed`, Enter/Space, emit `click`.
+		 */
+		toggle?: boolean;
+		/**
+		 * @description Состояние «включено» для `toggle` (видимость колонки и т.п.).
+		 */
+		pressed?: boolean;
+		/**
+		 * @description Обрезка длинной подписи с полным текстом в `title`.
+		 */
+		truncateLabel?: boolean;
+		/**
+		 * @description Моноширинный текст (имена колонок SQL и т.п.).
+		 */
+		mono?: boolean;
 	}>(),
 	{
 		variant: 'neutral',
@@ -21,8 +37,16 @@ const props = withDefaults(
 		outlined: false,
 		interactive: false,
 		icon: '',
+		toggle: false,
+		pressed: false,
+		truncateLabel: false,
+		mono: false,
 	}
 );
+
+const emit = defineEmits<{
+	click: [event: MouseEvent | KeyboardEvent];
+}>();
 
 const sizeStyle = computed(() => {
 	if (props.size === 'xs') {
@@ -47,13 +71,50 @@ const sizeStyle = computed(() => {
 		padding: '3px 8px',
 	};
 });
+
+const isClickable = computed(() => props.toggle || props.interactive);
+
+const toggleAttrs = computed(() =>
+	props.toggle
+		? {
+				role: 'button' as const,
+				tabindex: 0,
+				'aria-pressed': props.pressed,
+			}
+		: {}
+);
+
+/**
+ * @description Клавиатурная активация только для `toggle`.
+ */
+const onRootKeydown = (event: KeyboardEvent): void => {
+	if (!props.toggle) {
+		return;
+	}
+	if (event.key === 'Enter' || event.key === ' ') {
+		event.preventDefault();
+		emit('click', event);
+	}
+};
+
+/**
+ * @description Клик по интерактивному или toggle-чипу.
+ */
+const onRootClick = (event: MouseEvent): void => {
+	if (!isClickable.value) {
+		return;
+	}
+	emit('click', event);
+};
 </script>
 
 <template>
 	<div
-		class="inline-flex shrink-0 items-center gap-1 rounded-full border border-solid font-medium"
+		v-bind="toggleAttrs"
 		:class="[
-			interactive ? 'cursor-pointer transition-colors hover:opacity-90' : '',
+			'inline-flex max-w-full shrink-0 items-center gap-1 rounded-full border border-solid font-medium',
+			mono ? 'font-mono' : '',
+			isClickable ? 'cursor-pointer transition-colors hover:opacity-90' : '',
 			outlined ? 'bg-transparent' : '',
 			{
 				'border-[var(--background-modifier-border)] bg-[var(--background-primary)] text-[var(--text-muted)]':
@@ -69,6 +130,8 @@ const sizeStyle = computed(() => {
 			},
 		]"
 		:style="sizeStyle"
+		@keydown="onRootKeydown"
+		@click="onRootClick"
 	>
 		<UiHostIcon
 			v-if="icon"
@@ -76,6 +139,10 @@ const sizeStyle = computed(() => {
 			:label="text"
 			icon-class="!h-3 !w-3 [&>svg]:!h-3 [&>svg]:!w-3"
 		/>
-		<span v-text="text" />
+		<span
+			:class="truncateLabel ? 'min-w-0 max-w-[14rem] truncate' : ''"
+			:title="truncateLabel ? text : undefined"
+			v-text="text"
+		/>
 	</div>
 </template>

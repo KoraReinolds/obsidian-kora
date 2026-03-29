@@ -87,7 +87,78 @@ export class EternalAiDatabase {
 			);
 			CREATE INDEX IF NOT EXISTS idx_eternal_ai_effect_jobs_conversation
 				ON eternal_ai_effect_jobs(conversation_id, created_at DESC);
+
+			CREATE TABLE IF NOT EXISTS eternal_ai_artifacts (
+				id TEXT PRIMARY KEY,
+				conversation_id TEXT,
+				artifact_type TEXT NOT NULL,
+				context TEXT NOT NULL DEFAULT 'source',
+				source_type TEXT NOT NULL,
+				source_id TEXT NOT NULL,
+				scope_kind TEXT NOT NULL,
+				scope_id TEXT,
+				text TEXT NOT NULL,
+				embedding_text TEXT NOT NULL,
+				source_unit_ids_json TEXT,
+				source_refs_json TEXT,
+				metadata_json TEXT,
+				created_at TEXT NOT NULL,
+				updated_at TEXT NOT NULL,
+				FOREIGN KEY (conversation_id) REFERENCES eternal_ai_conversations(id) ON DELETE CASCADE
+			);
+			CREATE INDEX IF NOT EXISTS idx_eternal_ai_artifacts_scope
+				ON eternal_ai_artifacts(scope_kind, scope_id, context, artifact_type, updated_at DESC);
+			CREATE INDEX IF NOT EXISTS idx_eternal_ai_artifacts_conversation
+				ON eternal_ai_artifacts(conversation_id, updated_at DESC);
+
+			CREATE TABLE IF NOT EXISTS eternal_ai_turn_traces (
+				id TEXT PRIMARY KEY,
+				conversation_id TEXT NOT NULL,
+				model TEXT NOT NULL,
+				status TEXT NOT NULL,
+				input_text TEXT NOT NULL,
+				prompt_text TEXT NOT NULL,
+				raw_response TEXT NOT NULL,
+				parsed_response_json TEXT,
+				recalled_artifacts_json TEXT NOT NULL,
+				prompt_fragments_json TEXT NOT NULL,
+				timings_json TEXT NOT NULL,
+				error_text TEXT,
+				started_at TEXT NOT NULL,
+				finished_at TEXT NOT NULL,
+				FOREIGN KEY (conversation_id) REFERENCES eternal_ai_conversations(id) ON DELETE CASCADE
+			);
+			CREATE INDEX IF NOT EXISTS idx_eternal_ai_turn_traces_conversation
+				ON eternal_ai_turn_traces(conversation_id, started_at DESC);
 		`);
+		this.ensureArtifactContextColumn();
+		this.dropLegacyMediaJobsTable();
+	}
+
+	/**
+	 * @description Удаляет устаревшую таблицу `eternal_ai_media_jobs` из старых файлов БД
+	 * (черновик схемы без текущего кода). В текущем коде таблица не используется; повторный вызов безопасен.
+	 * @returns {void}
+	 */
+	private dropLegacyMediaJobsTable(): void {
+		this.db.exec(`DROP TABLE IF EXISTS eternal_ai_media_jobs`);
+	}
+
+	/**
+	 * @description Добавляет обязательный столбец `context` в существующие базы,
+	 * созданные до сужения artifact contract для Eternal AI.
+	 * @returns {void}
+	 */
+	private ensureArtifactContextColumn(): void {
+		const columns = this.db
+			.prepare(`PRAGMA table_info(eternal_ai_artifacts)`)
+			.all() as Array<{ name: string }>;
+		if (columns.some(column => column.name === 'context')) {
+			return;
+		}
+		this.db.exec(
+			`ALTER TABLE eternal_ai_artifacts ADD COLUMN context TEXT NOT NULL DEFAULT 'source'`
+		);
 	}
 
 	private resolveDatabasePath(configuredPath?: string): string {

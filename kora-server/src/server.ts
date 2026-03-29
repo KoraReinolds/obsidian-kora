@@ -35,6 +35,7 @@ import { registerMeRoutes } from './routes/me.js';
 import { registerChannelRoutes } from './routes/channels.js';
 import { registerMessageRoutes } from './routes/messages.js';
 import { registerConfigRoutes } from './routes/config.js';
+import { registerSqliteViewerRoutes } from './routes/sqlite-viewer.js';
 
 // Services
 import { getConfig } from './services/config-service.js';
@@ -63,6 +64,7 @@ registerMeRoutes(app);
 registerChannelRoutes(app);
 registerMessageRoutes(app);
 registerConfigRoutes(app);
+registerSqliteViewerRoutes(app);
 
 // Vector routes
 registerRuntimeRoutes(app);

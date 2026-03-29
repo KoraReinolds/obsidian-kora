@@ -8,6 +8,8 @@ import {
 	type HttpClientConfig,
 } from '../../../telegram/core/base-http-client';
 import type {
+	CreateEternalAiArtifactRequest,
+	EternalAiArtifactRecord,
 	EternalAiConversationSummary,
 	EternalAiCreativeEffectItem,
 	EternalAiCreativePollResponse,
@@ -15,6 +17,7 @@ import type {
 	EternalAiMessageRecord,
 	EternalAiS4SafetyCheckRequest,
 	EternalAiS4SafetyCheckResponse,
+	EternalAiTurnTraceRecord,
 	SendEternalAiMessageRequest,
 	SendEternalAiMessageResponse,
 	StartCustomGenerationRequest,
@@ -32,6 +35,25 @@ interface EternalAiConversationsResponse {
 interface EternalAiMessagesResponse {
 	success: boolean;
 	messages?: EternalAiMessageRecord[];
+	error?: string;
+}
+
+interface EternalAiArtifactsResponse {
+	success: boolean;
+	artifacts?: EternalAiArtifactRecord[];
+	error?: string;
+}
+
+interface EternalAiArtifactMutationResponse {
+	success: boolean;
+	artifact?: EternalAiArtifactRecord;
+	deleted?: boolean;
+	error?: string;
+}
+
+interface EternalAiTurnTracesResponse {
+	success: boolean;
+	traces?: EternalAiTurnTraceRecord[];
 	error?: string;
 }
 
@@ -115,6 +137,96 @@ export class EternalAiBridge extends BaseHttpClient {
 		}
 
 		return response.messages || [];
+	}
+
+	async listArtifacts(
+		conversationId: string,
+		filters?: {
+			type?: string;
+			context?: string;
+			limit?: number;
+		}
+	): Promise<EternalAiArtifactRecord[]> {
+		const params = new URLSearchParams();
+		if (filters?.type) {
+			params.set('type', filters.type);
+		}
+		if (filters?.context) {
+			params.set('context', filters.context);
+		}
+		params.set('limit', String(filters?.limit || 100));
+
+		const response = await this.handleRequest<EternalAiArtifactsResponse>(
+			`/eternal_ai/conversations/${encodeURIComponent(conversationId)}/artifacts?${params.toString()}`,
+			{},
+			'Ошибка загрузки Eternal AI artifacts'
+		);
+
+		if (!response?.success) {
+			throw new Error(response?.error || 'Не удалось загрузить artifacts');
+		}
+
+		return response.artifacts || [];
+	}
+
+	async listTurnTraces(
+		conversationId: string,
+		limit = 20
+	): Promise<EternalAiTurnTraceRecord[]> {
+		const response = await this.handleRequest<EternalAiTurnTracesResponse>(
+			`/eternal_ai/conversations/${encodeURIComponent(conversationId)}/traces?limit=${encodeURIComponent(String(limit))}`,
+			{},
+			'Ошибка загрузки Eternal AI trace'
+		);
+
+		if (!response?.success) {
+			throw new Error(response?.error || 'Не удалось загрузить trace');
+		}
+
+		return response.traces || [];
+	}
+
+	async createSeedArtifact(
+		request: CreateEternalAiArtifactRequest
+	): Promise<EternalAiArtifactRecord> {
+		const response =
+			await this.handleRequest<EternalAiArtifactMutationResponse>(
+				`/eternal_ai/conversations/${encodeURIComponent(request.conversationId)}/artifacts`,
+				{
+					method: 'POST',
+					body: {
+						type: request.type,
+						context: request.context,
+						text: request.text,
+						metadata: request.metadata ?? null,
+					},
+				},
+				'Ошибка создания seed artifact'
+			);
+
+		if (!response?.success || !response.artifact) {
+			throw new Error(response?.error || 'Не удалось создать artifact');
+		}
+
+		return response.artifact;
+	}
+
+	async deleteArtifact(
+		conversationId: string,
+		artifactId: string
+	): Promise<{ deleted: boolean }> {
+		const response =
+			await this.handleRequest<EternalAiArtifactMutationResponse>(
+				`/eternal_ai/conversations/${encodeURIComponent(conversationId)}/artifacts/${encodeURIComponent(artifactId)}`,
+				{ method: 'DELETE' },
+				'Ошибка удаления Eternal AI artifact'
+			);
+
+		if (!response?.success) {
+			throw new Error(response?.error || 'Не удалось удалить artifact');
+		}
+
+		return { deleted: response.deleted === true };
 	}
 
 	async deleteMessage(

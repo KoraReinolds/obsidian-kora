@@ -58,6 +58,120 @@ export interface EternalAiHealthResponse {
 	error?: string;
 }
 
+export type EternalAiArtifactType =
+	| 'dialogue_window'
+	| 'episodic_memory'
+	| 'semantic_memory'
+	| 'session_summary'
+	| 'environment_state';
+
+export type EternalAiArtifactContext =
+	| 'user'
+	| 'persona'
+	| 'relationship'
+	| 'environment'
+	| 'source';
+
+/**
+ * @description Публичная запись памяти Eternal AI. Контракт намеренно фокусируется
+ * на полях `type`, `context` и `scope`, а все второстепенные детали остаются
+ * внутри `metadata`.
+ */
+export interface EternalAiArtifactRecord {
+	id: string;
+	type: EternalAiArtifactType;
+	context: EternalAiArtifactContext | string;
+	scope: {
+		kind: string;
+		id?: string;
+	};
+	text: string;
+	sourceType: string;
+	sourceId: string;
+	metadata?: Record<string, unknown> | null;
+	createdAt: string;
+	updatedAt: string;
+	score?: number | null;
+}
+
+/**
+ * @description Запрос ручного seed-заполнения памяти Eternal AI для выбранного диалога.
+ */
+export interface CreateEternalAiArtifactRequest {
+	conversationId: string;
+	type: EternalAiArtifactType;
+	context: EternalAiArtifactContext | string;
+	text: string;
+	metadata?: Record<string, unknown> | null;
+}
+
+/**
+ * @description Краткий снимок recall-артефакта внутри turn trace. DTO отделён от
+ * shared memory-ядра, чтобы HTTP-контракт не зависел напрямую от внутренних типов
+ * `kora-core` и мог эволюционировать независимо от server/runtime реализации.
+ */
+export interface EternalAiArtifactSnapshot {
+	id: string;
+	type: string;
+	context: string;
+	sourceType: string;
+	sourceId: string;
+	scope: {
+		kind: string;
+		id?: string;
+	};
+	text: string;
+	metadata?: Record<string, unknown> | null;
+	createdAt: string;
+	updatedAt: string;
+	score?: number | null;
+}
+
+/**
+ * @description DTO одного prompt fragment внутри trace.
+ */
+export interface EternalAiPromptFragmentSnapshot {
+	id: string;
+	layer: string;
+	priority: number;
+	source: string;
+	text: string;
+	metadata?: Record<string, unknown> | null;
+}
+
+/**
+ * @description Парсинг ответа модели после минимального runtime-parser.
+ */
+export interface EternalAiParsedResponseSnapshot {
+	rawText: string;
+	assistantText: string;
+	actions: string[];
+	environmentPatch?: Record<string, unknown> | null;
+	memoryCandidates: string[];
+	displayText: string;
+	usedStructuredBlocks: boolean;
+}
+
+/**
+ * @description Полный debug-first снимок одного runtime-turn внутри Eternal AI.
+ */
+export interface EternalAiTurnTraceRecord {
+	id: string;
+	conversationId: string;
+	model: string;
+	status: 'success' | 'error';
+	inputText: string;
+	promptText: string;
+	rawResponse: string;
+	parsedResponse?: EternalAiParsedResponseSnapshot | null;
+	recalledArtifacts: EternalAiArtifactSnapshot[];
+	promptFragments: EternalAiPromptFragmentSnapshot[];
+	timingsMs: Record<string, number>;
+	errorText?: string | null;
+	startedAt: string;
+	finishedAt: string;
+}
+
 /**
  * @description Публичные поля визуального эффекта после санитизации на сервере
  * (без AES/md5 и прочих чувствительных полей исходного JSON Eternal).

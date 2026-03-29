@@ -1,17 +1,23 @@
 <script setup lang="ts">
 /**
  * @description Универсальный баннер статусного сообщения.
+ * По умолчанию показывает кнопку закрытия; передайте `:dismissible="false"`, чтобы скрыть.
  */
 
 import { computed } from 'vue';
 import type { TScreenMessageKind } from '../types/view-contracts';
 
-const props = defineProps<{
-	kind: TScreenMessageKind;
-	text: string;
-	title?: string;
-	dismissible?: boolean;
-}>();
+const props = withDefaults(
+	defineProps<{
+		kind: TScreenMessageKind;
+		text: string;
+		title?: string;
+		dismissible?: boolean;
+	}>(),
+	{
+		dismissible: true,
+	}
+);
 
 const emit = defineEmits<{
 	dismiss: [];

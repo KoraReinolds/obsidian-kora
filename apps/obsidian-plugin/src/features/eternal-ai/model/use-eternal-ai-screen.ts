@@ -9,15 +9,20 @@
 
 import { computed, ref, watch } from 'vue';
 import type {
+	EternalAiArtifactRecord,
 	EternalAiConversationSummary,
 	EternalAiCustomMode,
 	EternalAiCreativeEffectItem,
 	EternalAiHealthResponse,
 	EternalAiMessageRecord,
 	EternalAiS4SafetyCheckResponse,
+	EternalAiTurnTraceRecord,
 } from '../../../../../../packages/contracts/src/eternal-ai';
 import { useScreenMessage } from '../../../ui-vue';
-import type { ChatTimelineItem } from '../../../ui-vue';
+import type {
+	ChatTimelineEternalInspectorPayload,
+	ChatTimelineItem,
+} from '../../../ui-vue';
 import type { EternalAiTransportPort } from '../ports/eternal-ai-transport-port';
 import { loadOpenClawChatModelsFromDisk } from '../lib/load-openclaw-chat-models';
 import type { OpenClawChatModelOption } from '../lib/load-openclaw-chat-models';
@@ -124,6 +129,48 @@ function isKoraCustomCatalogEffectId(effectId: string): boolean {
 	return Boolean(KORA_CUSTOM_ID_TO_MODE[effectId]);
 }
 
+/**
+ * @description Извлекает `traceId` из `metadata` сообщения (assistant / user после error-path).
+ * @param {EternalAiMessageRecord} message - сообщение Eternal AI
+ * @returns {string | null}
+ */
+function getTraceIdFromMessage(message: EternalAiMessageRecord): string | null {
+	const meta = message.metadata;
+	if (!meta || typeof meta !== 'object') {
+		return null;
+	}
+	const id = (meta as Record<string, unknown>).traceId;
+	return typeof id === 'string' ? id : null;
+}
+
+/**
+ * @description Собирает DTO инспектора ленты из записи turn trace.
+ * @param {EternalAiTurnTraceRecord} trace - снимок с сервера
+ * @param {boolean} expanded - раскрыт ли блок
+ * @returns {ChatTimelineEternalInspectorPayload}
+ */
+function buildTimelineInspectorPayload(
+	trace: EternalAiTurnTraceRecord,
+	expanded: boolean
+): ChatTimelineEternalInspectorPayload {
+	return {
+		traceId: trace.id,
+		model: trace.model,
+		status: trace.status,
+		inputText: trace.inputText,
+		promptText: trace.promptText,
+		rawResponse: trace.rawResponse,
+		parsedResponsePretty: trace.parsedResponse
+			? JSON.stringify(trace.parsedResponse, null, 2)
+			: '',
+		recalledArtifactsPretty: JSON.stringify(trace.recalledArtifacts, null, 2),
+		promptFragmentsPretty: JSON.stringify(trace.promptFragments, null, 2),
+		timingsPretty: JSON.stringify(trace.timingsMs, null, 2),
+		errorText: trace.errorText ?? null,
+		expanded,
+	};
+}
+
 export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 	const conversations = ref<EternalAiConversationSummary[]>([]);
 	const selectedConversationId = ref<string | null>(null);
@@ -135,8 +182,18 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 	const isSending = ref(false);
 	const isDeletingConversationId = ref<string | null>(null);
 	const isDeletingMessageId = ref<string | null>(null);
+	const isDeletingArtifactId = ref<string | null>(null);
+	const isLoadingArtifacts = ref(false);
+	const isSavingSeedArtifact = ref(false);
+	const turnTraces = ref<EternalAiTurnTraceRecord[]>([]);
+	const artifacts = ref<EternalAiArtifactRecord[]>([]);
+	/** Раскрытые в ленте инспекторы trace по `traceId`. */
+	const expandedTimelineInspectorTraceIds = ref<Set<string>>(new Set());
+	const seedType = ref<EternalAiArtifactRecord['type']>('semantic_memory');
+	const seedContext = ref<EternalAiArtifactRecord['context']>('persona');
+	const seedText = ref('');
 
-	const leftTab = ref<'chats' | 'effects'>('chats');
+	const leftTab = ref<'chats' | 'effects' | 'debug'>('chats');
 	const creativeEffects = ref<EternalAiCreativeEffectItem[]>([]);
 	const effectsQuery = ref('');
 	const selectedEffectId = ref<string | null>(null);
@@ -194,6 +251,33 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 			: false
 	);
 
+	const traceById = computed(() => {
+		const map = new Map<string, EternalAiTurnTraceRecord>();
+		for (const trace of turnTraces.value) {
+			map.set(trace.id, trace);
+		}
+		return map;
+	});
+
+	const canManageArtifacts = computed(() =>
+		Boolean(selectedConversationId.value)
+	);
+
+	/**
+	 * @description Переключает раскрытие инлайн-инспектора turn trace в ленте.
+	 * @param {string} traceId - id trace
+	 * @returns {void}
+	 */
+	const toggleTimelineInspectorTrace = (traceId: string): void => {
+		const next = new Set(expandedTimelineInspectorTraceIds.value);
+		if (next.has(traceId)) {
+			next.delete(traceId);
+		} else {
+			next.add(traceId);
+		}
+		expandedTimelineInspectorTraceIds.value = next;
+	};
+
 	const filteredEffects = computed((): EternalAiCreativeEffectItem[] => {
 		const query = effectsQuery.value.trim().toLowerCase();
 		const remote = creativeEffects.value;
@@ -207,9 +291,17 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 	});
 
 	const timelineItems = computed<ChatTimelineItem[]>(() => {
+		const expanded = expandedTimelineInspectorTraceIds.value;
+		const traces = traceById.value;
 		return messages.value.map(message => {
 			const role = message.role;
 			const isUser = role === 'user';
+			const traceId = getTraceIdFromMessage(message);
+			const trace = traceId ? traces.get(traceId) : undefined;
+			const timelineInspector =
+				trace && traceId
+					? buildTimelineInspectorPayload(trace, expanded.has(traceId))
+					: undefined;
 			return {
 				id: message.id,
 				role,
@@ -247,6 +339,7 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 								bubbleBg: 'rgba(29, 29, 29, 0.96)',
 								bubbleBorder: 'rgba(255, 255, 255, 0.08)',
 							},
+				timelineInspector,
 			} satisfies ChatTimelineItem;
 		});
 	});
@@ -277,6 +370,8 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 	): Promise<void> => {
 		if (!conversationId) {
 			messages.value = [];
+			turnTraces.value = [];
+			expandedTimelineInspectorTraceIds.value = new Set();
 			return;
 		}
 
@@ -294,6 +389,64 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 		} finally {
 			if (!silent) {
 				isLoadingMessages.value = false;
+			}
+		}
+	};
+
+	const loadTurnTraces = async (
+		conversationId: string | null,
+		_loadOpts?: { silent?: boolean }
+	): Promise<void> => {
+		if (!conversationId) {
+			turnTraces.value = [];
+			expandedTimelineInspectorTraceIds.value = new Set();
+			return;
+		}
+
+		try {
+			turnTraces.value = await options.transport.listTurnTraces(
+				conversationId,
+				20
+			);
+			const validIds = new Set(turnTraces.value.map(trace => trace.id));
+			expandedTimelineInspectorTraceIds.value = new Set(
+				[...expandedTimelineInspectorTraceIds.value].filter(id =>
+					validIds.has(id)
+				)
+			);
+		} catch (error) {
+			screen.setMessage(
+				'error',
+				`Не удалось загрузить trace Eternal AI: ${(error as Error).message}`
+			);
+		}
+	};
+
+	const loadArtifacts = async (
+		conversationId: string | null,
+		loadOpts?: { silent?: boolean }
+	): Promise<void> => {
+		if (!conversationId) {
+			artifacts.value = [];
+			return;
+		}
+
+		const silent = Boolean(loadOpts?.silent);
+		if (!silent) {
+			isLoadingArtifacts.value = true;
+		}
+		try {
+			artifacts.value = await options.transport.listArtifacts(conversationId, {
+				limit: 100,
+			});
+		} catch (error) {
+			screen.setMessage(
+				'error',
+				`Не удалось загрузить artifacts Eternal AI: ${(error as Error).message}`
+			);
+		} finally {
+			if (!silent) {
+				isLoadingArtifacts.value = false;
 			}
 		}
 	};
@@ -432,6 +585,14 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 			await loadMessages(selectedConversationId.value, {
 				silent: refreshOpts?.silentMessages,
 			});
+			await Promise.all([
+				loadTurnTraces(selectedConversationId.value, {
+					silent: refreshOpts?.silentMessages,
+				}),
+				loadArtifacts(selectedConversationId.value, {
+					silent: refreshOpts?.silentMessages,
+				}),
+			]);
 
 			if (health.value.status !== 'healthy') {
 				screen.setMessage(
@@ -456,16 +617,81 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 		}
 
 		selectedConversationId.value = conversationId;
-		await loadMessages(conversationId);
+		expandedTimelineInspectorTraceIds.value = new Set();
+		await Promise.all([
+			loadMessages(conversationId),
+			loadTurnTraces(conversationId),
+			loadArtifacts(conversationId),
+		]);
 	};
 
 	const startNewConversation = (): void => {
 		selectedConversationId.value = null;
 		messages.value = [];
+		artifacts.value = [];
+		turnTraces.value = [];
+		expandedTimelineInspectorTraceIds.value = new Set();
 		screen.setMessage(
 			'neutral',
 			'Новый чат начнётся с первого отправленного сообщения.'
 		);
+	};
+
+	const createSeedArtifact = async (): Promise<void> => {
+		const conversationId = selectedConversationId.value;
+		if (!conversationId || isSavingSeedArtifact.value) {
+			return;
+		}
+
+		const text = seedText.value.trim();
+		const context = seedContext.value.trim();
+		if (!text || !context) {
+			screen.setMessage(
+				'warning',
+				'Для seed memory заполните `context` и текст артефакта.'
+			);
+			return;
+		}
+
+		isSavingSeedArtifact.value = true;
+		try {
+			await options.transport.createSeedArtifact({
+				conversationId,
+				type: seedType.value,
+				context,
+				text,
+			});
+			seedText.value = '';
+			await loadArtifacts(conversationId, { silent: true });
+			screen.setMessage('success', 'Seed artifact сохранён.');
+		} catch (error) {
+			screen.setMessage(
+				'error',
+				`Не удалось сохранить seed artifact: ${(error as Error).message}`
+			);
+		} finally {
+			isSavingSeedArtifact.value = false;
+		}
+	};
+
+	const deleteArtifact = async (artifactId: string): Promise<void> => {
+		const conversationId = selectedConversationId.value;
+		if (!conversationId) {
+			return;
+		}
+
+		isDeletingArtifactId.value = artifactId;
+		try {
+			await options.transport.deleteArtifact(conversationId, artifactId);
+			await loadArtifacts(conversationId, { silent: true });
+		} catch (error) {
+			screen.setMessage(
+				'error',
+				`Не удалось удалить artifact: ${(error as Error).message}`
+			);
+		} finally {
+			isDeletingArtifactId.value = null;
+		}
 	};
 
 	const sendCurrentDraft = async (): Promise<void> => {
@@ -762,6 +988,10 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 		}
 	};
 
+	const clearOpenClawCatalogError = (): void => {
+		openClawCatalogError.value = null;
+	};
+
 	return {
 		conversations,
 		selectedConversationId,
@@ -774,12 +1004,26 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 		isSending,
 		isDeletingConversationId,
 		isDeletingMessageId,
+		isDeletingArtifactId,
+		isLoadingArtifacts,
+		isSavingSeedArtifact,
 		screenMessage: screen.message,
+		clearScreenMessage: screen.clearMessage,
+		clearOpenClawCatalogError,
 		timelineItems,
+		artifacts,
+		turnTraces,
+		toggleTimelineInspectorTrace,
+		canManageArtifacts,
+		seedType,
+		seedContext,
+		seedText,
 		systemPromptSummary,
 		refreshData,
 		selectConversation,
 		startNewConversation,
+		createSeedArtifact,
+		deleteArtifact,
 		sendCurrentDraft,
 		handleDeleteConversation,
 		handleDeleteMessage,

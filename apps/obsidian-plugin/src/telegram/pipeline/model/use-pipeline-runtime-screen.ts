@@ -11,6 +11,14 @@ import type {
 	ArchiveMessage,
 	ArchiveMessagesResponse,
 } from '../../../../../../packages/contracts/src/telegram';
+import type {
+	Artifact,
+	SourceUnit,
+} from '../../../../../../packages/kora-core/src';
+import {
+	buildDialogueArtifactsFromArchiveMessages,
+	buildSourceUnitsFromArchiveMessages,
+} from '../../../../../../packages/kora-core/src';
 import { useScreenMessage } from '../../../ui-vue';
 import type {
 	PipelineRuntimeTransportPort,
@@ -57,6 +65,7 @@ export interface PipelineNormalizedMessage {
 	rawContent: string;
 	notes: string[];
 	source: ArchiveMessage;
+	sourceUnit: SourceUnit;
 }
 
 export interface PipelineChunkRecord {
@@ -70,6 +79,7 @@ export interface PipelineChunkRecord {
 	startTimestampUtc: string;
 	endTimestampUtc: string;
 	contentType: 'telegram_post' | 'telegram_comment';
+	artifact: Artifact;
 }
 
 export interface PipelineSelectionSnapshot {
@@ -201,120 +211,107 @@ const getSourceOffsetForDisplayPage = (
 	return Math.max(0, (sourcePage - 1) * safeLimit);
 };
 
-const normalizeArchiveMessage = (
-	message: ArchiveMessage,
-	chatId: string
+const mapSourceUnitToPreview = (
+	unit: SourceUnit,
+	sourceByPk: Map<string, ArchiveMessage>
 ): PipelineNormalizedMessage => {
-	const senderLabel = getMessageAuthorLabel(message);
-	const text = (message.textNormalized || message.textRaw || '').trim();
-	const notes = [buildReplyContext(message), buildForwardContext(message)];
-	const mediaDescriptions = describeMediaItems(message);
+	const source = sourceByPk.get(unit.id);
+	const metadata = unit.metadata || {};
+	const text =
+		typeof metadata.textNormalized === 'string'
+			? metadata.textNormalized
+			: typeof metadata.textRaw === 'string'
+				? metadata.textRaw
+				: unit.text;
+	const messageId =
+		typeof metadata.messageId === 'number' ? metadata.messageId : Number.NaN;
 
-	if (mediaDescriptions.length > 0) {
-		notes.push(`Media: ${mediaDescriptions.join(', ')}`);
+	const baseNotes = Array.isArray(metadata.notes)
+		? metadata.notes.filter(
+				(value): value is string => typeof value === 'string'
+			)
+		: [];
+	const contextNotes: string[] = [];
+	if (source) {
+		const replyLine = buildReplyContext(source);
+		if (replyLine) {
+			contextNotes.push(replyLine);
+		}
+		const forwardLine = buildForwardContext(source);
+		if (forwardLine) {
+			contextNotes.push(forwardLine);
+		}
+		for (const mediaLine of describeMediaItems(source)) {
+			contextNotes.push(`Media: ${mediaLine}`);
+		}
 	}
 
-	const kind: PipelineNormalizedMessage['kind'] = message.service
-		? 'service'
-		: message.replyToMessageId
-			? 'reply'
-			: buildForwardContext(message)
-				? 'forward'
-				: getMediaItems(message).length > 0 && !text
-					? 'media'
-					: 'message';
-
-	const contentParts = [
-		senderLabel,
-		formatDate(message.timestampUtc),
-		...(notes.filter(Boolean) as string[]),
-		text || 'No text',
-	];
-
 	return {
-		messagePk: message.messagePk,
-		messageId: message.messageId,
-		chatId,
-		timestampUtc: message.timestampUtc,
-		senderLabel,
-		kind,
-		content: contentParts.filter(Boolean).join('\n'),
+		messagePk: unit.id,
+		messageId,
+		chatId: unit.sourceId,
+		timestampUtc: unit.timestamp || '',
+		senderLabel: unit.author || 'Unknown',
+		kind:
+			unit.unitType === 'event'
+				? 'service'
+				: typeof metadata.replyToMessageId === 'number'
+					? 'reply'
+					: typeof metadata.forwardedFrom === 'string'
+						? 'forward'
+						: Boolean(metadata.hasMedia) &&
+							  !(
+									typeof metadata.textNormalized === 'string' &&
+									metadata.textNormalized
+							  )
+							? 'media'
+							: 'message',
+		content: unit.text,
 		rawContent: text,
-		notes: notes.filter(Boolean) as string[],
-		source: message,
+		notes: [...baseNotes, ...contextNotes],
+		source: source || {
+			messagePk: unit.id,
+			chatId: unit.sourceId,
+			messageId,
+			timestampUtc: unit.timestamp || '',
+			textNormalized: text,
+			textRaw: text,
+			contentHash: String(metadata.contentHash || unit.id),
+		},
+		sourceUnit: unit,
 	};
 };
 
-const buildChunkContentType = (
-	records: PipelineNormalizedMessage[]
-): 'telegram_post' | 'telegram_comment' => {
-	return records.some(record => record.kind === 'reply')
-		? 'telegram_comment'
-		: 'telegram_post';
-};
-
-const buildChunkTitle = (
-	chatTitle: string,
-	index: number,
-	records: PipelineNormalizedMessage[]
-): string => {
-	const first = records[0];
-	const last = records[records.length - 1];
-	const range =
-		first && last ? `${first.messageId}-${last.messageId}` : `#${index + 1}`;
-	return `${chatTitle} · chunk ${index + 1} · ${range}`;
-};
-
-const buildChunks = (
-	chatId: string,
-	chatTitle: string,
-	records: PipelineNormalizedMessage[],
-	chunkSize: number,
-	gapMinutes: number
-): PipelineChunkRecord[] => {
-	const safeChunkSize = Math.max(1, Math.floor(chunkSize));
-	const safeGapMs = Math.max(1, Math.floor(gapMinutes)) * 60 * 1000;
-	const ordered = [...records].sort(
-		(a, b) =>
-			new Date(a.timestampUtc).getTime() - new Date(b.timestampUtc).getTime() ||
-			a.messageId - b.messageId
-	);
-
-	const groups: PipelineNormalizedMessage[][] = [];
-	let current: PipelineNormalizedMessage[] = [];
-	let lastTimestamp = 0;
-
-	for (const record of ordered) {
-		const timestamp = new Date(record.timestampUtc).getTime();
-		const gapExceeded =
-			current.length > 0 && timestamp - lastTimestamp > safeGapMs;
-		const sizeExceeded = current.length >= safeChunkSize;
-
-		if (current.length > 0 && (gapExceeded || sizeExceeded)) {
-			groups.push(current);
-			current = [];
-		}
-
-		current.push(record);
-		lastTimestamp = timestamp;
-	}
-
-	if (current.length > 0) {
-		groups.push(current);
-	}
-
-	return groups.map((group, index) => ({
-		chunkId: `${chatId}:chunk:${index + 1}`,
-		chatId,
-		title: buildChunkTitle(chatTitle, index, group),
-		content: group.map(record => record.content).join('\n\n'),
-		messageIds: group.map(record => record.messageId),
-		messagePks: group.map(record => record.messagePk),
-		sourceSenders: [...new Set(group.map(record => record.senderLabel))],
-		startTimestampUtc: group[0]?.timestampUtc || '',
-		endTimestampUtc: group[group.length - 1]?.timestampUtc || '',
-		contentType: buildChunkContentType(group),
-	}));
+const mapArtifactToChunkRecord = (artifact: Artifact): PipelineChunkRecord => {
+	const metadata = artifact.metadata || {};
+	return {
+		chunkId: artifact.id,
+		chatId: artifact.sourceId,
+		title: String(metadata.title || artifact.id),
+		content: artifact.text,
+		messageIds: Array.isArray(metadata.messageIds)
+			? metadata.messageIds.filter(
+					(value): value is number => typeof value === 'number'
+				)
+			: [],
+		messagePks: Array.isArray(metadata.messagePks)
+			? metadata.messagePks.filter(
+					(value): value is string => typeof value === 'string'
+				)
+			: [],
+		sourceSenders: Array.isArray(metadata.sourceAuthors)
+			? metadata.sourceAuthors.filter(
+					(value): value is string => typeof value === 'string'
+				)
+			: [],
+		startTimestampUtc: String(metadata.startTimestampUtc || artifact.createdAt),
+		endTimestampUtc: String(metadata.endTimestampUtc || artifact.updatedAt),
+		contentType:
+			metadata.contentType === 'telegram_comment'
+				? 'telegram_comment'
+				: 'telegram_post',
+		artifact,
+	};
 };
 
 const splitIntoBatches = <T>(items: T[], size: number): T[][] => {
@@ -665,8 +662,14 @@ export function usePipelineRuntimeScreen(options: PipelineRuntimeModelOptions) {
 		markStepRunning('normalize');
 		try {
 			const source = filteredMessages.value;
-			const next = source.map(message =>
-				normalizeArchiveMessage(message, selectedChatId.value || '')
+			const sourceUnits = buildSourceUnitsFromArchiveMessages(source, {
+				chatId: selectedChatId.value || '',
+			});
+			const sourceByPk = new Map(
+				source.map(message => [message.messagePk, message] as const)
+			);
+			const next = sourceUnits.map(unit =>
+				mapSourceUnitToPreview(unit, sourceByPk)
 			);
 			normalizedRecords.value = next;
 			chunkRecords.value = [];
@@ -677,7 +680,7 @@ export function usePipelineRuntimeScreen(options: PipelineRuntimeModelOptions) {
 				processed: next.length,
 				skipped: 0,
 				failed: 0,
-				summary: `Нормализовано ${next.length} сообщений`,
+				summary: `Построено ${next.length} source units`,
 				error: null,
 			});
 			selectedStepKey.value = 'normalize';
@@ -696,13 +699,25 @@ export function usePipelineRuntimeScreen(options: PipelineRuntimeModelOptions) {
 			if (normalizedRecords.value.length === 0) {
 				await runNormalizeStep();
 			}
-			const next = buildChunks(
-				selectedChatId.value || '',
-				selectedChatLabel.value,
-				normalizedRecords.value,
-				parsePositiveInt(chunkSizeValue.value, options.defaultChunkSize),
-				parsePositiveInt(gapMinutesValue.value, options.defaultGapMinutes)
-			);
+			const next = buildDialogueArtifactsFromArchiveMessages(
+				filteredMessages.value,
+				{
+					chatId: selectedChatId.value || '',
+					chatTitle: selectedChatLabel.value,
+					scopeId: selectedChatId.value || '',
+					windowSize: parsePositiveInt(
+						chunkSizeValue.value,
+						options.defaultChunkSize
+					),
+					gapMinutes: parsePositiveInt(
+						gapMinutesValue.value,
+						options.defaultGapMinutes
+					),
+					includeServiceMessages: includeServiceMessages.value,
+					includeReplies: includeReplies.value,
+					includeMediaOnlyMessages: includeMediaOnlyMessages.value,
+				}
+			).map(mapArtifactToChunkRecord);
 			chunkRecords.value = next;
 			embeddingPayloads.value = [];
 			embeddingResults.value = [];
@@ -711,7 +726,7 @@ export function usePipelineRuntimeScreen(options: PipelineRuntimeModelOptions) {
 				processed: next.length,
 				skipped: 0,
 				failed: 0,
-				summary: `Собрано ${next.length} чанков`,
+				summary: `Собрано ${next.length} artifacts`,
 				error: null,
 			});
 			selectedStepKey.value = 'chunk';
@@ -755,6 +770,8 @@ export function usePipelineRuntimeScreen(options: PipelineRuntimeModelOptions) {
 							options.defaultPageLimit
 						),
 						chunkIndex: index + 1,
+						artifactId: chunk.artifact.id,
+						artifactType: chunk.artifact.artifactType,
 						messageIds: chunk.messageIds,
 						messagePks: chunk.messagePks,
 						sourceSenders: chunk.sourceSenders,
@@ -807,12 +824,12 @@ export function usePipelineRuntimeScreen(options: PipelineRuntimeModelOptions) {
 		{
 			key: 'normalize' as const,
 			title: 'Normalize',
-			description: 'Преобразует сырой slice в канонический текстовый формат.',
+			description: 'Преобразует сырой slice в канонические source units.',
 		},
 		{
 			key: 'chunk' as const,
 			title: 'Chunk',
-			description: 'Собирает последовательные сообщения в candidate-chunks.',
+			description: 'Собирает source units в dialogue-window artifacts.',
 		},
 		{
 			key: 'embed' as const,
@@ -866,6 +883,7 @@ export function usePipelineRuntimeScreen(options: PipelineRuntimeModelOptions) {
 		sampleChunkRecord,
 		samplePayload,
 		screenMessage: screen.message,
+		clearScreenMessage: screen.clearMessage,
 		refreshData,
 		loadSelectionSlice,
 		handleChatSelection,

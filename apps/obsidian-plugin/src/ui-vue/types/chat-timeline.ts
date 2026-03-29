@@ -39,6 +39,25 @@ export interface ChatTimelineAccent {
 	bubbleBorder?: string;
 }
 
+/**
+ * @description Снимок turn trace для инлайн-отладки в ленте (Eternal AI и др.).
+ * Родитель передаёт `expanded`; по клику эмитится переключение, composable обновляет набор.
+ */
+export interface ChatTimelineEternalInspectorPayload {
+	traceId: string;
+	model: string;
+	status: 'success' | 'error';
+	inputText: string;
+	promptText: string;
+	rawResponse: string;
+	parsedResponsePretty: string;
+	recalledArtifactsPretty: string;
+	promptFragmentsPretty: string;
+	timingsPretty: string;
+	errorText?: string | null;
+	expanded: boolean;
+}
+
 export interface ChatTimelineItem {
 	id: string;
 	anchorId?: string;
@@ -54,4 +73,6 @@ export interface ChatTimelineItem {
 	reactions?: ChatTimelineReaction[];
 	badges?: string[];
 	accent?: ChatTimelineAccent;
+	/** Eternal AI: опциональный блок отладки под пузырём (вторая зона строки ленты). */
+	timelineInspector?: ChatTimelineEternalInspectorPayload;
 }

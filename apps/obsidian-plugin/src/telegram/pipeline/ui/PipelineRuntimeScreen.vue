@@ -77,6 +77,7 @@ const {
 	sampleNormalizedRecord,
 	samplePayload,
 	screenMessage,
+	clearScreenMessage,
 	refreshData,
 	handleChatSelection,
 	handlePageSubmit,
@@ -280,6 +281,7 @@ void refreshData();
 				v-if="screenMessage"
 				:kind="screenMessage.kind"
 				:text="screenMessage.text"
+				@dismiss="clearScreenMessage"
 			/>
 		</template>
 
@@ -738,6 +740,7 @@ void refreshData();
 				v-if="screenMessage"
 				:kind="screenMessage.kind"
 				:text="screenMessage.text"
+				@dismiss="clearScreenMessage"
 			/>
 		</div>
 

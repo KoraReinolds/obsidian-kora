@@ -2,7 +2,9 @@
 /**
  * @description Универсальная карточка контента: заголовок/мета/тело/слоты действий.
  */
-withDefaults(
+import { computed } from 'vue';
+
+const props = withDefaults(
 	defineProps<{
 		title?: string;
 		subtitle?: string;
@@ -29,10 +31,34 @@ withDefaults(
 		compact: false,
 	}
 );
+
+const rootAttrs = computed(() =>
+	props.clickable
+		? {
+				role: 'button' as const,
+				tabindex: 0,
+			}
+		: {}
+);
+
+/**
+ * @description Клавиатурная активация для `clickable` без нативного `<button>` (Obsidian/host стили).
+ */
+const onRootKeydown = (event: KeyboardEvent): void => {
+	if (!props.clickable) {
+		return;
+	}
+	if (event.key === 'Enter' || event.key === ' ') {
+		event.preventDefault();
+		(event.currentTarget as HTMLElement).click();
+	}
+};
 </script>
 
 <template>
 	<article
+		v-bind="rootAttrs"
+		@keydown="onRootKeydown"
 		:class="[
 			stacked
 				? [
@@ -62,7 +88,7 @@ withDefaults(
 			<div class="min-w-0 flex-1">
 				<div
 					v-if="title || $slots.title"
-					class="text-sm font-semibold leading-tight"
+					class="text-sm font-semibold leading-tight text-[var(--text-normal)]"
 				>
 					<slot name="title">{{ title }}</slot>
 				</div>

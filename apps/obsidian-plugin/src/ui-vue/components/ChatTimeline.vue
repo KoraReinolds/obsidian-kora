@@ -3,36 +3,87 @@
  * @description Переиспользуемая прокручиваемая лента сообщений. Одна рамка и один
  * слой внутренних отступов (p-3): загрузка, пусто и список — внутри того же блока,
  * чтобы родитель мог не дублировать внешний padding (например колонка Eternal AI).
+ * Опционально: иконка «сырой JSON» — режим отладки без баблов, только дамп `items`.
  */
+import { ref, watch } from 'vue';
 import PlaceholderState from './PlaceholderState.vue';
 import ChatMessageBubble from './ChatMessageBubble.vue';
+import ChatTimelineInlineInspector from './ChatTimelineInlineInspector.vue';
+import IconButton from './IconButton.vue';
 import type { ChatTimelineItem } from '../types';
 
-withDefaults(
+const props = withDefaults(
 	defineProps<{
 		items: ChatTimelineItem[];
 		loading?: boolean;
 		emptyText?: string;
 		highlightedItemId?: string | null;
+		/** Показывать кнопку переключения «сырой JSON» (отладка). По умолчанию включено. */
+		showRawDebugToggle?: boolean;
 	}>(),
 	{
 		loading: false,
 		emptyText: 'Пока нет сообщений.',
 		highlightedItemId: null,
+		showRawDebugToggle: true,
 	}
 );
 
 const emit = defineEmits<{
 	(event: 'jump', targetId: string): void;
 	(event: 'delete', messageId: string): void;
+	(event: 'toggle-timeline-inspector', traceId: string): void;
 }>();
+
+const rawDebugMode = ref(false);
+
+watch(
+	() => props.items.length,
+	len => {
+		if (len === 0) {
+			rawDebugMode.value = false;
+		}
+	}
+);
+
+/**
+ * @description Сериализует элемент ленты в читаемый JSON для режима отладки.
+ * @param {ChatTimelineItem} item - элемент из `items`
+ * @returns {string}
+ */
+function formatTimelineItemRaw(item: ChatTimelineItem): string {
+	try {
+		return JSON.stringify(item, null, 2);
+	} catch {
+		return '[ChatTimelineItem: не удалось сериализовать]';
+	}
+}
 </script>
 
 <template>
 	<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
 		<div
-			class="kora-chat-timeline flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-solid border-[var(--background-modifier-border)] bg-[#161616]"
+			class="kora-chat-timeline relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-solid border-[var(--background-modifier-border)] bg-[#161616]"
 		>
+			<div
+				v-if="showRawDebugToggle && !loading && items.length > 0"
+				class="pointer-events-none absolute right-2 top-2 z-10 flex justify-end"
+			>
+				<div class="pointer-events-auto">
+					<IconButton
+						icon="file-text"
+						size="sm"
+						:active="rawDebugMode"
+						label="Сырой JSON элементов ленты"
+						:title="
+							rawDebugMode
+								? 'Обычный вид чата'
+								: 'Показать сырой JSON элементов (отладка)'
+						"
+						@click="rawDebugMode = !rawDebugMode"
+					/>
+				</div>
+			</div>
 			<div
 				v-if="loading"
 				class="flex min-h-0 flex-1 items-center justify-center p-3"
@@ -46,20 +97,48 @@ const emit = defineEmits<{
 				<PlaceholderState variant="empty" :text="emptyText" />
 			</div>
 			<div
+				v-else-if="rawDebugMode"
+				class="kora-chat-timeline-scroll flex min-h-0 flex-1 select-text flex-col overflow-y-scroll overflow-x-hidden p-3 pt-11"
+			>
+				<pre
+					v-for="item in items"
+					:key="item.id"
+					class="mb-3 max-w-full min-w-0 overflow-x-auto whitespace-pre-wrap break-words rounded-xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-secondary)] p-3 font-mono text-[11px] leading-relaxed text-[var(--text-normal)] last:mb-0"
+					v-text="formatTimelineItemRaw(item)"
+				/>
+			</div>
+			<div
 				v-else
 				class="kora-chat-timeline-scroll flex min-h-0 flex-1 select-text flex-col overflow-y-scroll overflow-x-hidden p-3"
 			>
 				<div
 					v-for="item in items"
 					:key="item.id"
-					class="mb-3 flex last:mb-0"
-					:class="item.align === 'end' ? 'justify-end' : 'justify-start'"
+					class="mb-3 flex w-full min-w-0 flex-col gap-2 last:mb-0"
 				>
-					<ChatMessageBubble
-						:item="item"
-						:highlighted="highlightedItemId === item.id"
-						@jump="emit('jump', $event)"
-						@delete="emit('delete', $event)"
+					<div
+						class="flex w-full min-w-0"
+						:class="
+							item.align === 'end'
+								? 'justify-end'
+								: item.align === 'center'
+									? 'justify-center'
+									: 'justify-start'
+						"
+					>
+						<ChatMessageBubble
+							:item="item"
+							:highlighted="highlightedItemId === item.id"
+							@jump="emit('jump', $event)"
+							@delete="emit('delete', $event)"
+						/>
+					</div>
+					<ChatTimelineInlineInspector
+						v-if="item.timelineInspector"
+						:payload="item.timelineInspector"
+						class="w-full min-w-0 max-w-[min(100%,48rem)]"
+						:class="item.align === 'end' ? 'self-end' : 'self-start'"
+						@toggle="emit('toggle-timeline-inspector', $event)"
 					/>
 				</div>
 			</div>

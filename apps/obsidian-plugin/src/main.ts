@@ -8,6 +8,8 @@ import {
 	ArchiveView,
 	ETERNAL_AI_VIEW_TYPE,
 	EternalAiView,
+	SQLITE_VIEWER_VIEW_TYPE,
+	SqliteViewerView,
 } from './views';
 import { ArchiveBridge, GramJSBridge } from './telegram';
 import { VectorBridge } from './vector';
@@ -116,6 +118,10 @@ export default class KoraPlugin extends Plugin {
 			ETERNAL_AI_VIEW_TYPE,
 			leaf => new EternalAiView(leaf, this)
 		);
+		this.registerView(
+			SQLITE_VIEWER_VIEW_TYPE,
+			leaf => new SqliteViewerView(leaf, this)
+		);
 		this.addRibbonIcon('git-branch', 'Open Related Chunks', () => {
 			this.activateRelatedChunksView();
 		});
@@ -140,6 +146,13 @@ export default class KoraPlugin extends Plugin {
 			callback: () => {
 				this.mcpServerManager.stopServer();
 				this.mcpServerManager.startServer(this.settings.port);
+			},
+		});
+		this.addCommand({
+			id: 'open-sqlite-viewer',
+			name: 'Open SQLite Viewer',
+			callback: () => {
+				void this.activateSqliteViewerView();
 			},
 		});
 
@@ -370,6 +383,13 @@ export default class KoraPlugin extends Plugin {
 		const leaf = this.app.workspace.getRightLeaf(false);
 		if (!leaf) return;
 		await leaf.setViewState({ type: ETERNAL_AI_VIEW_TYPE, active: true });
+		this.app.workspace.revealLeaf(leaf);
+	}
+
+	async activateSqliteViewerView() {
+		const leaf = this.app.workspace.getRightLeaf(false);
+		if (!leaf) return;
+		await leaf.setViewState({ type: SQLITE_VIEWER_VIEW_TYPE, active: true });
 		this.app.workspace.revealLeaf(leaf);
 	}
 }

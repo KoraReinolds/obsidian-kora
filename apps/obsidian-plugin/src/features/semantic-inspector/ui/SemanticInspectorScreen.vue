@@ -169,7 +169,6 @@ const backendVariant = computed<
 				:kind="screen.message.value.kind"
 				:text="screen.message.value.text"
 				title="Semantic Inspector"
-				dismissible
 				@dismiss="screen.clearMessage"
 			/>
 		</template>

@@ -13,6 +13,13 @@ export function createEternalAiBridgeAdapter(
 		getHealth: () => bridge.getHealth(),
 		listConversations: () => bridge.listConversations(),
 		listMessages: conversationId => bridge.listMessages(conversationId),
+		listArtifacts: (conversationId, filters) =>
+			bridge.listArtifacts(conversationId, filters),
+		listTurnTraces: (conversationId, limit) =>
+			bridge.listTurnTraces(conversationId, limit),
+		createSeedArtifact: request => bridge.createSeedArtifact(request),
+		deleteArtifact: (conversationId, artifactId) =>
+			bridge.deleteArtifact(conversationId, artifactId),
 		deleteMessage: (conversationId, messageId) =>
 			bridge.deleteMessage(conversationId, messageId),
 		sendMessage: request => bridge.sendMessage(request),

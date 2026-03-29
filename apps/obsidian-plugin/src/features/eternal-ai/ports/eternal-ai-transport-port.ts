@@ -4,6 +4,8 @@
  */
 
 import type {
+	CreateEternalAiArtifactRequest,
+	EternalAiArtifactRecord,
 	EternalAiConversationSummary,
 	EternalAiCreativeEffectItem,
 	EternalAiCreativePollResponse,
@@ -11,6 +13,7 @@ import type {
 	EternalAiMessageRecord,
 	EternalAiS4SafetyCheckRequest,
 	EternalAiS4SafetyCheckResponse,
+	EternalAiTurnTraceRecord,
 	SendEternalAiMessageRequest,
 	SendEternalAiMessageResponse,
 	StartCustomGenerationRequest,
@@ -23,6 +26,25 @@ export interface EternalAiTransportPort {
 	getHealth(): Promise<EternalAiHealthResponse>;
 	listConversations(): Promise<EternalAiConversationSummary[]>;
 	listMessages(conversationId: string): Promise<EternalAiMessageRecord[]>;
+	listArtifacts(
+		conversationId: string,
+		filters?: {
+			type?: string;
+			context?: string;
+			limit?: number;
+		}
+	): Promise<EternalAiArtifactRecord[]>;
+	listTurnTraces(
+		conversationId: string,
+		limit?: number
+	): Promise<EternalAiTurnTraceRecord[]>;
+	createSeedArtifact(
+		request: CreateEternalAiArtifactRequest
+	): Promise<EternalAiArtifactRecord>;
+	deleteArtifact(
+		conversationId: string,
+		artifactId: string
+	): Promise<{ deleted: boolean }>;
 	deleteMessage(
 		conversationId: string,
 		messageId: string

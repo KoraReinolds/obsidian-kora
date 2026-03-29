@@ -135,7 +135,6 @@ watch(
 				v-if="message"
 				:kind="message.kind"
 				:text="message.text"
-				dismissible
 				@dismiss="clearMessage"
 			/>
 		</template>

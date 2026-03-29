@@ -669,6 +669,7 @@ export function useArchiveScreen(options: ArchiveScreenModelOptions) {
 		isDeletingChatId,
 		highlightedMessageId,
 		screenMessage: screen.message,
+		clearScreenMessage: screen.clearMessage,
 		selectedChat,
 		selectedMessageStats,
 		selectedFolderLabel,
