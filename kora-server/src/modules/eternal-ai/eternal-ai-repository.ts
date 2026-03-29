@@ -13,6 +13,7 @@ import type {
 	EternalAiConversationSummary,
 	EternalAiMessageRecord,
 	EternalAiTurnTraceRecord,
+	UpdateEternalAiArtifactRequest,
 } from '../../../../packages/contracts/src/eternal-ai.js';
 import type {
 	Artifact,
@@ -534,6 +535,26 @@ export class EternalAiRepository implements ArtifactStorePort {
 			);
 	}
 
+	/**
+	 * @description Удаляет завершённые effect_jobs с `updated_at` строго раньше порога.
+	 * Итог генерации уже в `eternal_ai_messages`; строка джобы нужна в основном для
+	 * идемпотентного poll в ограниченном окне после финала.
+	 * @param {string} olderThanIso - ISO-время: удаляются строки, у которых `updated_at` меньше этого значения
+	 * @returns {number} Число удалённых строк
+	 */
+	deleteCompletedEffectJobsOlderThan(olderThanIso: string): number {
+		const result = this.db
+			.prepare(
+				`
+					DELETE FROM eternal_ai_effect_jobs
+					WHERE status IN ('success', 'error')
+						AND updated_at < ?
+				`
+			)
+			.run(olderThanIso);
+		return result.changes;
+	}
+
 	listArtifacts(params: {
 		conversationId: string;
 		type?: string;
@@ -606,6 +627,43 @@ export class EternalAiRepository implements ArtifactStorePort {
 			.get(artifactId) as ArtifactRow | undefined;
 
 		return row ? this.mapArtifactRecord(this.mapArtifact(row)) : null;
+	}
+
+	updateArtifact(
+		request: UpdateEternalAiArtifactRequest & {
+			updatedAt: string;
+		}
+	): EternalAiArtifactRecord | null {
+		const result = this.db
+			.prepare(
+				`
+					UPDATE eternal_ai_artifacts
+					SET
+						artifact_type = ?,
+						context = ?,
+						text = ?,
+						embedding_text = ?,
+						metadata_json = ?,
+						updated_at = ?
+					WHERE id = ? AND conversation_id = ?
+				`
+			)
+			.run(
+				request.type,
+				request.context,
+				request.text,
+				request.text,
+				request.metadata ? JSON.stringify(request.metadata) : null,
+				request.updatedAt,
+				request.artifactId,
+				request.conversationId
+			);
+
+		if (result.changes < 1) {
+			return null;
+		}
+
+		return this.getArtifactById(request.artifactId);
 	}
 
 	deleteArtifact(conversationId: string, artifactId: string): boolean {

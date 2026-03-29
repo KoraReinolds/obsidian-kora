@@ -1,8 +1,9 @@
 /**
  * @module routes/sqlite-viewer
- * @description Регистрирует универсальные read-only маршруты для просмотра SQLite.
- * Viewer нужен как низкоуровневый debug-инструмент поверх любых локальных баз:
- * Eternal AI, archive, semantic storage и произвольных sqlite-файлов.
+ * @description Регистрирует универсальные маршруты для просмотра SQLite и
+ * точечных debug-мутаций через скрытый `rowid`. Viewer нужен как
+ * низкоуровневый инструмент поверх любых локальных баз: Eternal AI, archive,
+ * semantic storage и произвольных sqlite-файлов.
  */
 
 import fs from 'node:fs';
@@ -11,7 +12,11 @@ import type { Express, Request, Response } from 'express';
 import Database from 'better-sqlite3';
 import type {
 	SqliteViewerColumnRecord,
+	SqliteViewerDeleteRowRequest,
+	SqliteViewerMutationResponse,
+	SqliteViewerTableRowRecord,
 	SqliteViewerTableRowsResponse,
+	SqliteViewerUpdateCellRequest,
 } from '../../../packages/contracts/src/sqlite-viewer.js';
 import { getConfig } from '../services/config-service.js';
 import { getEternalAiDatabasePath } from '../modules/eternal-ai/services/eternal-ai-service-singleton.js';
@@ -66,8 +71,17 @@ function getDatabaseTargets() {
 		}));
 }
 
-function withReadonlyDatabase<T>(
+/**
+ * @description Открывает sqlite-файл в нужном режиме и гарантированно закрывает
+ * соединение после завершения callback.
+ * @param {string} databasePath - Абсолютный или относительный путь к sqlite-файлу.
+ * @param {{ readonly: boolean }} options - Флаг режима чтения/записи.
+ * @param {(db: Database.Database) => T} callback - Код, работающий с открытой БД.
+ * @returns {T} Результат callback.
+ */
+function withDatabase<T>(
 	databasePath: string,
+	options: { readonly: boolean },
 	callback: (db: Database.Database) => T
 ): T {
 	const resolvedPath = resolveViewerPath(databasePath);
@@ -75,7 +89,7 @@ function withReadonlyDatabase<T>(
 		throw new Error(`SQLite file not found: ${resolvedPath}`);
 	}
 	const db = new Database(resolvedPath, {
-		readonly: true,
+		readonly: options.readonly,
 		fileMustExist: true,
 	});
 	try {
@@ -99,6 +113,73 @@ function listTableColumns(
 		notNull: row.notnull === 1,
 		isPrimaryKey: row.pk > 0,
 	}));
+}
+
+/**
+ * @description Возвращает список пользовательских таблиц, доступных в viewer.
+ * Системные `sqlite_%` исключаются, чтобы UI и debug-операции работали только
+ * по прикладным сущностям.
+ * @param {Database.Database} db - Открытая sqlite-база.
+ * @returns {string[]} Имена пользовательских таблиц.
+ */
+function listUserTables(db: Database.Database): string[] {
+	return (
+		db
+			.prepare(
+				`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'`
+			)
+			.all() as TableNameRow[]
+	).map(row => row.name);
+}
+
+/**
+ * @description Проверяет существование таблицы перед построением SQL из имени,
+ * пришедшего из UI.
+ * @param {Database.Database} db - Открытая sqlite-база.
+ * @param {string} table - Имя таблицы.
+ * @returns {void}
+ */
+function assertTableExists(db: Database.Database, table: string): void {
+	if (!listUserTables(db).includes(table)) {
+		throw new Error(`Таблица не найдена: ${table}`);
+	}
+}
+
+/**
+ * @description Проверяет, доступен ли скрытый `rowid` у таблицы. На этом
+ * свойстве строится первая editable-версия viewer без отдельного CRUD под
+ * каждую таблицу.
+ * @param {Database.Database} db - Открытая sqlite-база.
+ * @param {string} table - Имя таблицы.
+ * @returns {boolean} `true`, если таблица поддерживает адресацию по `rowid`.
+ */
+function supportsRowId(db: Database.Database, table: string): boolean {
+	try {
+		db.prepare(
+			`SELECT rowid AS __rowid__ FROM ${quoteIdentifier(table)} LIMIT 1`
+		).get();
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * @description Проверяет существование колонки перед точечным обновлением
+ * значения через viewer.
+ * @param {Database.Database} db - Открытая sqlite-база.
+ * @param {string} table - Имя таблицы.
+ * @param {string} column - Имя колонки.
+ * @returns {void}
+ */
+function assertColumnExists(
+	db: Database.Database,
+	table: string,
+	column: string
+): void {
+	if (!listTableColumns(db, table).some(item => item.name === column)) {
+		throw new Error(`Колонка не найдена: ${column}`);
+	}
 }
 
 function buildRowsResponse(params: {
@@ -129,16 +210,9 @@ function buildRowsResponse(params: {
 			: 'asc';
 	const filterText = String(params.request.query.filterText || '').trim();
 
-	const tables = params.db
-		.prepare(
-			`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'`
-		)
-		.all() as TableNameRow[];
-	if (!tables.some(row => row.name === table)) {
-		throw new Error(`Таблица не найдена: ${table}`);
-	}
-
+	assertTableExists(params.db, table);
 	const columns = listTableColumns(params.db, table);
+	const supportsRowIdMutations = supportsRowId(params.db, table);
 	const orderByCandidate = String(params.request.query.orderBy || '').trim();
 	const orderBy = columns.some(column => column.name === orderByCandidate)
 		? orderByCandidate
@@ -156,7 +230,9 @@ function buildRowsResponse(params: {
 	const rows = params.db
 		.prepare(
 			[
-				`SELECT * FROM ${quotedTable}`,
+				supportsRowIdMutations
+					? `SELECT rowid AS __rowid__, * FROM ${quotedTable}`
+					: `SELECT * FROM ${quotedTable}`,
 				filterClause,
 				orderBy
 					? `ORDER BY ${quoteIdentifier(orderBy)} ${orderDir.toUpperCase()}`
@@ -166,7 +242,7 @@ function buildRowsResponse(params: {
 				.filter(Boolean)
 				.join(' ')
 		)
-		.all(...filterArgs, limit, offset) as Array<Record<string, unknown>>;
+		.all(...filterArgs, limit, offset) as SqliteViewerTableRowRecord[];
 
 	return {
 		path: resolveViewerPath(databasePath),
@@ -179,7 +255,66 @@ function buildRowsResponse(params: {
 		orderDir,
 		filterText,
 		totalRows: Number(totalRow?.total || 0),
+		supportsRowIdMutations,
 	};
+}
+
+/**
+ * @description Обновляет одну ячейку по скрытому `rowid`. Это low-level
+ * debug-операция: caller сам выбирает таблицу и колонку, а сервер лишь
+ * проверяет существование сущностей и выполняет точечный SQL.
+ * @param {Database.Database} db - Открытая sqlite-база в writable-режиме.
+ * @param {SqliteViewerUpdateCellRequest} request - DTO обновления ячейки.
+ * @returns {number} Количество реально изменённых строк.
+ */
+function updateCellByRowId(
+	db: Database.Database,
+	request: SqliteViewerUpdateCellRequest
+): number {
+	const table = String(request.table || '').trim();
+	const column = String(request.column || '').trim();
+	const rowId = Number(request.rowId);
+	if (!table || !column || !Number.isInteger(rowId)) {
+		throw new Error(
+			'Для update-cell нужны table, column и целочисленный rowId.'
+		);
+	}
+	assertTableExists(db, table);
+	if (!supportsRowId(db, table)) {
+		throw new Error(`Таблица не поддерживает rowid-мутации: ${table}`);
+	}
+	assertColumnExists(db, table, column);
+	const result = db
+		.prepare(
+			`UPDATE ${quoteIdentifier(table)} SET ${quoteIdentifier(column)} = ? WHERE rowid = ?`
+		)
+		.run(request.value ?? null, rowId);
+	return Number(result.changes || 0);
+}
+
+/**
+ * @description Удаляет строку через скрытый `rowid`.
+ * @param {Database.Database} db - Открытая sqlite-база в writable-режиме.
+ * @param {SqliteViewerDeleteRowRequest} request - DTO удаления строки.
+ * @returns {number} Количество реально удалённых строк.
+ */
+function deleteRowByRowId(
+	db: Database.Database,
+	request: SqliteViewerDeleteRowRequest
+): number {
+	const table = String(request.table || '').trim();
+	const rowId = Number(request.rowId);
+	if (!table || !Number.isInteger(rowId)) {
+		throw new Error('Для delete-row нужны table и целочисленный rowId.');
+	}
+	assertTableExists(db, table);
+	if (!supportsRowId(db, table)) {
+		throw new Error(`Таблица не поддерживает rowid-мутации: ${table}`);
+	}
+	const result = db
+		.prepare(`DELETE FROM ${quoteIdentifier(table)} WHERE rowid = ?`)
+		.run(rowId);
+	return Number(result.changes || 0);
 }
 
 /**
@@ -206,7 +341,7 @@ export function registerSqliteViewerRoutes(app: Express): void {
 				throw new Error('Для SQLite viewer обязателен query-параметр path.');
 			}
 
-			const database = withReadonlyDatabase(databasePath, db => {
+			const database = withDatabase(databasePath, { readonly: true }, db => {
 				const tables = db
 					.prepare(
 						`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name ASC`
@@ -247,7 +382,7 @@ export function registerSqliteViewerRoutes(app: Express): void {
 				throw new Error('Для SQLite viewer rows обязателен path.');
 			}
 
-			const result = withReadonlyDatabase(databasePath, db =>
+			const result = withDatabase(databasePath, { readonly: true }, db =>
 				buildRowsResponse({
 					db,
 					request: req,
@@ -260,6 +395,54 @@ export function registerSqliteViewerRoutes(app: Express): void {
 			});
 		} catch (error: any) {
 			res.status(500).json({ success: false, error: error.message });
+		}
+	});
+
+	app.post('/sqlite-viewer/update-cell', (req: Request, res: Response) => {
+		try {
+			const payload = (req.body || {}) as SqliteViewerUpdateCellRequest;
+			const databasePath = String(payload.path || '').trim();
+			if (!databasePath) {
+				throw new Error('Для SQLite viewer update-cell обязателен path.');
+			}
+			const changes = withDatabase(databasePath, { readonly: false }, db =>
+				updateCellByRowId(db, payload)
+			);
+			const response: SqliteViewerMutationResponse = {
+				success: true,
+				changes,
+			};
+			res.json(response);
+		} catch (error: any) {
+			res.status(500).json({
+				success: false,
+				changes: 0,
+				error: error.message,
+			} satisfies SqliteViewerMutationResponse);
+		}
+	});
+
+	app.delete('/sqlite-viewer/delete-row', (req: Request, res: Response) => {
+		try {
+			const payload = (req.body || {}) as SqliteViewerDeleteRowRequest;
+			const databasePath = String(payload.path || '').trim();
+			if (!databasePath) {
+				throw new Error('Для SQLite viewer delete-row обязателен path.');
+			}
+			const changes = withDatabase(databasePath, { readonly: false }, db =>
+				deleteRowByRowId(db, payload)
+			);
+			const response: SqliteViewerMutationResponse = {
+				success: true,
+				changes,
+			};
+			res.json(response);
+		} catch (error: any) {
+			res.status(500).json({
+				success: false,
+				changes: 0,
+				error: error.message,
+			} satisfies SqliteViewerMutationResponse);
 		}
 	});
 }

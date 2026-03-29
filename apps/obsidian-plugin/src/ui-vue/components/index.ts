@@ -17,3 +17,7 @@ export { default as IconButton } from './IconButton.vue';
 export { default as IconTextField } from './IconTextField.vue';
 export { default as DiffPreview } from './DiffPreview.vue';
 export { default as SectionHeader } from './SectionHeader.vue';
+export { default as EntityList } from './EntityList.vue';
+export { default as SelectableEntityList } from './SelectableEntityList.vue';
+export { default as EntityEditorModal } from './EntityEditorModal.vue';
+export { default as DataGrid } from './DataGrid.vue';

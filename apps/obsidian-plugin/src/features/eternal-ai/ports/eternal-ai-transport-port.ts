@@ -20,6 +20,7 @@ import type {
 	StartCustomGenerationResponse,
 	StartCreativeEffectRequest,
 	StartCreativeEffectResponse,
+	UpdateEternalAiArtifactRequest,
 } from '../../../../../../packages/contracts/src/eternal-ai';
 
 export interface EternalAiTransportPort {
@@ -40,6 +41,9 @@ export interface EternalAiTransportPort {
 	): Promise<EternalAiTurnTraceRecord[]>;
 	createSeedArtifact(
 		request: CreateEternalAiArtifactRequest
+	): Promise<EternalAiArtifactRecord>;
+	updateArtifact(
+		request: UpdateEternalAiArtifactRequest
 	): Promise<EternalAiArtifactRecord>;
 	deleteArtifact(
 		conversationId: string,

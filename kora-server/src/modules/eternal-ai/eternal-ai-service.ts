@@ -24,6 +24,7 @@ import type {
 	StartCustomGenerationResponse,
 	StartCreativeEffectRequest,
 	StartCreativeEffectResponse,
+	UpdateEternalAiArtifactRequest,
 } from '../../../../packages/contracts/src/eternal-ai.js';
 import {
 	buildArtifact,
@@ -174,6 +175,41 @@ export class EternalAiService {
 				score: artifact.score ?? null,
 			}
 		);
+	}
+
+	updateArtifact(
+		request: UpdateEternalAiArtifactRequest
+	): EternalAiArtifactRecord {
+		const current = this.repository.getArtifactById(request.artifactId);
+		if (!current) {
+			throw new Error('Artifact для редактирования не найден.');
+		}
+
+		const type = this.assertArtifactType(request.type);
+		const context = request.context?.trim();
+		const text = request.text?.trim();
+		if (!context) {
+			throw new Error('Для artifact обязателен context.');
+		}
+		if (!text) {
+			throw new Error('Для artifact обязателен text.');
+		}
+
+		const updatedAt = new Date().toISOString();
+		const updated = this.repository.updateArtifact({
+			...request,
+			type,
+			context,
+			text,
+			metadata: request.metadata ?? null,
+			updatedAt,
+		});
+
+		if (!updated) {
+			throw new Error('Не удалось сохранить artifact.');
+		}
+
+		return updated;
 	}
 
 	deleteArtifact(conversationId: string, artifactId: string): boolean {

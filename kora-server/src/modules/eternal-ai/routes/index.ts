@@ -118,6 +118,28 @@ export function registerEternalAiRoutes(app: Express): void {
 		}
 	);
 
+	app.put(
+		'/eternal_ai/conversations/:conversationId/artifacts/:artifactId',
+		(req: Request, res: Response) => {
+			try {
+				const service = getEternalAiService();
+				res.json({
+					success: true,
+					artifact: service.updateArtifact({
+						conversationId: req.params.conversationId,
+						artifactId: req.params.artifactId,
+						type: req.body?.type,
+						context: req.body?.context,
+						text: req.body?.text,
+						metadata: req.body?.metadata ?? null,
+					}),
+				});
+			} catch (error: any) {
+				res.status(500).json({ success: false, error: error.message });
+			}
+		}
+	);
+
 	app.get(
 		'/eternal_ai/conversations/:conversationId/traces',
 		(req: Request, res: Response) => {

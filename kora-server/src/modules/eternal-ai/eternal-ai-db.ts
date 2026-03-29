@@ -87,6 +87,8 @@ export class EternalAiDatabase {
 			);
 			CREATE INDEX IF NOT EXISTS idx_eternal_ai_effect_jobs_conversation
 				ON eternal_ai_effect_jobs(conversation_id, created_at DESC);
+			CREATE INDEX IF NOT EXISTS idx_eternal_ai_effect_jobs_terminal_updated
+				ON eternal_ai_effect_jobs(status, updated_at);
 
 			CREATE TABLE IF NOT EXISTS eternal_ai_artifacts (
 				id TEXT PRIMARY KEY,

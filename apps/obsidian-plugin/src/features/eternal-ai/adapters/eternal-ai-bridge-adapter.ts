@@ -18,6 +18,7 @@ export function createEternalAiBridgeAdapter(
 		listTurnTraces: (conversationId, limit) =>
 			bridge.listTurnTraces(conversationId, limit),
 		createSeedArtifact: request => bridge.createSeedArtifact(request),
+		updateArtifact: request => bridge.updateArtifact(request),
 		deleteArtifact: (conversationId, artifactId) =>
 			bridge.deleteArtifact(conversationId, artifactId),
 		deleteMessage: (conversationId, messageId) =>

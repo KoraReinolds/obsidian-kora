@@ -24,6 +24,7 @@ import type {
 	StartCustomGenerationResponse,
 	StartCreativeEffectRequest,
 	StartCreativeEffectResponse,
+	UpdateEternalAiArtifactRequest,
 } from '../../../../../../packages/contracts/src/eternal-ai';
 
 interface EternalAiConversationsResponse {
@@ -206,6 +207,31 @@ export class EternalAiBridge extends BaseHttpClient {
 
 		if (!response?.success || !response.artifact) {
 			throw new Error(response?.error || 'Не удалось создать artifact');
+		}
+
+		return response.artifact;
+	}
+
+	async updateArtifact(
+		request: UpdateEternalAiArtifactRequest
+	): Promise<EternalAiArtifactRecord> {
+		const response =
+			await this.handleRequest<EternalAiArtifactMutationResponse>(
+				`/eternal_ai/conversations/${encodeURIComponent(request.conversationId)}/artifacts/${encodeURIComponent(request.artifactId)}`,
+				{
+					method: 'PUT',
+					body: {
+						type: request.type,
+						context: request.context,
+						text: request.text,
+						metadata: request.metadata ?? null,
+					},
+				},
+				'Ошибка обновления Eternal AI artifact'
+			);
+
+		if (!response?.success || !response.artifact) {
+			throw new Error(response?.error || 'Не удалось обновить artifact');
 		}
 
 		return response.artifact;

@@ -9,8 +9,11 @@ import {
 } from '../../../telegram/core/base-http-client';
 import type {
 	SqliteViewerDatabaseRecord,
+	SqliteViewerDeleteRowRequest,
+	SqliteViewerMutationResponse,
 	SqliteViewerTableRowsResponse,
 	SqliteViewerTargetRecord,
+	SqliteViewerUpdateCellRequest,
 } from '../../../../../../packages/contracts/src/sqlite-viewer';
 
 interface SqliteViewerTargetsApiResponse {
@@ -30,6 +33,8 @@ interface SqliteViewerRowsApiResponse {
 	result?: SqliteViewerTableRowsResponse;
 	error?: string;
 }
+
+type SqliteViewerMutationApiResponse = SqliteViewerMutationResponse;
 
 export class SqliteViewerBridge extends BaseHttpClient {
 	constructor(config: Partial<HttpClientConfig> = {}) {
@@ -98,5 +103,33 @@ export class SqliteViewerBridge extends BaseHttpClient {
 		}
 
 		return response.result;
+	}
+
+	async updateCell(request: SqliteViewerUpdateCellRequest): Promise<number> {
+		const response = await this.handleRequest<SqliteViewerMutationApiResponse>(
+			'/sqlite-viewer/update-cell',
+			{ method: 'POST', body: request },
+			'Ошибка обновления значения SQLite'
+		);
+
+		if (!response?.success) {
+			throw new Error(response?.error || 'Не удалось обновить значение');
+		}
+
+		return Number(response.changes || 0);
+	}
+
+	async deleteRow(request: SqliteViewerDeleteRowRequest): Promise<number> {
+		const response = await this.handleRequest<SqliteViewerMutationApiResponse>(
+			'/sqlite-viewer/delete-row',
+			{ method: 'DELETE', body: request },
+			'Ошибка удаления строки SQLite'
+		);
+
+		if (!response?.success) {
+			throw new Error(response?.error || 'Не удалось удалить строку');
+		}
+
+		return Number(response.changes || 0);
 	}
 }

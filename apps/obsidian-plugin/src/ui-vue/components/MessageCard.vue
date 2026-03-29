@@ -58,6 +58,7 @@ const onRootKeydown = (event: KeyboardEvent): void => {
 <template>
 	<article
 		v-bind="rootAttrs"
+		class="group"
 		@keydown="onRootKeydown"
 		:class="[
 			stacked

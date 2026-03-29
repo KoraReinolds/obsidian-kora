@@ -3,11 +3,13 @@ import { computed, onMounted, ref, watch } from 'vue';
 import type {
 	SqliteViewerColumnRecord,
 	SqliteViewerDatabaseRecord,
+	SqliteViewerTableRowRecord,
 	SqliteViewerTableRowsResponse,
 	SqliteViewerTargetRecord,
 } from '../../../../../../packages/contracts/src/sqlite-viewer';
 import {
 	AppShell,
+	DataGrid,
 	IconButton,
 	MessageCard,
 	PanelFrame,
@@ -158,6 +160,7 @@ const orderDir = ref<'asc' | 'desc'>('asc');
 const isLoadingTargets = ref(false);
 const isLoadingDatabase = ref(false);
 const isLoadingRows = ref(false);
+const deletingRowId = ref<number | null>(null);
 const screenMessage = ref<{
 	kind: 'error' | 'warning' | 'success' | 'neutral';
 	text: string;
@@ -196,6 +199,10 @@ const allColumnsVisible = computed(() => {
 	}
 	return visibleColumnNames.value.size === cols.length;
 });
+
+const supportsRowIdMutations = computed(
+	() => rowsResult.value?.supportsRowIdMutations === true
+);
 
 watch(
 	[activePath, selectedTable, rowsResult],
@@ -323,6 +330,166 @@ const setMessage = (
 
 const clearScreenMessage = (): void => {
 	screenMessage.value = null;
+};
+
+/**
+ * @description Возвращает скрытый `rowid`, если таблица поддерживает rowid-based
+ * мутации. `null` означает, что строку нельзя безопасно обновить или удалить.
+ */
+const getRowId = (row: SqliteViewerTableRowRecord): number | null => {
+	const value = row.__rowid__;
+	return typeof value === 'number' && Number.isInteger(value) ? value : null;
+};
+
+/**
+ * @description Преобразует строковый draft из inline editor обратно в значение
+ * для SQLite bind-параметра. Логика намеренно простая: это debug viewer, а не
+ * предметная форма с глубокой валидацией.
+ */
+const parseDraftValue = (
+	columnName: string,
+	draft: string,
+	originalValue: unknown
+): unknown => {
+	const normalizedType =
+		rowsResult.value?.columns
+			.find(column => column.name === columnName)
+			?.type.toUpperCase() || '';
+	const trimmed = draft.trim();
+	if (
+		originalValue &&
+		typeof originalValue === 'object' &&
+		(trimmed.startsWith('{') || trimmed.startsWith('['))
+	) {
+		try {
+			return JSON.parse(trimmed);
+		} catch {
+			return draft;
+		}
+	}
+	if (normalizedType.includes('BOOL')) {
+		if (trimmed === 'true' || trimmed === '1') return 1;
+		if (trimmed === 'false' || trimmed === '0') return 0;
+	}
+	if (
+		(normalizedType.includes('INT') ||
+			normalizedType.includes('REAL') ||
+			normalizedType.includes('FLOA') ||
+			normalizedType.includes('DOUB') ||
+			normalizedType.includes('NUM')) &&
+		trimmed !== ''
+	) {
+		const numeric = Number(trimmed);
+		if (Number.isFinite(numeric)) {
+			return numeric;
+		}
+	}
+	return draft;
+};
+
+const deleteRow = async (row: SqliteViewerTableRowRecord): Promise<void> => {
+	if (!supportsRowIdMutations.value || deletingRowId.value !== null) {
+		return;
+	}
+	const rowId = getRowId(row);
+	if (rowId === null) {
+		setMessage(
+			'warning',
+			'Эта таблица не поддерживает rowid-мутации, поэтому удаление строки недоступно.'
+		);
+		return;
+	}
+	const confirmed = window.confirm(
+		`Удалить строку rowid=${rowId} из таблицы "${selectedTable.value}"?`
+	);
+	if (!confirmed) {
+		return;
+	}
+	deletingRowId.value = rowId;
+	try {
+		const changes = await props.transport.deleteRow({
+			path: activePath.value,
+			table: selectedTable.value,
+			rowId,
+		});
+		setMessage(
+			changes > 0 ? 'success' : 'warning',
+			changes > 0
+				? `Строка rowid=${rowId} удалена.`
+				: 'Строка уже отсутствует или не была удалена.'
+		);
+		await loadRows();
+	} catch (error) {
+		setMessage(
+			'error',
+			`Не удалось удалить строку: ${(error as Error).message}`
+		);
+	} finally {
+		deletingRowId.value = null;
+	}
+};
+
+const dataGridColumns = computed(() =>
+	displayedColumns.value.map(column => ({
+		id: column.name,
+		label: column.name,
+		width: '12rem',
+		sortable: true,
+		mono: true,
+		editor: 'textarea' as const,
+		rows: 3,
+		editable: supportsRowIdMutations.value,
+		format: (value: unknown) => formatCell(value),
+		toEditValue: (value: unknown) => formatCell(value),
+	}))
+);
+
+const dataGridRowActions = computed(() =>
+	supportsRowIdMutations.value
+		? [
+				{
+					id: 'delete-row',
+					label: 'Удалить строку',
+					title: 'Удалить строку',
+					icon: 'trash-2',
+					variant: 'danger' as const,
+					loading: (item: unknown) =>
+						deletingRowId.value ===
+						getRowId(item as SqliteViewerTableRowRecord),
+					run: async (item: unknown) => {
+						await deleteRow(item as SqliteViewerTableRowRecord);
+					},
+				},
+			]
+		: []
+);
+
+const saveCellDraft = async (params: {
+	item: unknown;
+	columnId: string;
+	draft: string;
+}): Promise<void> => {
+	const row = params.item as SqliteViewerTableRowRecord;
+	const rowId = getRowId(row);
+	if (rowId === null) {
+		throw new Error(
+			'Эта таблица не поддерживает rowid-мутации, поэтому редактирование недоступно.'
+		);
+	}
+	const changes = await props.transport.updateCell({
+		path: activePath.value,
+		table: selectedTable.value,
+		rowId,
+		column: params.columnId,
+		value: parseDraftValue(params.columnId, params.draft, row[params.columnId]),
+	});
+	setMessage(
+		changes > 0 ? 'success' : 'warning',
+		changes > 0
+			? `Значение в колонке "${params.columnId}" обновлено.`
+			: 'Строка не была изменена. Возможно, запись уже отсутствует.'
+	);
+	await loadRows();
 };
 
 const formatCell = (value: unknown): string => {
@@ -504,8 +671,9 @@ onMounted(async () => {
 			<PanelFrame class="min-h-0" :scroll="true">
 				<div class="flex min-h-0 flex-1 flex-col gap-3">
 					<div class="text-xs text-[var(--text-muted)]">
-						Read-only viewer для low-level debug. Поддерживает preset базы и
-						произвольный путь к sqlite-файлу.
+						Low-level viewer для debug SQLite. Поддерживает preset базы,
+						произвольный путь к sqlite-файлу и точечные rowid-мутации
+						(обновление ячеек и удаление строк) для обычных таблиц.
 					</div>
 					<PlaceholderState
 						v-if="isLoadingDatabase"
@@ -675,57 +843,43 @@ onMounted(async () => {
 							rows
 						</div>
 						<div
+							class="text-[11px]"
+							:class="
+								supportsRowIdMutations
+									? 'text-[var(--text-muted)]'
+									: 'text-[var(--text-warning)]'
+							"
+						>
+							<span
+								v-if="supportsRowIdMutations"
+								v-text="
+									'Dblclick по ячейке открывает inline editor. Удаление строки доступно через action-колонку.'
+								"
+							/>
+							<span
+								v-else
+								v-text="
+									'У этой таблицы не найден доступный rowid, поэтому viewer остаётся в режиме чтения.'
+								"
+							/>
+						</div>
+						<div
 							class="max-w-full overflow-x-auto rounded-2xl border border-solid border-[var(--background-modifier-border)]"
 						>
-							<table
-								class="border-collapse text-xs"
-								:style="{
-									tableLayout: 'fixed',
-									width: `max(100%, ${Math.max(displayedColumns.length, 1) * 12}rem)`,
-								}"
-							>
-								<thead class="bg-[var(--background-secondary)]">
-									<tr>
-										<th
-											v-for="column in displayedColumns"
-											:key="column.name"
-											class="box-border w-[12rem] max-w-[12rem] min-w-[12rem] border-b border-solid border-[var(--background-modifier-border)] px-2 py-2 text-left align-top font-semibold text-[var(--text-normal)]"
-										>
-											<button
-												type="button"
-												class="flex w-full min-w-0 max-w-full items-center gap-1 truncate text-left"
-												@click="toggleSort(column.name)"
-											>
-												<span class="truncate font-mono" v-text="column.name" />
-												<span
-													v-if="orderBy === column.name"
-													class="shrink-0 text-[var(--text-muted)]"
-													v-text="orderDir === 'asc' ? '↑' : '↓'"
-												/>
-											</button>
-										</th>
-									</tr>
-								</thead>
-								<tbody>
-									<tr
-										v-for="(row, rowIndex) in rowsResult.rows"
-										:key="`${rowsResult.table}-${rowIndex}`"
-										class="align-top"
-									>
-										<td
-											v-for="column in displayedColumns"
-											:key="`${rowIndex}-${column.name}`"
-											class="box-border w-[12rem] max-w-[12rem] min-w-[12rem] border-b border-solid border-[var(--background-modifier-border)] px-2 py-2 align-top text-[var(--text-normal)]"
-											:title="formatCell(row[column.name])"
-										>
-											<div
-												class="truncate font-mono text-xs leading-snug"
-												v-text="formatCell(row[column.name])"
-											/>
-										</td>
-									</tr>
-								</tbody>
-							</table>
+							<DataGrid
+								:rows="rowsResult.rows"
+								:columns="dataGridColumns"
+								:get-row-key="
+									(row, rowIndex) =>
+										`${rowsResult!.table}-${getRowId(row as SqliteViewerTableRowRecord) ?? rowIndex}`
+								"
+								:row-actions="dataGridRowActions"
+								:sort-by="orderBy"
+								:sort-dir="orderDir"
+								:on-sort="toggleSort"
+								:on-commit-edit="saveCellDraft"
+								empty-text="У выбранной таблицы нет строк."
+							/>
 						</div>
 					</div>
 				</div>

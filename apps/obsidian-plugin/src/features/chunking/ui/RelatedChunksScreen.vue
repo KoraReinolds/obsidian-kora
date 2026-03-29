@@ -8,6 +8,7 @@
 import { onUnmounted, ref, watch } from 'vue';
 import {
 	AppShell,
+	EntityList,
 	IconButton,
 	MessageCard,
 	PanelFrame,
@@ -205,50 +206,50 @@ watch(
 					variant="empty"
 					text="Связанные чанки не найдены."
 				/>
-				<div v-else class="flex min-h-0 flex-1 flex-col gap-1.5">
-					<MessageCard
-						v-for="item in relatedChunks"
-						:key="item.chunkId"
-						clickable
-						compact
-						:title="`${item.chunkType} — ${item.headingsPath.join(' > ')}`"
-						:body="
+				<EntityList
+					v-else
+					:items="relatedChunks"
+					:get-key="item => item.chunkId"
+					:get-title="
+						item => `${item.chunkType} — ${item.headingsPath.join(' > ')}`
+					"
+					:get-body="
+						item =>
 							item.contentRaw.slice(0, 220) +
 							(item.contentRaw.length > 220 ? '…' : '')
-						"
-						@click="openRelated(item)"
-					>
-						<template #badges>
-							<SummaryChip
-								variant="warning"
-								size="xs"
-								:text="`score ${formatScore(item.scoreDetails?.combinedScore ?? item.score)}`"
-							/>
-							<SummaryChip
-								v-if="item.scoreDetails?.vectorScore != null"
-								size="xs"
-								:text="`sem ${formatScore(item.scoreDetails?.vectorScore)}`"
-							/>
-							<SummaryChip
-								v-if="item.scoreDetails?.lexicalScore != null"
-								size="xs"
-								variant="accent"
-								:text="`fts ${formatScore(item.scoreDetails?.lexicalScore)}`"
-							/>
-							<SummaryChip
-								v-if="item.scoreDetails?.lexicalContribution != null"
-								size="xs"
-								:text="`boost ${formatScore(item.scoreDetails?.lexicalContribution)}`"
-							/>
-						</template>
-						<template #footer>
-							<div
-								class="text-[10px] text-[var(--text-muted)]"
-								v-text="`📄 ${item.sourceFile}`"
-							/>
-						</template>
-					</MessageCard>
-				</div>
+					"
+					:on-select="item => openRelated(item)"
+				>
+					<template #badges="{ item }">
+						<SummaryChip
+							variant="warning"
+							size="xs"
+							:text="`score ${formatScore(item.scoreDetails?.combinedScore ?? item.score)}`"
+						/>
+						<SummaryChip
+							v-if="item.scoreDetails?.vectorScore != null"
+							size="xs"
+							:text="`sem ${formatScore(item.scoreDetails?.vectorScore)}`"
+						/>
+						<SummaryChip
+							v-if="item.scoreDetails?.lexicalScore != null"
+							size="xs"
+							variant="accent"
+							:text="`fts ${formatScore(item.scoreDetails?.lexicalScore)}`"
+						/>
+						<SummaryChip
+							v-if="item.scoreDetails?.lexicalContribution != null"
+							size="xs"
+							:text="`boost ${formatScore(item.scoreDetails?.lexicalContribution)}`"
+						/>
+					</template>
+					<template #footer="{ item }">
+						<div
+							class="text-[10px] text-[var(--text-muted)]"
+							v-text="`📄 ${item.sourceFile}`"
+						/>
+					</template>
+				</EntityList>
 			</PanelFrame>
 
 			<PanelFrame class="min-h-0" :scroll="true" padding="sm" gap="sm">
@@ -263,16 +264,14 @@ watch(
 					variant="empty"
 					text="Все заметки из /Organize уже синхронизированы."
 				/>
-				<div v-else class="flex flex-col gap-1.5">
-					<MessageCard
-						v-for="note in unsyncedNotes"
-						:key="note.path"
-						compact
-						:title="note.basename"
-						:meta="note.path"
-						body="Нужна индексация для векторного поиска."
-					/>
-				</div>
+				<EntityList
+					v-else
+					:items="unsyncedNotes"
+					:get-key="note => note.path"
+					:get-title="note => note.basename"
+					:get-meta="note => note.path"
+					:get-body="() => 'Нужна индексация для векторного поиска.'"
+				/>
 			</PanelFrame>
 		</div>
 	</AppShell>

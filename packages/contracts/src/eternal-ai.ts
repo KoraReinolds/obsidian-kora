@@ -106,6 +106,20 @@ export interface CreateEternalAiArtifactRequest {
 }
 
 /**
+ * @description Узкий patch для ручного редактирования уже сохранённого artifact.
+ * Контракт не позволяет менять идентификаторы и scope, чтобы debug-редактор не
+ * ломал структурные связи истории.
+ */
+export interface UpdateEternalAiArtifactRequest {
+	conversationId: string;
+	artifactId: string;
+	type: EternalAiArtifactType;
+	context: EternalAiArtifactContext | string;
+	text: string;
+	metadata?: Record<string, unknown> | null;
+}
+
+/**
  * @description Краткий снимок recall-артефакта внутри turn trace. DTO отделён от
  * shared memory-ядра, чтобы HTTP-контракт не зависел напрямую от внутренних типов
  * `kora-core` и мог эволюционировать независимо от server/runtime реализации.

@@ -17,6 +17,9 @@ let currentBaseUrl: string | null = null;
 let currentApiKey: string | null = null;
 let currentModel: string | null = null;
 
+/** Срок хранения терминальных effect_jobs до очистки (итог уже в сообщениях). */
+const EFFECT_JOB_RETENTION_MS = 24 * 60 * 60 * 1000;
+
 export function getEternalAiService(): EternalAiService {
 	ensureEternalAiService();
 	return service as EternalAiService;
@@ -60,6 +63,10 @@ function ensureEternalAiService(): void {
 		databasePath: nextDatabasePath || undefined,
 	});
 	repository = new EternalAiRepository(database.getConnection());
+	const effectJobCleanupThreshold = new Date(
+		Date.now() - EFFECT_JOB_RETENTION_MS
+	).toISOString();
+	repository.deleteCompletedEffectJobsOlderThan(effectJobCleanupThreshold);
 	service = new EternalAiService(
 		repository,
 		getConfig,

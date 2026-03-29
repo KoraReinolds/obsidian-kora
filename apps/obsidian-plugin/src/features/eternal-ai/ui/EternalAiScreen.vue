@@ -1,19 +1,27 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import {
 	AppShell,
 	ChatTimeline,
+	EntityEditorModal,
+	EntityList,
 	IconButton,
 	ImageLightbox,
 	MessageCard,
 	PanelFrame,
 	PlaceholderState,
+	SelectableEntityList,
 	SectionHeader,
 	StatusBanner,
 	SummaryChip,
 	Toolbar,
 	useImageLightbox,
 } from '../../../ui-vue';
+import type { IEntityEditorField } from '../../../ui-vue';
+import type {
+	EternalAiArtifactRecord,
+	EternalAiConversationSummary,
+} from '../../../../../../packages/contracts/src/eternal-ai';
 import { useEternalAiScreen } from '../model/use-eternal-ai-screen';
 import type { EternalAiTransportPort } from '../ports/eternal-ai-transport-port';
 import EternalAiMessageComposer from './EternalAiMessageComposer.vue';
@@ -44,6 +52,7 @@ const {
 	isDeletingConversationId,
 	isDeletingMessageId,
 	isDeletingArtifactId,
+	isUpdatingArtifactId,
 	screenMessage,
 	clearScreenMessage,
 	clearOpenClawCatalogError,
@@ -64,20 +73,18 @@ const {
 	visualSourceDataUrl,
 	isLoadingEffects,
 	isLoadingArtifacts,
-	isSavingSeedArtifact,
 	isCreativeRunning,
 	isCustomCatalogEffectSelected,
 	customMode,
 	isCustomRunning,
 	selectEffect,
 	canManageArtifacts,
-	seedType,
-	seedContext,
-	seedText,
 	setVisualSourceFromFileList,
 	runCreativeEffect,
 	runCustomGeneration,
-	createSeedArtifact,
+	createArtifactManual,
+	isCreatingArtifact,
+	updateArtifact,
 	deleteArtifact,
 	customS4DebugError,
 	chatModelOptions,
@@ -206,6 +213,303 @@ const onChatModelSelect = async (event: Event): Promise<void> => {
 		return;
 	}
 	await setSelectedChatModelRef(target.value);
+};
+
+const editingArtifactId = ref<string | null>(null);
+const isArtifactCreateMode = ref(false);
+const editingConversationId = ref<string | null>(null);
+
+/** @description Начальные значения модалки создания artifact (без readonly-полей редактора). */
+const artifactCreateDefaults: Record<string, unknown> = {
+	type: 'semantic_memory',
+	context: '',
+	text: '',
+	metadata: null,
+};
+
+const artifactEditorFields = computed<
+	IEntityEditorField<EternalAiArtifactRecord>[]
+>(() => [
+	{
+		key: 'type',
+		label: 'Type',
+		kind: 'select',
+		options: [
+			{ value: 'semantic_memory', label: 'semantic_memory' },
+			{ value: 'episodic_memory', label: 'episodic_memory' },
+			{ value: 'environment_state', label: 'environment_state' },
+			{ value: 'session_summary', label: 'session_summary' },
+			{ value: 'dialogue_window', label: 'dialogue_window' },
+		],
+	},
+	{
+		key: 'context',
+		label: 'Context',
+		kind: 'text',
+		placeholder: 'persona / relationship / environment / source',
+	},
+	{
+		key: 'text',
+		label: 'Text',
+		kind: 'textarea',
+		rows: 8,
+		placeholder: 'Текст artifact',
+	},
+	{
+		key: 'metadata',
+		label: 'Metadata',
+		kind: 'json',
+		rows: 8,
+		placeholder: '{\n  "note": "manual edit"\n}',
+	},
+	{
+		key: 'scope',
+		label: 'Scope',
+		kind: 'readonly',
+		read: artifact => artifact.scope,
+	},
+	{
+		key: 'sourceType',
+		label: 'Source Type',
+		kind: 'readonly',
+	},
+	{
+		key: 'sourceId',
+		label: 'Source Id',
+		kind: 'readonly',
+	},
+	{
+		key: 'createdAt',
+		label: 'Created At',
+		kind: 'readonly',
+	},
+	{
+		key: 'updatedAt',
+		label: 'Updated At',
+		kind: 'readonly',
+	},
+]);
+
+const artifactCreateEditorFields = computed<
+	IEntityEditorField<Record<string, unknown>>[]
+>(() => [
+	{
+		key: 'type',
+		label: 'Type',
+		kind: 'select',
+		options: [
+			{ value: 'semantic_memory', label: 'semantic_memory' },
+			{ value: 'episodic_memory', label: 'episodic_memory' },
+			{ value: 'environment_state', label: 'environment_state' },
+			{ value: 'session_summary', label: 'session_summary' },
+			{ value: 'dialogue_window', label: 'dialogue_window' },
+		],
+	},
+	{
+		key: 'context',
+		label: 'Context',
+		kind: 'text',
+		placeholder: 'persona / relationship / environment / source',
+	},
+	{
+		key: 'text',
+		label: 'Text',
+		kind: 'textarea',
+		rows: 8,
+		placeholder: 'Текст artifact',
+	},
+	{
+		key: 'metadata',
+		label: 'Metadata',
+		kind: 'json',
+		rows: 6,
+		placeholder: '{\n  "note": "optional"\n}',
+	},
+]);
+
+const editingArtifact = computed(
+	() =>
+		artifacts.value.find(artifact => artifact.id === editingArtifactId.value) ||
+		null
+);
+
+const artifactModalFields = computed(() =>
+	isArtifactCreateMode.value
+		? artifactCreateEditorFields.value
+		: artifactEditorFields.value
+);
+
+const artifactModalOpen = computed(
+	() => Boolean(editingArtifact.value) || isArtifactCreateMode.value
+);
+
+const artifactModalValue = computed((): Record<string, unknown> | null =>
+	isArtifactCreateMode.value
+		? { ...artifactCreateDefaults }
+		: (editingArtifact.value as unknown as Record<string, unknown> | null)
+);
+
+const editingConversation = computed(
+	() =>
+		conversations.value.find(
+			conversation => conversation.id === editingConversationId.value
+		) ?? null
+);
+
+const conversationEditorFields = computed<
+	IEntityEditorField<EternalAiConversationSummary>[]
+>(() => [
+	{ key: 'id', label: 'ID', kind: 'readonly' },
+	{ key: 'title', label: 'Title', kind: 'readonly' },
+	{ key: 'model', label: 'Model', kind: 'readonly' },
+	{ key: 'messageCount', label: 'Messages', kind: 'readonly' },
+	{
+		key: 'lastMessagePreview',
+		label: 'Last message',
+		kind: 'readonly',
+	},
+	{ key: 'lastMessageAt', label: 'Last message at', kind: 'readonly' },
+	{ key: 'createdAt', label: 'Created', kind: 'readonly' },
+	{ key: 'updatedAt', label: 'Updated', kind: 'readonly' },
+	{ key: 'systemPrompt', label: 'System prompt', kind: 'readonly' },
+]);
+
+const getConversationKey = (conversation: unknown): string =>
+	String((conversation as { id: string }).id);
+
+const getConversationTitle = (conversation: unknown): string =>
+	String((conversation as { title: string }).title);
+
+const getConversationSubtitle = (conversation: unknown): string => {
+	const item = conversation as { model: string; messageCount: number };
+	return `${item.model} · ${item.messageCount} сообщений`;
+};
+
+const getConversationPreview = (conversation: unknown): string =>
+	(conversation as { lastMessagePreview?: string | null }).lastMessagePreview ||
+	'Пока без ответов';
+
+const handleConversationSelect = (conversation: unknown): void => {
+	selectConversation(String((conversation as { id: string }).id));
+};
+
+const getArtifactKey = (artifact: unknown): string =>
+	String((artifact as EternalAiArtifactRecord).id);
+
+/** Макс. длина превью текста в meta строке списка (остальное в модалке редактора). */
+const ARTIFACT_TEXT_META_MAX = 400;
+
+/**
+ * @description Заголовок карточки: приоритет `metadata.title` (строка от Eternal),
+ * иначе компактный `type · context`.
+ */
+const getArtifactTitle = (artifact: unknown): string => {
+	const item = artifact as EternalAiArtifactRecord;
+	const raw = item.metadata?.title;
+	if (typeof raw === 'string') {
+		const t = raw.trim();
+		if (t) {
+			return t;
+		}
+	}
+	return `${item.type} · ${item.context}`;
+};
+
+/**
+ * @description Текст артефакта в приглушённой meta-зоне `MessageCard`; основной body не используем.
+ */
+const getArtifactMeta = (artifact: unknown): string => {
+	const text = String((artifact as EternalAiArtifactRecord).text ?? '').trim();
+	if (text.length <= ARTIFACT_TEXT_META_MAX) {
+		return text;
+	}
+	return `${text.slice(0, ARTIFACT_TEXT_META_MAX)}…`;
+};
+
+const getArtifactBody = (_artifact: unknown): string => '';
+
+const openConversationEditor = (item: unknown): void => {
+	editingConversationId.value = String((item as { id: string }).id);
+};
+
+const closeConversationEditor = (): void => {
+	editingConversationId.value = null;
+};
+
+const deleteConversationFromModal = async (): Promise<void> => {
+	const id = editingConversationId.value;
+	if (!id) {
+		return;
+	}
+	await handleDeleteConversation(id);
+	editingConversationId.value = null;
+};
+
+const openArtifactEditor = (item: unknown): void => {
+	isArtifactCreateMode.value = false;
+	editingArtifactId.value = String((item as EternalAiArtifactRecord).id);
+};
+
+const openArtifactCreate = (): void => {
+	editingArtifactId.value = null;
+	isArtifactCreateMode.value = true;
+};
+
+const closeArtifactEditor = (): void => {
+	editingArtifactId.value = null;
+	isArtifactCreateMode.value = false;
+};
+
+const deleteArtifactFromModal = async (): Promise<void> => {
+	const id = editingArtifactId.value;
+	if (!id) {
+		return;
+	}
+	await deleteArtifact(id);
+	editingArtifactId.value = null;
+};
+
+const submitArtifactModal = async (
+	patch: Record<string, unknown>
+): Promise<void> => {
+	try {
+		if (isArtifactCreateMode.value) {
+			const type = String(
+				patch.type ?? artifactCreateDefaults.type
+			) as EternalAiArtifactRecord['type'];
+			const created = await createArtifactManual({
+				type,
+				context: String(patch.context ?? ''),
+				text: String(patch.text ?? ''),
+				metadata:
+					patch.metadata !== undefined
+						? (patch.metadata as Record<string, unknown> | null)
+						: null,
+			});
+			if (created) {
+				isArtifactCreateMode.value = false;
+			}
+			return;
+		}
+		if (!editingArtifact.value) {
+			return;
+		}
+		await updateArtifact({
+			artifactId: editingArtifact.value.id,
+			type: String(
+				patch.type ?? editingArtifact.value.type
+			) as EternalAiArtifactRecord['type'],
+			context: String(patch.context ?? editingArtifact.value.context),
+			text: String(patch.text ?? editingArtifact.value.text),
+			metadata:
+				patch.metadata !== undefined
+					? (patch.metadata as Record<string, unknown> | null)
+					: (editingArtifact.value.metadata ?? null),
+		});
+		editingArtifactId.value = null;
+	} catch {
+		/* сообщение уже выставлено в composable */
+	}
 };
 
 void refreshData();
@@ -365,43 +669,24 @@ void refreshData();
 						</div>
 					</div>
 
-					<div class="mt-1 flex min-h-0 flex-1 flex-col gap-2 pr-1">
-						<PlaceholderState
-							v-if="conversations.length === 0"
-							variant="empty"
-							text="Локальная история пуста. Начните новый чат справа."
-						/>
-						<div
-							v-for="conversation in conversations"
-							:key="conversation.id"
-							class="flex items-center gap-1.5"
+					<div class="mt-1 min-h-0 flex-1 overflow-auto pr-1">
+						<SelectableEntityList
+							:items="conversations"
+							:get-key="getConversationKey"
+							:get-title="getConversationTitle"
+							:get-subtitle="getConversationSubtitle"
+							:selected-key="selectedConversationId"
+							:on-select="handleConversationSelect"
+							:on-edit="openConversationEditor"
+							empty-text="Локальная история пуста. Начните новый чат справа."
 						>
-							<MessageCard
-								class="min-w-0 flex-1 shadow-sm"
-								compact
-								:selected="selectedConversationId === conversation.id"
-								:clickable="true"
-								:title="conversation.title"
-								:subtitle="`${conversation.model} · ${conversation.messageCount} сообщений`"
-								@click="selectConversation(conversation.id)"
-							>
-								<template #meta>
-									<div class="line-clamp-2">
-										{{ conversation.lastMessagePreview || 'Пока без ответов' }}
-									</div>
-								</template>
-							</MessageCard>
-							<IconButton
-								size="sm"
-								variant="danger"
-								icon="trash-2"
-								label="Удалить Eternal AI диалог"
-								title="Удалить"
-								:disabled="isDeletingConversationId === conversation.id"
-								:loading="isDeletingConversationId === conversation.id"
-								@click.stop="handleDeleteConversation(conversation.id)"
-							/>
-						</div>
+							<template #meta="{ item }">
+								<div
+									class="line-clamp-2"
+									v-text="getConversationPreview(item)"
+								/>
+							</template>
+						</SelectableEntityList>
 					</div>
 				</div>
 
@@ -518,124 +803,29 @@ void refreshData();
 					>
 						<SectionHeader
 							title="Memory"
-							subtitle="Manual seed artifacts для выбранного диалога. Отладка turn — в ленте чата (Runtime под сообщением)."
+							subtitle="Artifacts выбранного диалога: «Новый artifact» в списке открывает ту же форму, что и раньше был seed. Отладка turn — в ленте чата (Runtime под сообщением)."
 						/>
 					</div>
 					<div class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1">
 						<div
 							class="rounded-2xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-primary)] p-3"
 						>
-							<div
-								class="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]"
-								v-text="'Seed Memory'"
+							<EntityList
+								list-header-title="Artifacts"
+								:items="artifacts"
+								:get-key="getArtifactKey"
+								:get-title="getArtifactTitle"
+								:get-meta="getArtifactMeta"
+								:get-body="getArtifactBody"
+								:on-edit="canManageArtifacts ? openArtifactEditor : undefined"
+								:on-create="canManageArtifacts ? openArtifactCreate : undefined"
+								:create-loading="isCreatingArtifact"
+								create-button-label="Новый artifact"
+								create-button-title="Создать artifact в текущем диалоге"
+								:loading="isLoadingArtifacts"
+								loading-text="Загрузка artifacts..."
+								empty-text="Для этого диалога artifacts пока нет."
 							/>
-							<div
-								v-if="!canManageArtifacts"
-								class="mt-2 text-xs text-[var(--text-muted)]"
-								v-text="
-									'Сначала выберите существующий диалог: manual seed привязывается к conversation scope.'
-								"
-							/>
-							<div v-else class="mt-2 flex flex-col gap-2">
-								<div class="grid grid-cols-1 gap-2 md:grid-cols-2">
-									<label class="flex flex-col gap-1 text-xs">
-										<span class="text-[var(--text-muted)]" v-text="'Type'" />
-										<select
-											v-model="seedType"
-											class="rounded-xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-secondary)] px-3 py-2 text-sm"
-										>
-											<option value="semantic_memory">semantic_memory</option>
-											<option value="episodic_memory">episodic_memory</option>
-											<option value="environment_state">
-												environment_state
-											</option>
-											<option value="session_summary">session_summary</option>
-											<option value="dialogue_window">dialogue_window</option>
-										</select>
-									</label>
-									<label class="flex flex-col gap-1 text-xs">
-										<span class="text-[var(--text-muted)]" v-text="'Context'" />
-										<input
-											v-model="seedContext"
-											type="text"
-											class="rounded-xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-secondary)] px-3 py-2 text-sm"
-											placeholder="persona / relationship / environment"
-										/>
-									</label>
-								</div>
-								<label class="flex flex-col gap-1 text-xs">
-									<span class="text-[var(--text-muted)]" v-text="'Text'" />
-									<textarea
-										v-model="seedText"
-										rows="4"
-										class="rounded-xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-secondary)] px-3 py-2 text-sm"
-										placeholder="Короткий факт, baseline persona detail, relationship state или environment seed"
-									/>
-								</label>
-								<div class="flex justify-end">
-									<IconButton
-										size="sm"
-										variant="accent"
-										icon="plus"
-										label="Сохранить seed artifact"
-										title="Сохранить seed artifact"
-										:loading="isSavingSeedArtifact"
-										:disabled="!seedText.trim() || !seedContext.trim()"
-										@click="createSeedArtifact()"
-									/>
-								</div>
-							</div>
-						</div>
-
-						<div
-							class="rounded-2xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-primary)] p-3"
-						>
-							<div
-								class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]"
-								v-text="'Artifacts'"
-							/>
-							<PlaceholderState
-								v-if="isLoadingArtifacts"
-								variant="loading"
-								text="Загрузка artifacts..."
-							/>
-							<PlaceholderState
-								v-else-if="artifacts.length === 0"
-								variant="empty"
-								text="Для этого диалога artifacts пока нет."
-							/>
-							<div v-else class="flex flex-col gap-2">
-								<div
-									v-for="artifact in artifacts"
-									:key="artifact.id"
-									class="rounded-2xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-secondary)]/50 p-3"
-								>
-									<div class="flex items-start justify-between gap-2">
-										<div class="min-w-0">
-											<div class="text-sm font-semibold">
-												{{ artifact.type }} · {{ artifact.context }}
-											</div>
-											<div class="text-[11px] text-[var(--text-muted)]">
-												{{ artifact.updatedAt }}
-											</div>
-										</div>
-										<IconButton
-											size="sm"
-											variant="danger"
-											icon="trash-2"
-											label="Удалить artifact"
-											title="Удалить artifact"
-											:loading="isDeletingArtifactId === artifact.id"
-											:disabled="isDeletingArtifactId === artifact.id"
-											@click="deleteArtifact(artifact.id)"
-										/>
-									</div>
-									<div
-										class="mt-2 whitespace-pre-wrap text-xs leading-5 text-[var(--text-normal)]"
-										v-text="artifact.text"
-									/>
-								</div>
-							</div>
 						</div>
 					</div>
 				</div>
@@ -683,5 +873,53 @@ void refreshData();
 		:image-url="lightboxSrc"
 		:suggested-file-name="lightboxSuggestedName"
 		@close="closeLightbox"
+	/>
+	<EntityEditorModal
+		:open="artifactModalOpen"
+		:title="isArtifactCreateMode ? 'Новый artifact' : 'Artifact Editor'"
+		:description="
+			isArtifactCreateMode
+				? 'Создание записи памяти: type, context, text и опционально metadata (POST artifacts).'
+				: 'Редактирование одной записи памяти без выноса transport-логики в shared UI.'
+		"
+		:value="artifactModalValue"
+		:fields="artifactModalFields"
+		:loading="
+			isArtifactCreateMode
+				? isCreatingArtifact
+				: Boolean(
+						editingArtifact && isUpdatingArtifactId === editingArtifact.id
+					)
+		"
+		:allow-delete="!isArtifactCreateMode && Boolean(editingArtifact)"
+		:delete-loading="
+			Boolean(editingArtifact && isDeletingArtifactId === editingArtifact.id)
+		"
+		delete-label="Удалить artifact"
+		delete-confirm-hint="Artifact будет удалён без восстановления."
+		:submit-label="isArtifactCreateMode ? 'Создать' : 'Save Artifact'"
+		cancel-label="Cancel"
+		@close="closeArtifactEditor()"
+		@submit="submitArtifactModal"
+		@delete="deleteArtifactFromModal"
+	/>
+	<EntityEditorModal
+		:open="Boolean(editingConversation)"
+		title="Диалог"
+		description="Метаданные локального conversation. Удаление стирает историю и артефакты в этом scope."
+		:value="editingConversation as unknown as Record<string, unknown> | null"
+		:fields="conversationEditorFields"
+		allow-delete
+		:delete-loading="
+			Boolean(
+				editingConversation &&
+				isDeletingConversationId === editingConversation.id
+			)
+		"
+		delete-label="Удалить диалог"
+		delete-confirm-hint="Все сообщения и связанные данные этого диалога будут удалены."
+		cancel-label="Закрыть"
+		@close="closeConversationEditor()"
+		@delete="deleteConversationFromModal"
 	/>
 </template>

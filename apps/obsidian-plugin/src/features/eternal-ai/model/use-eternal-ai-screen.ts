@@ -183,16 +183,13 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 	const isDeletingConversationId = ref<string | null>(null);
 	const isDeletingMessageId = ref<string | null>(null);
 	const isDeletingArtifactId = ref<string | null>(null);
+	const isUpdatingArtifactId = ref<string | null>(null);
 	const isLoadingArtifacts = ref(false);
-	const isSavingSeedArtifact = ref(false);
+	const isCreatingArtifact = ref(false);
 	const turnTraces = ref<EternalAiTurnTraceRecord[]>([]);
 	const artifacts = ref<EternalAiArtifactRecord[]>([]);
 	/** Раскрытые в ленте инспекторы trace по `traceId`. */
 	const expandedTimelineInspectorTraceIds = ref<Set<string>>(new Set());
-	const seedType = ref<EternalAiArtifactRecord['type']>('semantic_memory');
-	const seedContext = ref<EternalAiArtifactRecord['context']>('persona');
-	const seedText = ref('');
-
 	const leftTab = ref<'chats' | 'effects' | 'debug'>('chats');
 	const creativeEffects = ref<EternalAiCreativeEffectItem[]>([]);
 	const effectsQuery = ref('');
@@ -637,40 +634,47 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 		);
 	};
 
-	const createSeedArtifact = async (): Promise<void> => {
+	/**
+	 * @description Создание artifact (POST artifacts) для модалки «новая запись» в списке.
+	 */
+	const createArtifactManual = async (params: {
+		type: EternalAiArtifactRecord['type'];
+		context: string;
+		text: string;
+		metadata?: Record<string, unknown> | null;
+	}): Promise<boolean> => {
 		const conversationId = selectedConversationId.value;
-		if (!conversationId || isSavingSeedArtifact.value) {
-			return;
+		if (!conversationId || isCreatingArtifact.value) {
+			return false;
 		}
 
-		const text = seedText.value.trim();
-		const context = seedContext.value.trim();
-		if (!text || !context) {
-			screen.setMessage(
-				'warning',
-				'Для seed memory заполните `context` и текст артефакта.'
-			);
-			return;
+		const context = params.context.trim();
+		const text = params.text.trim();
+		if (!context || !text) {
+			screen.setMessage('warning', 'Укажите context и текст artifact.');
+			return false;
 		}
 
-		isSavingSeedArtifact.value = true;
+		isCreatingArtifact.value = true;
 		try {
 			await options.transport.createSeedArtifact({
 				conversationId,
-				type: seedType.value,
+				type: params.type,
 				context,
 				text,
+				metadata: params.metadata ?? null,
 			});
-			seedText.value = '';
 			await loadArtifacts(conversationId, { silent: true });
-			screen.setMessage('success', 'Seed artifact сохранён.');
+			screen.setMessage('success', 'Artifact создан.');
+			return true;
 		} catch (error) {
 			screen.setMessage(
 				'error',
-				`Не удалось сохранить seed artifact: ${(error as Error).message}`
+				`Не удалось создать artifact: ${(error as Error).message}`
 			);
+			throw error;
 		} finally {
-			isSavingSeedArtifact.value = false;
+			isCreatingArtifact.value = false;
 		}
 	};
 
@@ -691,6 +695,41 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 			);
 		} finally {
 			isDeletingArtifactId.value = null;
+		}
+	};
+
+	const updateArtifact = async (params: {
+		artifactId: string;
+		type: EternalAiArtifactRecord['type'];
+		context: EternalAiArtifactRecord['context'];
+		text: string;
+		metadata?: Record<string, unknown> | null;
+	}): Promise<void> => {
+		const conversationId = selectedConversationId.value;
+		if (!conversationId) {
+			return;
+		}
+
+		isUpdatingArtifactId.value = params.artifactId;
+		try {
+			await options.transport.updateArtifact({
+				conversationId,
+				artifactId: params.artifactId,
+				type: params.type,
+				context: params.context,
+				text: params.text,
+				metadata: params.metadata ?? null,
+			});
+			await loadArtifacts(conversationId, { silent: true });
+			screen.setMessage('success', 'Artifact обновлён.');
+		} catch (error) {
+			screen.setMessage(
+				'error',
+				`Не удалось обновить artifact: ${(error as Error).message}`
+			);
+			throw error;
+		} finally {
+			isUpdatingArtifactId.value = null;
 		}
 	};
 
@@ -1005,8 +1044,9 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 		isDeletingConversationId,
 		isDeletingMessageId,
 		isDeletingArtifactId,
+		isUpdatingArtifactId,
 		isLoadingArtifacts,
-		isSavingSeedArtifact,
+		isCreatingArtifact,
 		screenMessage: screen.message,
 		clearScreenMessage: screen.clearMessage,
 		clearOpenClawCatalogError,
@@ -1015,14 +1055,12 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 		turnTraces,
 		toggleTimelineInspectorTrace,
 		canManageArtifacts,
-		seedType,
-		seedContext,
-		seedText,
 		systemPromptSummary,
 		refreshData,
 		selectConversation,
 		startNewConversation,
-		createSeedArtifact,
+		createArtifactManual,
+		updateArtifact,
 		deleteArtifact,
 		sendCurrentDraft,
 		handleDeleteConversation,
