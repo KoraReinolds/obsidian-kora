@@ -43,13 +43,6 @@ export interface EternalAiScreenModelOptions {
 	persistChatModelId: (modelRef: string) => Promise<void>;
 }
 
-const formatDate = (value?: string | null): string => {
-	if (!value) {
-		return 'ещё не было';
-	}
-	return new Date(value).toLocaleString();
-};
-
 const getRoleLabel = (role: EternalAiMessageRecord['role']): string => {
 	if (role === 'assistant') return 'Eternal AI';
 	if (role === 'system') return 'System';
@@ -217,7 +210,12 @@ function mapMessageToTimelineMessage(
 		align: isUser ? 'end' : role === 'system' ? 'center' : 'start',
 		author: getRoleLabel(role),
 		initials: getRoleInitials(role),
-		meta: [formatDate(message.createdAt), message.model || null]
+		meta: [
+			message.createdAt
+				? new Date(message.createdAt).toLocaleString()
+				: 'ещё не было',
+			message.model || null,
+		]
 			.filter(Boolean)
 			.join(' · '),
 		text: message.contentText,
