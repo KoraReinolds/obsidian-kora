@@ -24,7 +24,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-	<div class="flex min-w-0 flex-col gap-2.5">
+	<div class="flex min-w-0 flex-col gap-1.5">
 		<ChatMessageBubble
 			v-if="userMessage"
 			:item="userMessage"

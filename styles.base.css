@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap');
+
 /*
 Core UI tokens shared between Obsidian host and Vue core layer.
 Ручные мини-классы `.tw-hidden` / `.tw-flex` в токенах — не Tailwind; префикс `tw-`
@@ -25,7 +27,7 @@ Core UI tokens shared between Obsidian host and Vue core layer.
  * Composite поле (иконка | input): одна видимая рамка только у внешнего `.kora-icon-text-field`.
  * Глобальные стили Obsidian часто задают border/box-shadow на `input` — убираем, иначе «двойная» обводка.
  */
-.kora-icon-text-field > .kora-icon-text-field__input[type="text"] {
+.kora-icon-text-field > .kora-icon-text-field__input[type='text'] {
 	border: none !important;
 	box-shadow: none !important;
 	padding-left: 0 !important;
@@ -33,8 +35,9 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 	appearance: none;
 }
 
-.kora-icon-text-field > .kora-icon-text-field__input[type="text"]:focus,
-.kora-icon-text-field > .kora-icon-text-field__input[type="text"]:focus-visible {
+.kora-icon-text-field > .kora-icon-text-field__input[type='text']:focus,
+.kora-icon-text-field
+	> .kora-icon-text-field__input[type='text']:focus-visible {
 	outline: none !important;
 	box-shadow: none !important;
 }

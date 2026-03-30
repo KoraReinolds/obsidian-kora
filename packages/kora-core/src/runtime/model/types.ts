@@ -11,6 +11,7 @@ import type {
 	ArtifactRecallQuery,
 	ArtifactStorePort,
 } from '../../memory/model/types.js';
+import type { CanonicalChatMessagePart } from '../../../../contracts/src/canonical-chat-message.js';
 
 export type RuntimeMessageActor = 'user' | 'assistant' | 'system' | 'world';
 
@@ -73,7 +74,9 @@ export interface PromptFragment {
  * @typedef {Object} ParsedAssistantResponse
  * @property {string} rawText - Исходный ответ модели до парсинга.
  * @property {string} assistantText - Канонический текст ответа без служебных блоков.
+ * @property {CanonicalChatMessagePart[]} parts - Видимые части ответа в tg-first форме.
  * @property {string[]} actions - Действия, выделенные из ответа (`*...*`, `**...**` или structured block).
+ * @property {string[]} privateThoughts - Внутренние мысли модели, которые не должны автоматически попадать во внешний transport.
  * @property {Record<string, unknown> | undefined} environmentPatch - Патч environment, если модель его вернула.
  * @property {string[]} memoryCandidates - Кандидаты в память, выделенные из structured блока.
  * @property {string} displayText - Текст для прямого отображения в UI.
@@ -85,7 +88,9 @@ export interface PromptFragment {
 export interface ParsedAssistantResponse {
 	rawText: string;
 	assistantText: string;
+	parts: CanonicalChatMessagePart[];
 	actions: string[];
+	privateThoughts: string[];
 	environmentPatch?: Record<string, unknown>;
 	memoryCandidates: string[];
 	displayText: string;

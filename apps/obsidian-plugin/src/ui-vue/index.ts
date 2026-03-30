@@ -7,4 +7,5 @@
 export * from './types';
 export * from './composables';
 export * from './components';
+export * from './mappers';
 export * from './injection-keys';

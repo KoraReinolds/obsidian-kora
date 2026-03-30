@@ -1,13 +1,12 @@
 <script setup lang="ts">
 /**
  * @description Универсальный bubble-рендер для одного элемента chat timeline.
- * Компонент не знает ничего о Telegram archive или Eternal AI и опирается только
- * на нормализованный `ChatTimelineItem`.
+ * Поле `bubbleChrome: 'messenger'` — компактный чат (время в строке или внизу справа).
  * Копирование — выделение текста мышью и стандартный Ctrl+C / контекстное меню ОС.
  * Удаление — ПКМ по пузырю (кроме превью картинки) при наличии host-меню.
  */
-import { computed, inject } from 'vue';
-import type { ChatTimelineItem } from '../types';
+import { computed, inject, ref } from 'vue';
+import type { ChatTimelineItem, ChatTimelineMessageItem } from '../types';
 import { HOST_CHAT_MESSAGE_CONTEXT_MENU } from '../injection-keys';
 import { useImageLightbox } from '../composables';
 import AttachmentPreviewThumb from './AttachmentPreviewThumb.vue';
@@ -54,17 +53,41 @@ const onBubbleContextMenu = (event: MouseEvent): void => {
 	});
 };
 
-const isEndAligned = props.item.align === 'end';
-const bubbleBackground =
-	props.item.accent?.bubbleBg ||
-	(props.item.role === 'user'
-		? 'rgba(var(--interactive-accent-rgb, 124, 92, 255), 0.12)'
-		: 'rgba(29, 29, 29, 0.96)');
-const bubbleBorder =
-	props.item.accent?.bubbleBorder ||
-	(props.item.role === 'user'
-		? 'rgba(var(--interactive-accent-rgb, 124, 92, 255), 0.25)'
-		: 'rgba(255, 255, 255, 0.08)');
+const messagePayload = computed((): ChatTimelineMessageItem | null =>
+	props.item.kind === 'custom' ? null : (props.item as ChatTimelineMessageItem)
+);
+
+const isMessengerChrome = computed(
+	() => messagePayload.value?.bubbleChrome === 'messenger'
+);
+
+const isEndAligned = computed(() => props.item.align === 'end');
+
+const bubbleBackground = computed(() => {
+	const item = props.item as ChatTimelineMessageItem;
+	return (
+		item.accent?.bubbleBg ||
+		(item.role === 'user'
+			? 'color-mix(in srgb, var(--interactive-accent) 40%, var(--background-primary))'
+			: 'rgba(29, 29, 29, 0.96)')
+	);
+});
+
+const bubbleBorder = computed(() => {
+	const item = props.item as ChatTimelineMessageItem;
+	return (
+		item.accent?.bubbleBorder ||
+		(item.role === 'user'
+			? 'color-mix(in srgb, var(--interactive-accent) 55%, var(--background-modifier-border))'
+			: 'rgba(255, 255, 255, 0.08)')
+	);
+});
+
+const bodyTextClass = computed(() =>
+	isMessengerChrome.value
+		? 'kora-messenger-body whitespace-pre-wrap break-words text-[16px] leading-[21px]'
+		: 'whitespace-pre-wrap text-sm leading-6'
+);
 
 const handleReplyClick = (): void => {
 	if (!props.item.replyPreview?.targetId) {
@@ -109,6 +132,66 @@ const attachmentList = computed(() => {
 	);
 });
 
+const richParts = computed(() => props.item.parts || []);
+
+const hasRichParts = computed(() => {
+	if (!richParts.value.length) {
+		return false;
+	}
+	return (
+		richParts.value.some(part => part.kind !== 'speech') ||
+		richParts.value.length > 1
+	);
+});
+
+const MESSENGER_INLINE_TIME_MAX_CHARS = 48;
+
+const isCompactMessengerTime = computed(() => {
+	if (!isMessengerChrome.value || hasRichParts.value) {
+		return false;
+	}
+	const m = messagePayload.value;
+	if (!m?.meta) {
+		return false;
+	}
+	const t = m.text?.trim() ?? '';
+	if (!t || t.includes('\n')) {
+		return false;
+	}
+	if (t.length > MESSENGER_INLINE_TIME_MAX_CHARS) {
+		return false;
+	}
+	if (m.replyPreview || m.forwardedLabel) {
+		return false;
+	}
+	if ((m.attachments || []).length > 0) {
+		return false;
+	}
+	return true;
+});
+
+const messengerFooterMeta = computed(
+	() =>
+		isMessengerChrome.value &&
+		Boolean(messagePayload.value?.meta) &&
+		!isCompactMessengerTime.value
+);
+
+const revealedThoughts = ref<Record<string, boolean>>({});
+
+const getThoughtKey = (index: number): string => `${props.item.id}:${index}`;
+
+const isThoughtRevealed = (index: number): boolean =>
+	Boolean(revealedThoughts.value[getThoughtKey(index)]);
+
+const toggleThoughtReveal = (index: number): void => {
+	const key = getThoughtKey(index);
+	revealedThoughts.value = {
+		...revealedThoughts.value,
+		[key]: !revealedThoughts.value[key],
+	};
+};
+
 /**
  * @description Текст для чипа реакции (лейбл + счётчик).
  */
@@ -137,7 +220,12 @@ const reactionLabel = (label: string, count?: number): string =>
 		</div>
 
 		<div
-			class="kora-chat-bubble max-w-[min(100%,48rem)] min-w-0 select-text rounded-[18px] border px-3 py-2.5 shadow-sm"
+			class="kora-chat-bubble max-w-[min(100%,48rem)] min-w-0 select-text border px-3 py-2.5 shadow-sm"
+			:class="[
+				isMessengerChrome
+					? 'rounded-[13px] px-2.5 py-2 shadow-none'
+					: 'rounded-[18px]',
+			]"
 			:style="{
 				backgroundColor: highlighted
 					? 'rgba(255, 214, 10, 0.12)'
@@ -148,7 +236,7 @@ const reactionLabel = (label: string, count?: number): string =>
 			@contextmenu="onBubbleContextMenu"
 		>
 			<div
-				v-if="item.author || item.meta"
+				v-if="(item.author || item.meta) && !isMessengerChrome"
 				class="mb-1 flex items-center gap-2"
 				:class="isEndAligned ? 'justify-end text-right' : ''"
 			>
@@ -190,7 +278,31 @@ const reactionLabel = (label: string, count?: number): string =>
 			</div>
 
 			<div
-				v-if="item.text && inlineAttachment && !inlineAttachment.isGenerating"
+				v-if="isMessengerChrome && isCompactMessengerTime && item.text"
+				class="flex items-end gap-1.5"
+				:class="isEndAligned ? 'justify-end' : ''"
+			>
+				<span
+					class="min-w-0"
+					:class="[
+						bodyTextClass,
+						isEndAligned ? 'text-right' : 'flex-1 text-left',
+					]"
+					v-text="item.text"
+				/>
+				<span
+					class="kora-messenger-time shrink-0 pb-px text-[11px] tabular-nums text-[var(--text-muted)]"
+					v-text="item.meta"
+				/>
+			</div>
+
+			<div
+				v-else-if="
+					!hasRichParts &&
+					item.text &&
+					inlineAttachment &&
+					!inlineAttachment.isGenerating
+				"
 				class="mt-2 flex items-start gap-3"
 			>
 				<AttachmentPreviewThumb
@@ -201,10 +313,7 @@ const reactionLabel = (label: string, count?: number): string =>
 					@open="openLightbox"
 				/>
 				<div class="min-w-0 flex-1">
-					<div
-						class="whitespace-pre-wrap text-sm leading-6"
-						v-text="item.text"
-					/>
+					<div :class="bodyTextClass" v-text="item.text" />
 					<div class="mt-1 line-clamp-2 text-xs text-[var(--text-muted)]">
 						<span v-text="inlineAttachment.name" />
 						<span v-text="' · '" />
@@ -219,10 +328,10 @@ const reactionLabel = (label: string, count?: number): string =>
 			</div>
 
 			<div
-				v-else-if="item.text && inlineAttachment?.isGenerating"
+				v-else-if="!hasRichParts && item.text && inlineAttachment?.isGenerating"
 				class="mt-2 flex flex-col gap-3"
 			>
-				<div class="whitespace-pre-wrap text-sm leading-6" v-text="item.text" />
+				<div :class="bodyTextClass" v-text="item.text" />
 				<div
 					class="flex min-h-[8rem] items-center justify-center rounded-2xl border border-solid bg-[rgba(255,255,255,0.03)]"
 					:style="{ borderColor: 'rgba(255, 255, 255, 0.08)' }"
@@ -235,8 +344,60 @@ const reactionLabel = (label: string, count?: number): string =>
 				</div>
 			</div>
 
-			<div v-else-if="item.text" class="whitespace-pre-wrap text-sm leading-6">
-				{{ item.text }}
+			<div
+				v-else-if="!hasRichParts && item.text"
+				:class="bodyTextClass"
+				v-text="item.text"
+			></div>
+
+			<div v-else-if="hasRichParts" class="flex flex-col gap-2">
+				<template
+					v-for="(part, index) in richParts"
+					:key="`${part.kind}-${index}`"
+				>
+					<div
+						v-if="part.kind === 'speech'"
+						class="whitespace-pre-wrap text-sm leading-6"
+						v-text="part.text"
+					/>
+					<div
+						v-else-if="part.kind === 'action'"
+						class="whitespace-pre-wrap text-sm italic leading-6 text-[var(--text-muted)]"
+						v-text="part.text"
+					/>
+					<button
+						v-else-if="part.kind === 'thought' && part.visibility === 'spoiler'"
+						type="button"
+						class="rounded-xl border border-dashed px-3 py-2 text-left transition-colors"
+						:style="{
+							borderColor: 'rgba(255, 255, 255, 0.12)',
+							backgroundColor: isThoughtRevealed(index)
+								? 'rgba(255, 255, 255, 0.05)'
+								: 'rgba(255, 255, 255, 0.025)',
+						}"
+						@click="toggleThoughtReveal(index)"
+					>
+						<div
+							class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]"
+							v-text="'Мысль'"
+						/>
+						<div
+							v-if="isThoughtRevealed(index)"
+							class="whitespace-pre-wrap text-sm italic leading-6"
+							v-text="part.text"
+						/>
+						<div
+							v-else
+							class="text-sm italic text-[var(--text-muted)]"
+							v-text="'Нажмите, чтобы раскрыть spoiler'"
+						/>
+					</button>
+					<div
+						v-else-if="part.kind === 'thought'"
+						class="whitespace-pre-wrap text-sm italic leading-6 text-[var(--text-muted)]"
+						v-text="part.text"
+					/>
+				</template>
 			</div>
 
 			<div
@@ -299,6 +460,13 @@ const reactionLabel = (label: string, count?: number): string =>
 				</div>
 			</div>
 
+			<div v-if="messengerFooterMeta" class="mt-1 flex justify-end">
+				<span
+					class="kora-messenger-time text-[11px] tabular-nums text-[var(--text-muted)]"
+					v-text="item.meta"
+				/>
+			</div>
+
 			<div
 				v-if="(item.reactions || []).length"
 				class="mt-2 flex flex-wrap gap-1.5"
@@ -334,3 +502,24 @@ const reactionLabel = (label: string, count?: number): string =>
 		@close="closeLightbox"
 	/>
 </template>
+
+<style scoped>
+/**
+ * Стек как у Telegram Web: Roboto подключается в `styles.base.css` (@import fonts.googleapis.com).
+ */
+.kora-messenger-body {
+	font-family:
+		Roboto,
+		-apple-system,
+		'Apple Color Emoji',
+		BlinkMacSystemFont,
+		'Segoe UI',
+		'Oxygen-Sans',
+		Ubuntu,
+		Cantarell,
+		'Helvetica Neue',
+		sans-serif;
+	font-weight: 400;
+	-webkit-font-smoothing: antialiased;
+}
+</style>

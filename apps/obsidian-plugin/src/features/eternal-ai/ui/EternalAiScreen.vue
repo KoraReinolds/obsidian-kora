@@ -841,38 +841,26 @@ void refreshData();
 					class="flex h-full min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-hidden"
 				>
 					<label
-						class="flex shrink-0 cursor-pointer items-center justify-between gap-3 rounded-2xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-primary)]/45 px-3 py-2"
+						class="flex shrink-0 cursor-pointer items-center justify-end gap-2 rounded-xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-primary)]/35 px-2.5 py-1.5"
+						:title="
+							timelineDebugEnabled
+								? 'Обычный вид: user/assistant пузыри. Включено: полный debug turn в одном блоке.'
+								: 'Показать полный debug turn (prompt, raw, trace).'
+						"
 					>
-						<div class="min-w-0">
-							<div
-								class="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]"
-								v-text="'Лента чата'"
-							/>
-							<div
-								class="text-xs text-[var(--text-muted)]"
-								v-text="
-									timelineDebugEnabled
-										? 'Полный debug turn: input, prompt, raw, parsed и friendly output в одном блоке.'
-										: 'Обычный диалог; включите Debug для трассировки turn.'
-								"
-							/>
-						</div>
-						<div
-							class="flex shrink-0 items-center gap-2 rounded-xl border border-solid border-[var(--background-modifier-border)] px-2.5 py-1.5"
-						>
-							<input
-								v-model="timelineDebugEnabled"
-								type="checkbox"
-								class="m-0 h-4 w-4 shrink-0 cursor-pointer accent-[var(--interactive-accent)]"
-							/>
-							<span
-								class="text-xs font-semibold text-[var(--text-normal)]"
-								v-text="'Debug'"
-							/>
-						</div>
+						<input
+							v-model="timelineDebugEnabled"
+							type="checkbox"
+							class="m-0 h-3.5 w-3.5 shrink-0 cursor-pointer accent-[var(--interactive-accent)]"
+						/>
+						<span
+							class="text-[11px] font-medium text-[var(--text-muted)]"
+							v-text="'Debug turn'"
+						/>
 					</label>
 
 					<ChatTimeline
+						surface-variant="messenger"
 						:items="timelineItems"
 						:loading="isLoadingMessages"
 						empty-text="История ещё не началась. Отправьте первое сообщение."

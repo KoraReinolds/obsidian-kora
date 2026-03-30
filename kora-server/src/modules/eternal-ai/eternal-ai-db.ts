@@ -8,6 +8,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
+import { renderCanonicalChatMessageToText } from '../../../../packages/contracts/src/canonical-chat-message.js';
+import {
+	buildEternalCanonicalMessage,
+	buildEternalHiddenPayloadFromParsedResponse,
+	reconstructAssistantParsedResponse,
+} from './eternal-ai-canonical-message.js';
 
 interface LegacyTurnTraceRow {
 	id: string;
@@ -23,6 +29,21 @@ interface LegacyTurnTraceRow {
 	error_text: string | null;
 	started_at: string;
 	finished_at: string;
+}
+
+interface CanonicalMigrationMessageRow {
+	id: string;
+	conversation_id: string;
+	role: 'user' | 'assistant' | 'system';
+	content_text: string;
+	attachments_json: string | null;
+	metadata_json: string | null;
+	created_at: string;
+}
+
+interface CanonicalMigrationTraceRow {
+	id: string;
+	raw_response: string;
 }
 
 export interface EternalAiDatabaseConfig {
@@ -153,6 +174,7 @@ export class EternalAiDatabase {
 		`);
 		this.ensureArtifactContextColumn();
 		this.ensureTurnTraceSchema();
+		this.ensureCanonicalMessages();
 		this.dropLegacyMediaJobsTable();
 	}
 
@@ -338,6 +360,132 @@ export class EternalAiDatabase {
 			}
 
 			this.db.exec(`DROP TABLE eternal_ai_turn_traces_legacy`);
+		});
+
+		migrate();
+	}
+
+	/**
+	 * @description One-shot backfill старой Eternal истории в `canonicalMessage`.
+	 * Миграция опирается на лучший доступный semantic source: сначала raw trace,
+	 * затем legacy `metadata.parsedResponse`, и только потом plain `content_text`.
+	 * Это позволяет не терять `action`, `thought`, `environment` и кандидатов памяти
+	 * там, где они уже были сохранены в старых слоях runtime/debug.
+	 * @returns {void}
+	 */
+	private ensureCanonicalMessages(): void {
+		const rows = this.db
+			.prepare(
+				`
+					SELECT
+						id,
+						conversation_id,
+						role,
+						content_text,
+						attachments_json,
+						metadata_json,
+						created_at
+					FROM eternal_ai_messages
+					ORDER BY created_at ASC
+				`
+			)
+			.all() as CanonicalMigrationMessageRow[];
+		if (!rows.length) {
+			return;
+		}
+
+		const traceRows = this.db
+			.prepare(
+				`
+					SELECT
+						id,
+						raw_response
+					FROM eternal_ai_turn_traces
+				`
+			)
+			.all() as CanonicalMigrationTraceRow[];
+		const traceById = new Map(
+			traceRows.map(row => [row.id, row.raw_response || ''])
+		);
+
+		const update = this.db.prepare(
+			`
+				UPDATE eternal_ai_messages
+				SET
+					content_text = ?,
+					metadata_json = ?
+				WHERE id = ?
+			`
+		);
+
+		const migrate = this.db.transaction(() => {
+			for (const row of rows) {
+				let metadata: Record<string, unknown> | null = null;
+				try {
+					metadata = row.metadata_json
+						? (JSON.parse(row.metadata_json) as Record<string, unknown>)
+						: null;
+				} catch {
+					metadata = null;
+				}
+
+				const existingCanonical =
+					metadata?.canonicalMessage &&
+					typeof metadata.canonicalMessage === 'object' &&
+					!Array.isArray(metadata.canonicalMessage);
+				if (existingCanonical) {
+					continue;
+				}
+
+				const attachments = row.attachments_json
+					? (JSON.parse(row.attachments_json) as Array<Record<string, unknown>>)
+					: null;
+				const traceId =
+					typeof metadata?.traceId === 'string' ? metadata.traceId : null;
+				const traceRawResponse = traceId
+					? traceById.get(traceId) || null
+					: null;
+
+				const canonicalMessage =
+					row.role === 'assistant'
+						? (() => {
+								const parsedResponse = reconstructAssistantParsedResponse({
+									contentText: row.content_text,
+									metadata,
+									traceRawResponse,
+								});
+								return buildEternalCanonicalMessage({
+									messageId: row.id,
+									conversationId: row.conversation_id,
+									role: row.role,
+									createdAt: row.created_at,
+									text: parsedResponse.displayText || row.content_text,
+									attachments,
+									parts: parsedResponse.parts,
+									hidden:
+										buildEternalHiddenPayloadFromParsedResponse(parsedResponse),
+								});
+							})()
+						: buildEternalCanonicalMessage({
+								messageId: row.id,
+								conversationId: row.conversation_id,
+								role: row.role,
+								createdAt: row.created_at,
+								text: row.content_text,
+								attachments,
+							});
+
+				const nextMetadata = {
+					...(metadata || {}),
+					canonicalMessage,
+					canonicalMigrationVersion: 1,
+				};
+				const nextContentText =
+					renderCanonicalChatMessageToText(canonicalMessage) ||
+					row.content_text ||
+					'';
+				update.run(nextContentText, JSON.stringify(nextMetadata), row.id);
+			}
 		});
 
 		migrate();

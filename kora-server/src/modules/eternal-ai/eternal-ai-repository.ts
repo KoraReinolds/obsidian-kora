@@ -11,10 +11,12 @@ import type {
 	CreateEternalAiConversationRequest,
 	EternalAiArtifactRecord,
 	EternalAiConversationSummary,
+	EternalAiMessageMetadata,
 	EternalAiMessageRecord,
 	EternalAiTurnTraceRecord,
 	UpdateEternalAiArtifactRequest,
 } from '../../../../packages/contracts/src/eternal-ai.js';
+import type { CanonicalChatMessage } from '../../../../packages/contracts/src/canonical-chat-message.js';
 import type {
 	Artifact,
 	ArtifactRecallQuery,
@@ -903,6 +905,15 @@ export class EternalAiRepository implements ArtifactStorePort {
 	}
 
 	private mapMessage(row: MessageRow): EternalAiMessageRecord {
+		const metadata = row.metadata_json
+			? (JSON.parse(row.metadata_json) as EternalAiMessageMetadata)
+			: null;
+		const canonicalMessage =
+			metadata?.canonicalMessage &&
+			typeof metadata.canonicalMessage === 'object' &&
+			!Array.isArray(metadata.canonicalMessage)
+				? (metadata.canonicalMessage as CanonicalChatMessage)
+				: null;
 		return {
 			id: row.id,
 			conversationId: row.conversation_id,
@@ -914,9 +925,8 @@ export class EternalAiRepository implements ArtifactStorePort {
 			attachments: row.attachments_json
 				? (JSON.parse(row.attachments_json) as Array<Record<string, unknown>>)
 				: null,
-			metadata: row.metadata_json
-				? (JSON.parse(row.metadata_json) as Record<string, unknown>)
-				: null,
+			metadata,
+			canonicalMessage,
 			createdAt: row.created_at,
 		};
 	}

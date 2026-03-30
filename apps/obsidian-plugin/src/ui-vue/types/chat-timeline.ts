@@ -7,6 +7,7 @@
  */
 
 import type { Component } from 'vue';
+import type { CanonicalChatMessagePart } from '../../../../../packages/contracts/src/canonical-chat-message';
 
 export interface ChatTimelineReplyPreview {
 	label: string;
@@ -109,10 +110,13 @@ export interface ChatTimelineMessageItem extends ChatTimelineBaseItem {
 	anchorId?: string;
 	role?: 'user' | 'assistant' | 'system' | 'other';
 	align?: 'start' | 'end' | 'center';
+	/** Eternal AI: компактный чат без аватара, время в строке или внизу справа. */
+	bubbleChrome?: 'default' | 'messenger';
 	author?: string;
 	initials?: string;
 	meta?: string;
 	text?: string;
+	parts?: CanonicalChatMessagePart[];
 	replyPreview?: ChatTimelineReplyPreview | null;
 	forwardedLabel?: string | null;
 	attachments?: ChatTimelineAttachment[];

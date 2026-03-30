@@ -22,12 +22,14 @@ const props = withDefaults(
 		highlightedItemId?: string | null;
 		/** Показывать кнопку переключения «сырой JSON» (отладка). По умолчанию включено. */
 		showRawDebugToggle?: boolean;
+		surfaceVariant?: 'default' | 'messenger';
 	}>(),
 	{
 		loading: false,
 		emptyText: 'Пока нет сообщений.',
 		highlightedItemId: null,
 		showRawDebugToggle: true,
+		surfaceVariant: 'default',
 	}
 );
 
@@ -99,7 +101,12 @@ function getRendererProps(item: ChatTimelineItem): Record<string, unknown> {
 <template>
 	<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
 		<div
-			class="kora-chat-timeline relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-solid border-[var(--background-modifier-border)] bg-[#161616]"
+			class="kora-chat-timeline relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-solid"
+			:class="
+				surfaceVariant === 'messenger'
+					? 'border-[var(--background-modifier-border)] bg-[var(--background-primary)]'
+					: 'border-[var(--background-modifier-border)] bg-[#161616]'
+			"
 		>
 			<div
 				v-if="showRawDebugToggle && !loading && items.length > 0"
@@ -150,7 +157,8 @@ function getRendererProps(item: ChatTimelineItem): Record<string, unknown> {
 				<div
 					v-for="item in items"
 					:key="item.id"
-					class="mb-3 flex w-full min-w-0 flex-col last:mb-0"
+					class="flex w-full min-w-0 flex-col last:mb-0"
+					:class="surfaceVariant === 'messenger' ? 'mb-1.5' : 'mb-3'"
 				>
 					<component
 						:is="resolveRenderer(item)"

@@ -4,6 +4,8 @@
  * который хранит историю локально и проксирует OpenAI-compatible chat API.
  */
 
+import type { CanonicalChatMessage } from './canonical-chat-message';
+
 export interface EternalAiConversationSummary {
 	id: string;
 	title: string;
@@ -26,8 +28,19 @@ export interface EternalAiMessageRecord {
 	status: 'complete' | 'error' | 'pending';
 	errorText?: string | null;
 	attachments?: Array<Record<string, unknown>> | null;
-	metadata?: Record<string, unknown> | null;
+	metadata?: EternalAiMessageMetadata | null;
+	canonicalMessage?: CanonicalChatMessage | null;
 	createdAt: string;
+}
+
+/**
+ * @description Служебные поля сообщения Eternal AI. Здесь сохраняется debug
+ * информация runtime и каноническое tg-first представление для UI/sync слоя.
+ */
+export interface EternalAiMessageMetadata extends Record<string, unknown> {
+	traceId?: string;
+	parsedResponse?: Record<string, unknown>;
+	canonicalMessage?: CanonicalChatMessage | null;
 }
 
 export interface CreateEternalAiConversationRequest {

@@ -8,6 +8,7 @@
  */
 
 import { computed, ref, watch } from 'vue';
+import type { CanonicalChatMessage } from '../../../../../../packages/contracts/src/canonical-chat-message';
 import type {
 	EternalAiArtifactRecord,
 	EternalAiConversationSummary,
@@ -21,6 +22,7 @@ import type {
 import {
 	ChatTimelineEternalTurnConversation,
 	ChatTimelineEternalTurnDebug,
+	canonicalChatMessageToTimelineMessage,
 	useScreenMessage,
 } from '../../../ui-vue';
 import type {
@@ -43,41 +45,18 @@ export interface EternalAiScreenModelOptions {
 	persistChatModelId: (modelRef: string) => Promise<void>;
 }
 
-const getRoleLabel = (role: EternalAiMessageRecord['role']): string => {
-	if (role === 'assistant') return 'Eternal AI';
-	if (role === 'system') return 'System';
-	return 'You';
-};
-
-const getRoleInitials = (role: EternalAiMessageRecord['role']): string => {
-	if (role === 'assistant') return 'EA';
-	if (role === 'system') return 'SY';
-	return 'YU';
-};
-
-const mapMessageAttachments = (
-	message: EternalAiMessageRecord
-): ChatTimelineMessageItem['attachments'] => {
-	const raw = message.attachments;
-	if (!raw?.length) {
-		return undefined;
+/**
+ * @description Короткое время в пузыре мессенджера (без даты и модели).
+ * @param {string | null | undefined} value - ISO createdAt
+ * @returns {string}
+ */
+const formatMessengerTime = (value?: string | null): string => {
+	if (!value) {
+		return '';
 	}
-
-	return raw.map((item, index) => {
-		const rec = item as Record<string, unknown>;
-		return {
-			id: String(rec.id ?? `${message.id}-att-${index}`),
-			kind: String(rec.kind ?? 'file'),
-			name: String(rec.name ?? 'Вложение'),
-			description:
-				typeof rec.description === 'string' ? rec.description : undefined,
-			previewSrc: typeof rec.previewSrc === 'string' ? rec.previewSrc : null,
-			isGenerating: Boolean(rec.isGenerating),
-			isImage: Boolean(rec.isImage),
-			isVideo: Boolean(rec.isVideo),
-			size: typeof rec.size === 'number' ? rec.size : null,
-			mimeType: typeof rec.mimeType === 'string' ? rec.mimeType : null,
-		};
+	return new Date(value).toLocaleTimeString(undefined, {
+		hour: 'numeric',
+		minute: '2-digit',
 	});
 };
 
@@ -198,54 +177,55 @@ function buildTimelineTracePayload(
  * @param {EternalAiMessageRecord} message - исходное сообщение из БД
  * @returns {ChatTimelineMessageItem}
  */
+function getCanonicalMessageForTimeline(
+	message: EternalAiMessageRecord
+): CanonicalChatMessage {
+	const canonicalMessage = message.canonicalMessage;
+	if (!canonicalMessage) {
+		throw new Error(
+			`Eternal message ${message.id} is missing canonicalMessage after migration.`
+		);
+	}
+	return canonicalMessage;
+}
+
 function mapMessageToTimelineMessage(
 	message: EternalAiMessageRecord
 ): ChatTimelineMessageItem {
 	const role = message.role;
 	const isUser = role === 'user';
-	return {
-		id: message.id,
-		rawPayload: message,
-		role,
-		align: isUser ? 'end' : role === 'system' ? 'center' : 'start',
-		author: getRoleLabel(role),
-		initials: getRoleInitials(role),
-		meta: [
-			message.createdAt
-				? new Date(message.createdAt).toLocaleString()
-				: 'ещё не было',
-			message.model || null,
-		]
-			.filter(Boolean)
-			.join(' · '),
-		text: message.contentText,
-		attachments: mapMessageAttachments(message),
-		badges:
-			message.status === 'error' && message.errorText
-				? [message.errorText]
-				: [],
-		accent: isUser
-			? {
-					avatarBg: 'var(--interactive-accent)',
-					avatarText: 'white',
-					bubbleBg: 'rgba(var(--interactive-accent-rgb, 124, 92, 255), 0.12)',
-					bubbleBorder:
-						'rgba(var(--interactive-accent-rgb, 124, 92, 255), 0.25)',
-				}
-			: role === 'system'
+	return canonicalChatMessageToTimelineMessage(
+		getCanonicalMessageForTimeline(message),
+		{
+			role,
+			align: isUser ? 'end' : role === 'system' ? 'center' : 'start',
+			bubbleChrome: 'messenger',
+			author: '',
+			initials: '',
+			rawPayload: message,
+			meta: formatMessengerTime(message.createdAt),
+			badges:
+				message.status === 'error' && message.errorText
+					? [message.errorText]
+					: [],
+			accent: isUser
 				? {
-						avatarBg: 'hsl(42 74% 52%)',
-						avatarText: 'rgba(255, 255, 255, 0.95)',
-						bubbleBg: 'rgba(66, 53, 19, 0.9)',
-						bubbleBorder: 'rgba(255, 208, 87, 0.22)',
+						bubbleBg:
+							'color-mix(in srgb, var(--interactive-accent) 44%, var(--background-primary))',
+						bubbleBorder:
+							'color-mix(in srgb, var(--interactive-accent) 68%, var(--background-modifier-border))',
 					}
-				: {
-						avatarBg: 'hsl(195 40% 44%)',
-						avatarText: 'rgba(255, 255, 255, 0.95)',
-						bubbleBg: 'rgba(29, 29, 29, 0.96)',
-						bubbleBorder: 'rgba(255, 255, 255, 0.08)',
-					},
-	};
+				: role === 'system'
+					? {
+							bubbleBg: 'rgba(66, 53, 19, 0.92)',
+							bubbleBorder: 'rgba(255, 208, 87, 0.22)',
+						}
+					: {
+							bubbleBg: 'var(--background-modifier-hover)',
+							bubbleBorder: 'var(--background-modifier-border)',
+						},
+		}
+	);
 }
 
 /**
