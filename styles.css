@@ -1002,12 +1002,32 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 			);
 		}
 	}
+	.bg-\[var\(--background-primary\)\]\/45 {
+		background-color: var(--background-primary);
+		@supports (color: color-mix(in lab, red, red)) {
+			background-color: color-mix(
+				in oklab,
+				var(--background-primary) 45%,
+				transparent
+			);
+		}
+	}
 	.bg-\[var\(--background-primary\)\]\/50 {
 		background-color: var(--background-primary);
 		@supports (color: color-mix(in lab, red, red)) {
 			background-color: color-mix(
 				in oklab,
 				var(--background-primary) 50%,
+				transparent
+			);
+		}
+	}
+	.bg-\[var\(--background-primary\)\]\/55 {
+		background-color: var(--background-primary);
+		@supports (color: color-mix(in lab, red, red)) {
+			background-color: color-mix(
+				in oklab,
+				var(--background-primary) 55%,
 				transparent
 			);
 		}

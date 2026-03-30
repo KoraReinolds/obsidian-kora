@@ -9,6 +9,8 @@ export { default as SummaryChip } from './SummaryChip.vue';
 export { default as MessageCard } from './MessageCard.vue';
 export { default as ChatTimeline } from './ChatTimeline.vue';
 export { default as ChatMessageBubble } from './ChatMessageBubble.vue';
+export { default as ChatTimelineEternalTurnConversation } from './ChatTimelineEternalTurnConversation.vue';
+export { default as ChatTimelineEternalTurnDebug } from './ChatTimelineEternalTurnDebug.vue';
 export { default as AttachmentPreviewThumb } from './AttachmentPreviewThumb.vue';
 export { default as PlaceholderState } from './PlaceholderState.vue';
 export { default as ImageLightbox } from './ImageLightbox.vue';

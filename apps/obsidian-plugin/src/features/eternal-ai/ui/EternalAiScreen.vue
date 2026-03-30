@@ -56,6 +56,7 @@ const {
 	screenMessage,
 	clearScreenMessage,
 	clearOpenClawCatalogError,
+	timelineDebugEnabled,
 	timelineItems,
 	refreshData,
 	selectConversation,
@@ -69,7 +70,6 @@ const {
 	selectedEffect,
 	filteredEffects,
 	artifacts,
-	toggleTimelineInspectorTrace,
 	visualSourceDataUrl,
 	isLoadingEffects,
 	isLoadingArtifacts,
@@ -840,12 +840,43 @@ void refreshData();
 				<div
 					class="flex h-full min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-hidden"
 				>
+					<label
+						class="flex shrink-0 cursor-pointer items-center justify-between gap-3 rounded-2xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-primary)]/45 px-3 py-2"
+					>
+						<div class="min-w-0">
+							<div
+								class="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]"
+								v-text="'Лента чата'"
+							/>
+							<div
+								class="text-xs text-[var(--text-muted)]"
+								v-text="
+									timelineDebugEnabled
+										? 'Полный debug turn: input, prompt, raw, parsed и friendly output в одном блоке.'
+										: 'Обычный диалог; включите Debug для трассировки turn.'
+								"
+							/>
+						</div>
+						<div
+							class="flex shrink-0 items-center gap-2 rounded-xl border border-solid border-[var(--background-modifier-border)] px-2.5 py-1.5"
+						>
+							<input
+								v-model="timelineDebugEnabled"
+								type="checkbox"
+								class="m-0 h-4 w-4 shrink-0 cursor-pointer accent-[var(--interactive-accent)]"
+							/>
+							<span
+								class="text-xs font-semibold text-[var(--text-normal)]"
+								v-text="'Debug'"
+							/>
+						</div>
+					</label>
+
 					<ChatTimeline
 						:items="timelineItems"
 						:loading="isLoadingMessages"
 						empty-text="История ещё не началась. Отправьте первое сообщение."
 						@delete="handleDeleteMessage"
-						@toggle-timeline-inspector="toggleTimelineInspectorTrace"
 					/>
 
 					<EternalAiMessageComposer

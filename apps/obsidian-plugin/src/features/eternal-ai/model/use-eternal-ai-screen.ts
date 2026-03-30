@@ -18,10 +18,17 @@ import type {
 	EternalAiS4SafetyCheckResponse,
 	EternalAiTurnTraceRecord,
 } from '../../../../../../packages/contracts/src/eternal-ai';
-import { useScreenMessage } from '../../../ui-vue';
+import {
+	ChatTimelineEternalTurnConversation,
+	ChatTimelineEternalTurnDebug,
+	useScreenMessage,
+} from '../../../ui-vue';
 import type {
-	ChatTimelineEternalInspectorPayload,
+	ChatTimelineEternalConversationTurnItem,
+	ChatTimelineEternalDebugTurnItem,
+	ChatTimelineEternalTracePayload,
 	ChatTimelineItem,
+	ChatTimelineMessageItem,
 } from '../../../ui-vue';
 import type { EternalAiTransportPort } from '../ports/eternal-ai-transport-port';
 import { loadOpenClawChatModelsFromDisk } from '../lib/load-openclaw-chat-models';
@@ -57,7 +64,7 @@ const getRoleInitials = (role: EternalAiMessageRecord['role']): string => {
 
 const mapMessageAttachments = (
 	message: EternalAiMessageRecord
-): ChatTimelineItem['attachments'] => {
+): ChatTimelineMessageItem['attachments'] => {
 	const raw = message.attachments;
 	if (!raw?.length) {
 		return undefined;
@@ -146,13 +153,11 @@ function getTraceIdFromMessage(message: EternalAiMessageRecord): string | null {
 /**
  * @description Собирает DTO инспектора ленты из записи turn trace.
  * @param {EternalAiTurnTraceRecord} trace - снимок с сервера
- * @param {boolean} expanded - раскрыт ли блок
- * @returns {ChatTimelineEternalInspectorPayload}
+ * @returns {ChatTimelineEternalTracePayload}
  */
-function buildTimelineInspectorPayload(
-	trace: EternalAiTurnTraceRecord,
-	expanded: boolean
-): ChatTimelineEternalInspectorPayload {
+function buildTimelineTracePayload(
+	trace: EternalAiTurnTraceRecord
+): ChatTimelineEternalTracePayload {
 	return {
 		traceId: trace.id,
 		model: trace.model,
@@ -167,7 +172,113 @@ function buildTimelineInspectorPayload(
 		promptFragmentsPretty: JSON.stringify(trace.promptFragments, null, 2),
 		timingsPretty: JSON.stringify(trace.timingsMs, null, 2),
 		errorText: trace.errorText ?? null,
-		expanded,
+		startedAt: trace.startedAt,
+		finishedAt: trace.finishedAt,
+	};
+}
+
+/**
+ * @description Нормализует одно сообщение Eternal AI в универсальный bubble-item.
+ * Этот item используется и как самостоятельная строка (system), и как часть turn renderer.
+ * @param {EternalAiMessageRecord} message - исходное сообщение из БД
+ * @returns {ChatTimelineMessageItem}
+ */
+function mapMessageToTimelineMessage(
+	message: EternalAiMessageRecord
+): ChatTimelineMessageItem {
+	const role = message.role;
+	const isUser = role === 'user';
+	return {
+		id: message.id,
+		rawPayload: message,
+		role,
+		align: isUser ? 'end' : role === 'system' ? 'center' : 'start',
+		author: getRoleLabel(role),
+		initials: getRoleInitials(role),
+		meta: [formatDate(message.createdAt), message.model || null]
+			.filter(Boolean)
+			.join(' · '),
+		text: message.contentText,
+		attachments: mapMessageAttachments(message),
+		badges:
+			message.status === 'error' && message.errorText
+				? [message.errorText]
+				: [],
+		accent: isUser
+			? {
+					avatarBg: 'var(--interactive-accent)',
+					avatarText: 'white',
+					bubbleBg: 'rgba(var(--interactive-accent-rgb, 124, 92, 255), 0.12)',
+					bubbleBorder:
+						'rgba(var(--interactive-accent-rgb, 124, 92, 255), 0.25)',
+				}
+			: role === 'system'
+				? {
+						avatarBg: 'hsl(42 74% 52%)',
+						avatarText: 'rgba(255, 255, 255, 0.95)',
+						bubbleBg: 'rgba(66, 53, 19, 0.9)',
+						bubbleBorder: 'rgba(255, 208, 87, 0.22)',
+					}
+				: {
+						avatarBg: 'hsl(195 40% 44%)',
+						avatarText: 'rgba(255, 255, 255, 0.95)',
+						bubbleBg: 'rgba(29, 29, 29, 0.96)',
+						bubbleBorder: 'rgba(255, 255, 255, 0.08)',
+					},
+	};
+}
+
+/**
+ * @description Собирает turn-item для обычного режима чата: одна строка ленты
+ * соответствует одному runtime turn, внутри которого уже user/assistant bubbles.
+ * @param params - Нормализованные части turn
+ * @returns {ChatTimelineEternalConversationTurnItem}
+ */
+function buildConversationTurnItem(params: {
+	turnId: string;
+	userMessage?: ChatTimelineMessageItem | null;
+	assistantMessage?: ChatTimelineMessageItem | null;
+	trace?: ChatTimelineEternalTracePayload | null;
+	rawPayload: Record<string, unknown>;
+}): ChatTimelineEternalConversationTurnItem {
+	return {
+		id: params.turnId,
+		kind: 'custom',
+		renderer: ChatTimelineEternalTurnConversation,
+		rendererProps: {
+			turnId: params.turnId,
+			userMessage: params.userMessage ?? null,
+			assistantMessage: params.assistantMessage ?? null,
+			trace: params.trace ?? null,
+		},
+		rawPayload: params.rawPayload,
+	};
+}
+
+/**
+ * @description Собирает turn-item для полного debug-режима: friendly output и
+ * trace показываются в одном renderer-блоке без доп. раскрывашек.
+ * @param params - Нормализованные части turn
+ * @returns {ChatTimelineEternalDebugTurnItem}
+ */
+function buildDebugTurnItem(params: {
+	turnId: string;
+	userMessage?: ChatTimelineMessageItem | null;
+	assistantMessage?: ChatTimelineMessageItem | null;
+	trace?: ChatTimelineEternalTracePayload | null;
+	rawPayload: Record<string, unknown>;
+}): ChatTimelineEternalDebugTurnItem {
+	return {
+		id: params.turnId,
+		kind: 'custom',
+		renderer: ChatTimelineEternalTurnDebug,
+		rendererProps: {
+			turnId: params.turnId,
+			userMessage: params.userMessage ?? null,
+			assistantMessage: params.assistantMessage ?? null,
+			trace: params.trace ?? null,
+		},
+		rawPayload: params.rawPayload,
 	};
 }
 
@@ -188,8 +299,8 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 	const isCreatingArtifact = ref(false);
 	const turnTraces = ref<EternalAiTurnTraceRecord[]>([]);
 	const artifacts = ref<EternalAiArtifactRecord[]>([]);
-	/** Раскрытые в ленте инспекторы trace по `traceId`. */
-	const expandedTimelineInspectorTraceIds = ref<Set<string>>(new Set());
+	/** Включён ли режим полного debug turn в ленте; выключен — обычный диалог. */
+	const timelineDebugEnabled = ref(false);
 	const leftTab = ref<'chats' | 'effects' | 'debug'>('chats');
 	const creativeEffects = ref<EternalAiCreativeEffectItem[]>([]);
 	const effectsQuery = ref('');
@@ -260,21 +371,6 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 		Boolean(selectedConversationId.value)
 	);
 
-	/**
-	 * @description Переключает раскрытие инлайн-инспектора turn trace в ленте.
-	 * @param {string} traceId - id trace
-	 * @returns {void}
-	 */
-	const toggleTimelineInspectorTrace = (traceId: string): void => {
-		const next = new Set(expandedTimelineInspectorTraceIds.value);
-		if (next.has(traceId)) {
-			next.delete(traceId);
-		} else {
-			next.add(traceId);
-		}
-		expandedTimelineInspectorTraceIds.value = next;
-	};
-
 	const filteredEffects = computed((): EternalAiCreativeEffectItem[] => {
 		const query = effectsQuery.value.trim().toLowerCase();
 		const remote = creativeEffects.value;
@@ -288,57 +384,85 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 	});
 
 	const timelineItems = computed<ChatTimelineItem[]>(() => {
-		const expanded = expandedTimelineInspectorTraceIds.value;
 		const traces = traceById.value;
-		return messages.value.map(message => {
-			const role = message.role;
-			const isUser = role === 'user';
+		const items: ChatTimelineItem[] = [];
+		const usedMessageIds = new Set<string>();
+		const buildTurnItem = timelineDebugEnabled.value
+			? buildDebugTurnItem
+			: buildConversationTurnItem;
+
+		for (let index = 0; index < messages.value.length; index += 1) {
+			const message = messages.value[index];
+			if (usedMessageIds.has(message.id)) {
+				continue;
+			}
+
+			if (message.role === 'system') {
+				usedMessageIds.add(message.id);
+				items.push(mapMessageToTimelineMessage(message));
+				continue;
+			}
+
+			if (message.role === 'user') {
+				const nextMessage = messages.value[index + 1];
+				const currentTraceId = getTraceIdFromMessage(message);
+				const nextTraceId =
+					nextMessage?.role === 'assistant'
+						? getTraceIdFromMessage(nextMessage)
+						: null;
+				const trace =
+					(currentTraceId ? traces.get(currentTraceId) : undefined) ||
+					(nextTraceId ? traces.get(nextTraceId) : undefined) ||
+					null;
+				const assistantMessage =
+					nextMessage?.role === 'assistant' ? nextMessage : null;
+
+				if (assistantMessage) {
+					usedMessageIds.add(assistantMessage.id);
+				}
+				usedMessageIds.add(message.id);
+
+				items.push(
+					buildTurnItem({
+						turnId: trace?.id || assistantMessage?.id || message.id,
+						userMessage: mapMessageToTimelineMessage(message),
+						assistantMessage: assistantMessage
+							? mapMessageToTimelineMessage(assistantMessage)
+							: null,
+						trace: trace ? buildTimelineTracePayload(trace) : null,
+						rawPayload: {
+							type: 'eternal-turn',
+							mode: timelineDebugEnabled.value ? 'debug' : 'conversation',
+							userMessage: message,
+							assistantMessage,
+							trace,
+						},
+					})
+				);
+				continue;
+			}
+
+			usedMessageIds.add(message.id);
 			const traceId = getTraceIdFromMessage(message);
-			const trace = traceId ? traces.get(traceId) : undefined;
-			const timelineInspector =
-				trace && traceId
-					? buildTimelineInspectorPayload(trace, expanded.has(traceId))
-					: undefined;
-			return {
-				id: message.id,
-				role,
-				align: isUser ? 'end' : role === 'system' ? 'center' : 'start',
-				author: getRoleLabel(role),
-				initials: getRoleInitials(role),
-				meta: [formatDate(message.createdAt), message.model || null]
-					.filter(Boolean)
-					.join(' · '),
-				text: message.contentText,
-				attachments: mapMessageAttachments(message),
-				badges:
-					message.status === 'error' && message.errorText
-						? [message.errorText]
-						: [],
-				accent: isUser
-					? {
-							avatarBg: 'var(--interactive-accent)',
-							avatarText: 'white',
-							bubbleBg:
-								'rgba(var(--interactive-accent-rgb, 124, 92, 255), 0.12)',
-							bubbleBorder:
-								'rgba(var(--interactive-accent-rgb, 124, 92, 255), 0.25)',
-						}
-					: role === 'system'
-						? {
-								avatarBg: 'hsl(42 74% 52%)',
-								avatarText: 'rgba(255, 255, 255, 0.95)',
-								bubbleBg: 'rgba(66, 53, 19, 0.9)',
-								bubbleBorder: 'rgba(255, 208, 87, 0.22)',
-							}
-						: {
-								avatarBg: 'hsl(195 40% 44%)',
-								avatarText: 'rgba(255, 255, 255, 0.95)',
-								bubbleBg: 'rgba(29, 29, 29, 0.96)',
-								bubbleBorder: 'rgba(255, 255, 255, 0.08)',
-							},
-				timelineInspector,
-			} satisfies ChatTimelineItem;
-		});
+			const trace = traceId ? traces.get(traceId) : null;
+			items.push(
+				buildTurnItem({
+					turnId: trace?.id || message.id,
+					userMessage: null,
+					assistantMessage: mapMessageToTimelineMessage(message),
+					trace: trace ? buildTimelineTracePayload(trace) : null,
+					rawPayload: {
+						type: 'eternal-turn',
+						mode: timelineDebugEnabled.value ? 'debug' : 'conversation',
+						userMessage: null,
+						assistantMessage: message,
+						trace,
+					},
+				})
+			);
+		}
+
+		return items;
 	});
 
 	const systemPromptSummary = computed(() => {
@@ -368,7 +492,6 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 		if (!conversationId) {
 			messages.value = [];
 			turnTraces.value = [];
-			expandedTimelineInspectorTraceIds.value = new Set();
 			return;
 		}
 
@@ -396,7 +519,6 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 	): Promise<void> => {
 		if (!conversationId) {
 			turnTraces.value = [];
-			expandedTimelineInspectorTraceIds.value = new Set();
 			return;
 		}
 
@@ -404,12 +526,6 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 			turnTraces.value = await options.transport.listTurnTraces(
 				conversationId,
 				20
-			);
-			const validIds = new Set(turnTraces.value.map(trace => trace.id));
-			expandedTimelineInspectorTraceIds.value = new Set(
-				[...expandedTimelineInspectorTraceIds.value].filter(id =>
-					validIds.has(id)
-				)
 			);
 		} catch (error) {
 			screen.setMessage(
@@ -614,7 +730,6 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 		}
 
 		selectedConversationId.value = conversationId;
-		expandedTimelineInspectorTraceIds.value = new Set();
 		await Promise.all([
 			loadMessages(conversationId),
 			loadTurnTraces(conversationId),
@@ -627,7 +742,6 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 		messages.value = [];
 		artifacts.value = [];
 		turnTraces.value = [];
-		expandedTimelineInspectorTraceIds.value = new Set();
 		screen.setMessage(
 			'neutral',
 			'Новый чат начнётся с первого отправленного сообщения.'
@@ -1050,10 +1164,10 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 		screenMessage: screen.message,
 		clearScreenMessage: screen.clearMessage,
 		clearOpenClawCatalogError,
+		timelineDebugEnabled,
 		timelineItems,
 		artifacts,
 		turnTraces,
-		toggleTimelineInspectorTrace,
 		canManageArtifacts,
 		systemPromptSummary,
 		refreshData,

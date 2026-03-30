@@ -3,12 +3,14 @@
  * @description Переиспользуемая прокручиваемая лента сообщений. Одна рамка и один
  * слой внутренних отступов (p-3): загрузка, пусто и список — внутри того же блока,
  * чтобы родитель мог не дублировать внешний padding (например колонка Eternal AI).
- * Опционально: иконка «сырой JSON» — режим отладки без баблов, только дамп `items`.
+ * Renderer элемента приходит вместе с item: лента отвечает только за контейнер,
+ * скролл и raw JSON режим, а сама фича подменяет представление turn.
  */
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import PlaceholderState from './PlaceholderState.vue';
 import ChatMessageBubble from './ChatMessageBubble.vue';
-import ChatTimelineInlineInspector from './ChatTimelineInlineInspector.vue';
+import ChatTimelineEternalTurnConversation from './ChatTimelineEternalTurnConversation.vue';
+import ChatTimelineEternalTurnDebug from './ChatTimelineEternalTurnDebug.vue';
 import IconButton from './IconButton.vue';
 import type { ChatTimelineItem } from '../types';
 
@@ -53,10 +55,45 @@ watch(
  */
 function formatTimelineItemRaw(item: ChatTimelineItem): string {
 	try {
-		return JSON.stringify(item, null, 2);
+		return JSON.stringify(item.rawPayload ?? item, null, 2);
 	} catch {
 		return '[ChatTimelineItem: не удалось сериализовать]';
 	}
+}
+
+const builtinRenderers = {
+	message: ChatMessageBubble,
+	'eternal-turn-conversation': ChatTimelineEternalTurnConversation,
+	'eternal-turn-debug': ChatTimelineEternalTurnDebug,
+} as const;
+
+/**
+ * @description Выбирает renderer элемента: кастомный из item или встроенный
+ * компонент по kind. Это заменяет цепочки if/else в шаблоне.
+ * @param {ChatTimelineItem} item - элемент ленты
+ * @returns {object}
+ */
+const resolveRenderer = computed(
+	() => (item: ChatTimelineItem) =>
+		item.kind === 'custom'
+			? item.renderer
+			: builtinRenderers[item.kind || 'message']
+);
+
+/**
+ * @description Пропсы для renderer-а: у custom item они приходят из `rendererProps`,
+ * для обычного message renderer передаём стандартный `{ item, highlighted }`.
+ * @param {ChatTimelineItem} item - элемент ленты
+ * @returns {Record<string, unknown>}
+ */
+function getRendererProps(item: ChatTimelineItem): Record<string, unknown> {
+	if (item.kind === 'custom') {
+		return item.rendererProps || {};
+	}
+	return {
+		item,
+		highlighted: props.highlightedItemId === item.id,
+	};
 }
 </script>
 
@@ -114,31 +151,15 @@ function formatTimelineItemRaw(item: ChatTimelineItem): string {
 				<div
 					v-for="item in items"
 					:key="item.id"
-					class="mb-3 flex w-full min-w-0 flex-col gap-2 last:mb-0"
+					class="mb-3 flex w-full min-w-0 flex-col last:mb-0"
 				>
-					<div
-						class="flex w-full min-w-0"
-						:class="
-							item.align === 'end'
-								? 'justify-end'
-								: item.align === 'center'
-									? 'justify-center'
-									: 'justify-start'
-						"
-					>
-						<ChatMessageBubble
-							:item="item"
-							:highlighted="highlightedItemId === item.id"
-							@jump="emit('jump', $event)"
-							@delete="emit('delete', $event)"
-						/>
-					</div>
-					<ChatTimelineInlineInspector
-						v-if="item.timelineInspector"
-						:payload="item.timelineInspector"
-						class="w-full min-w-0 max-w-[min(100%,48rem)]"
-						:class="item.align === 'end' ? 'self-end' : 'self-start'"
+					<component
+						:is="resolveRenderer(item)"
+						v-bind="getRendererProps(item)"
+						class="min-w-0"
 						@toggle="emit('toggle-timeline-inspector', $event)"
+						@jump="emit('jump', $event)"
+						@delete="emit('delete', $event)"
 					/>
 				</div>
 			</div>
