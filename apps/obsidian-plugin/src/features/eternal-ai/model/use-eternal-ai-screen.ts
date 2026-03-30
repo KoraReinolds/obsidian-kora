@@ -162,15 +162,37 @@ function buildTimelineTracePayload(
 		traceId: trace.id,
 		model: trace.model,
 		status: trace.status,
-		inputText: trace.inputText,
 		promptText: trace.promptText,
 		rawResponse: trace.rawResponse,
-		parsedResponsePretty: trace.parsedResponse
-			? JSON.stringify(trace.parsedResponse, null, 2)
-			: '',
-		recalledArtifactsPretty: JSON.stringify(trace.recalledArtifacts, null, 2),
-		promptFragmentsPretty: JSON.stringify(trace.promptFragments, null, 2),
-		timingsPretty: JSON.stringify(trace.timingsMs, null, 2),
+		runtimeExtraction: trace.runtimeExtraction
+			? {
+					actions: trace.runtimeExtraction.actions,
+					memoryCandidates: trace.runtimeExtraction.memoryCandidates,
+					environmentPatchPretty: trace.runtimeExtraction.environmentPatch
+						? JSON.stringify(trace.runtimeExtraction.environmentPatch, null, 2)
+						: '',
+					usedStructuredBlocks: trace.runtimeExtraction.usedStructuredBlocks,
+				}
+			: null,
+		recalledArtifacts: trace.recalledArtifacts.map(artifact => ({
+			id: artifact.id,
+			type: artifact.type,
+			context: artifact.context,
+			sourceLabel: `${artifact.sourceType}:${artifact.sourceId}`,
+			scopeLabel: artifact.scope.id
+				? `${artifact.scope.kind}:${artifact.scope.id}`
+				: artifact.scope.kind,
+			text: artifact.text,
+			score: artifact.score ?? null,
+		})),
+		promptFragments: trace.promptFragments.map(fragment => ({
+			id: fragment.id,
+			layer: fragment.layer,
+			priority: fragment.priority,
+			source: fragment.source,
+			text: fragment.text,
+		})),
+		timingsMs: trace.timingsMs,
 		errorText: trace.errorText ?? null,
 		startedAt: trace.startedAt,
 		finishedAt: trace.finishedAt,

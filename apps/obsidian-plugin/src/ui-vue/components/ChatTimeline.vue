@@ -34,7 +34,6 @@ const props = withDefaults(
 const emit = defineEmits<{
 	(event: 'jump', targetId: string): void;
 	(event: 'delete', messageId: string): void;
-	(event: 'toggle-timeline-inspector', traceId: string): void;
 }>();
 
 const rawDebugMode = ref(false);
@@ -157,7 +156,6 @@ function getRendererProps(item: ChatTimelineItem): Record<string, unknown> {
 						:is="resolveRenderer(item)"
 						v-bind="getRendererProps(item)"
 						class="min-w-0"
-						@toggle="emit('toggle-timeline-inspector', $event)"
 						@jump="emit('jump', $event)"
 						@delete="emit('delete', $event)"
 					/>

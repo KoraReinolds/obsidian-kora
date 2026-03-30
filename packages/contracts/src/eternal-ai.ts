@@ -154,15 +154,14 @@ export interface EternalAiPromptFragmentSnapshot {
 }
 
 /**
- * @description Парсинг ответа модели после минимального runtime-parser.
+ * @description Снимок runtime-extraction после минимального parser-pass.
+ * Хранит только то, чего нет в обычном bubble: действия, кандидаты памяти,
+ * patch окружения и флаг structured blocks.
  */
-export interface EternalAiParsedResponseSnapshot {
-	rawText: string;
-	assistantText: string;
+export interface EternalAiRuntimeExtractionSnapshot {
 	actions: string[];
 	environmentPatch?: Record<string, unknown> | null;
 	memoryCandidates: string[];
-	displayText: string;
 	usedStructuredBlocks: boolean;
 }
 
@@ -174,10 +173,9 @@ export interface EternalAiTurnTraceRecord {
 	conversationId: string;
 	model: string;
 	status: 'success' | 'error';
-	inputText: string;
 	promptText: string;
 	rawResponse: string;
-	parsedResponse?: EternalAiParsedResponseSnapshot | null;
+	runtimeExtraction: EternalAiRuntimeExtractionSnapshot | null;
 	recalledArtifacts: EternalAiArtifactSnapshot[];
 	promptFragments: EternalAiPromptFragmentSnapshot[];
 	timingsMs: Record<string, number>;

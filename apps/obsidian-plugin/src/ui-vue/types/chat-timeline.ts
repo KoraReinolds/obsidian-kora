@@ -43,33 +43,57 @@ export interface ChatTimelineAccent {
 
 /**
  * @description Снимок turn trace для полноэкранного debug-рендера одного turn.
- * Поля уже сериализованы в удобные строки, чтобы renderer не дублировал форматирование.
+ * Хранит плоские этапы runtime-пайплайна, а UI уже группирует их в Sources,
+ * Prompt, Model Output, Parse и Diagnostics без дублирования пользовательских bubble.
  */
+export interface ChatTimelineEternalArtifactEntry {
+	id: string;
+	type: string;
+	context: string;
+	sourceLabel: string;
+	scopeLabel: string;
+	text: string;
+	score?: number | null;
+}
+
+/**
+ * @description Один фрагмент, из которого собирается `assembledPrompt`.
+ * Метаданные layer/source/priority нужны для explainability UI при раскрытии.
+ */
+export interface ChatTimelineEternalPromptFragmentEntry {
+	id: string;
+	layer: string;
+	priority: number;
+	source: string;
+	text: string;
+}
+
+/**
+ * @description Структурированная часть runtime extraction. Сюда попадает только
+ * добавочная информация поверх обычного bubble: actions, memory candidates,
+ * patch окружения и признак structured blocks.
+ */
+export interface ChatTimelineEternalRuntimeExtractionEntry {
+	actions: string[];
+	memoryCandidates: string[];
+	environmentPatchPretty: string;
+	usedStructuredBlocks: boolean;
+}
+
 export interface ChatTimelineEternalTracePayload {
 	traceId: string;
 	model: string;
 	status: 'success' | 'error';
-	inputText: string;
 	promptText: string;
 	rawResponse: string;
-	parsedResponsePretty: string;
-	recalledArtifactsPretty: string;
-	promptFragmentsPretty: string;
-	timingsPretty: string;
+	runtimeExtraction: ChatTimelineEternalRuntimeExtractionEntry | null;
+	recalledArtifacts: ChatTimelineEternalArtifactEntry[];
+	promptFragments: ChatTimelineEternalPromptFragmentEntry[];
+	timingsMs: Record<string, number>;
 	errorText?: string | null;
 	startedAt?: string;
 	finishedAt?: string;
 }
-
-/**
- * @description Совместимость со старым инлайн-инспектором. Новый turn-debug
- * renderer больше не использует `expanded`, но тип оставляем, чтобы старый
- * компонент продолжал компилироваться до полной очистки кода.
- */
-export type ChatTimelineEternalInspectorPayload =
-	ChatTimelineEternalTracePayload & {
-		expanded?: boolean;
-	};
 
 /**
  * @description Базовая часть любого элемента ленты. `rawPayload` используется

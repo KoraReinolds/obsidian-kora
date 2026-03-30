@@ -70,12 +70,14 @@ interface TurnTraceRow {
 	conversation_id: string;
 	model: string;
 	status: 'success' | 'error';
-	input_text: string;
 	prompt_text: string;
 	raw_response: string;
-	parsed_response_json: string | null;
 	recalled_artifacts_json: string;
 	prompt_fragments_json: string;
+	parsed_actions_json: string;
+	parsed_memory_candidates_json: string;
+	parsed_environment_patch_json: string | null;
+	parsed_used_structured_blocks: number;
 	timings_json: string;
 	error_text: string | null;
 	started_at: string;
@@ -800,6 +802,12 @@ export class EternalAiRepository implements ArtifactStorePort {
 		status: 'success' | 'error';
 		errorText?: string | null;
 	}): void {
+		const runtimeExtraction = params.trace.parsedResponse || {
+			actions: [],
+			memoryCandidates: [],
+			environmentPatch: null,
+			usedStructuredBlocks: false,
+		};
 		this.db
 			.prepare(
 				`
@@ -808,17 +816,19 @@ export class EternalAiRepository implements ArtifactStorePort {
 						conversation_id,
 						model,
 						status,
-						input_text,
 						prompt_text,
 						raw_response,
-						parsed_response_json,
 						recalled_artifacts_json,
 						prompt_fragments_json,
+						parsed_actions_json,
+						parsed_memory_candidates_json,
+						parsed_environment_patch_json,
+						parsed_used_structured_blocks,
 						timings_json,
 						error_text,
 						started_at,
 						finished_at
-					) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+					) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 				`
 			)
 			.run(
@@ -826,12 +836,16 @@ export class EternalAiRepository implements ArtifactStorePort {
 				params.conversationId,
 				params.trace.modelRef,
 				params.status,
-				params.trace.inputMessage,
 				params.trace.assembledPrompt,
 				params.trace.rawResponse,
-				JSON.stringify(params.trace.parsedResponse),
 				JSON.stringify(params.trace.recalledArtifacts),
 				JSON.stringify(params.trace.promptFragments),
+				JSON.stringify(runtimeExtraction.actions || []),
+				JSON.stringify(runtimeExtraction.memoryCandidates || []),
+				runtimeExtraction.environmentPatch
+					? JSON.stringify(runtimeExtraction.environmentPatch)
+					: null,
+				runtimeExtraction.usedStructuredBlocks ? 1 : 0,
 				JSON.stringify(params.trace.timingsMs),
 				params.errorText || null,
 				params.trace.startedAt,
@@ -851,12 +865,14 @@ export class EternalAiRepository implements ArtifactStorePort {
 						conversation_id,
 						model,
 						status,
-						input_text,
 						prompt_text,
 						raw_response,
-						parsed_response_json,
 						recalled_artifacts_json,
 						prompt_fragments_json,
+						parsed_actions_json,
+						parsed_memory_candidates_json,
+						parsed_environment_patch_json,
+						parsed_used_structured_blocks,
 						timings_json,
 						error_text,
 						started_at,
@@ -970,20 +986,39 @@ export class EternalAiRepository implements ArtifactStorePort {
 					this.mapArtifactRecord(artifact)
 				) as EternalAiTurnTraceRecord['recalledArtifacts'])
 			: [];
+		const parsedActions = row.parsed_actions_json
+			? (JSON.parse(row.parsed_actions_json) as string[])
+			: [];
+		const parsedMemoryCandidates = row.parsed_memory_candidates_json
+			? (JSON.parse(row.parsed_memory_candidates_json) as string[])
+			: [];
+		const parsedEnvironmentPatch = row.parsed_environment_patch_json
+			? (JSON.parse(row.parsed_environment_patch_json) as Record<
+					string,
+					unknown
+				>)
+			: null;
+		const runtimeExtraction =
+			parsedActions.length ||
+			parsedMemoryCandidates.length ||
+			parsedEnvironmentPatch ||
+			Boolean(row.parsed_used_structured_blocks)
+				? {
+						actions: parsedActions,
+						memoryCandidates: parsedMemoryCandidates,
+						environmentPatch: parsedEnvironmentPatch,
+						usedStructuredBlocks: Boolean(row.parsed_used_structured_blocks),
+					}
+				: null;
 
 		return {
 			id: row.id,
 			conversationId: row.conversation_id,
 			model: row.model,
 			status: row.status,
-			inputText: row.input_text,
 			promptText: row.prompt_text,
 			rawResponse: row.raw_response,
-			parsedResponse: row.parsed_response_json
-				? (JSON.parse(
-						row.parsed_response_json
-					) as EternalAiTurnTraceRecord['parsedResponse'])
-				: null,
+			runtimeExtraction,
 			recalledArtifacts,
 			promptFragments: row.prompt_fragments_json
 				? (JSON.parse(
