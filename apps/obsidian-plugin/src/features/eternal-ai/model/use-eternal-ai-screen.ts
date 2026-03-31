@@ -65,6 +65,54 @@ const sleep = (ms: number): Promise<void> =>
 	});
 
 /**
+ * @description Генерирует локальный id для optimistic turn/message до ответа сервера.
+ * @param {string} prefix - Префикс сущности (`turn` или `message`)
+ * @returns {string}
+ */
+const createOptimisticId = (prefix: string): string =>
+	`${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+
+/**
+ * @description Строит каноническое user-сообщение для мгновенного показа в ленте
+ * до прихода server turn. Используем минимальный tg-first payload.
+ * @param {Object} params - Параметры optimistic сообщения
+ * @param {string} params.messageId - Локальный id сообщения
+ * @param {string} params.chatId - Текущий id диалога или fallback для нового чата
+ * @param {string} params.text - Текст user draft
+ * @param {string} params.createdAt - ISO timestamp
+ * @returns {CanonicalChatMessage}
+ */
+function buildOptimisticCanonicalUserMessage(params: {
+	messageId: string;
+	chatId: string;
+	text: string;
+	createdAt: string;
+}): CanonicalChatMessage {
+	return {
+		id: params.messageId,
+		chatId: params.chatId,
+		sender: {
+			kind: 'user',
+			id: 'user',
+			name: 'Вы',
+			displayName: 'Вы',
+			initials: 'В',
+			isSelf: true,
+		},
+		timestampUtc: params.createdAt,
+		parts: [
+			{
+				kind: 'speech',
+				text: params.text,
+			},
+		],
+		metadata: {
+			optimistic: true,
+		},
+	};
+}
+
+/**
  * @description Три «виртуальных» пункта каталога: base generate без effect_id Eternal.
  * Показываются первыми в списке с фиксированными ценами (условные единицы API).
  */
@@ -254,6 +302,7 @@ function buildDebugTurnItem(params: {
 	turnId: string;
 	userMessage?: ChatTimelineMessageItem | null;
 	assistantMessage?: ChatTimelineMessageItem | null;
+	turnStatus?: EternalAiTurnRecord['status'] | null;
 	trace?: ChatTimelineEternalTracePayload | null;
 	rawPayload: Record<string, unknown>;
 }): ChatTimelineEternalDebugTurnItem {
@@ -265,6 +314,7 @@ function buildDebugTurnItem(params: {
 			turnId: params.turnId,
 			userMessage: params.userMessage ?? null,
 			assistantMessage: params.assistantMessage ?? null,
+			turnStatus: params.turnStatus ?? null,
 			trace: params.trace ?? null,
 		},
 		rawPayload: params.rawPayload,
@@ -376,6 +426,7 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 				assistantMessage: turn.assistantMessage
 					? mapMessageToTimelineMessage(turn.assistantMessage)
 					: null,
+				turnStatus: turn.status,
 				trace: turn.trace ? buildTimelineTracePayload(turn.trace) : null,
 				rawPayload: {
 					type: 'eternal-turn',
@@ -745,8 +796,50 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 		}
 
 		const previousDraft = draft.value;
+		const optimisticCreatedAt = new Date().toISOString();
+		const optimisticTurnId = createOptimisticId('optimistic-turn');
+		const optimisticMessageId = createOptimisticId('optimistic-message');
+		const optimisticConversationId =
+			selectedConversationId.value || '__optimistic-new-conversation__';
+		const optimisticCanonicalMessage = buildOptimisticCanonicalUserMessage({
+			messageId: optimisticMessageId,
+			chatId: optimisticConversationId,
+			text: nextDraft,
+			createdAt: optimisticCreatedAt,
+		});
+		const optimisticTurn: EternalAiTurnRecord = {
+			id: optimisticTurnId,
+			conversationId: optimisticConversationId,
+			parentTurnId: turns.value[turns.value.length - 1]?.id || null,
+			kind: 'chat',
+			status: 'pending',
+			model: selectedChatModelRef.value,
+			errorText: null,
+			userMessage: {
+				id: optimisticMessageId,
+				conversationId: optimisticConversationId,
+				turnId: optimisticTurnId,
+				role: 'user',
+				contentText: nextDraft,
+				model: selectedChatModelRef.value,
+				status: 'complete',
+				errorText: null,
+				attachments: null,
+				metadata: {
+					optimistic: true,
+					canonicalMessage: optimisticCanonicalMessage,
+				},
+				canonicalMessage: optimisticCanonicalMessage,
+				createdAt: optimisticCreatedAt,
+			},
+			assistantMessage: null,
+			trace: null,
+			createdAt: optimisticCreatedAt,
+			updatedAt: optimisticCreatedAt,
+		};
 		draft.value = '';
 		isSending.value = true;
+		turns.value = [...turns.value, optimisticTurn];
 
 		try {
 			const result = await options.transport.sendMessage({
@@ -763,6 +856,16 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 			await refreshData(result.conversation.id);
 		} catch (error) {
 			draft.value = previousDraft;
+			turns.value = turns.value.map(turn =>
+				turn.id === optimisticTurnId
+					? {
+							...turn,
+							status: 'error',
+							errorText: (error as Error).message,
+							updatedAt: new Date().toISOString(),
+						}
+					: turn
+			);
 			screen.setMessage(
 				'error',
 				`Не удалось отправить сообщение в Eternal AI: ${(error as Error).message}`

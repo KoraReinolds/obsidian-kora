@@ -12,6 +12,7 @@ import SummaryChip from './SummaryChip.vue';
 
 const props = defineProps<{
 	turnId: string;
+	turnStatus?: 'complete' | 'error' | 'pending' | null;
 	trace?: ChatTimelineEternalTracePayload | null;
 }>();
 
@@ -57,6 +58,13 @@ const timingSummary = computed((): string => {
  * @returns {boolean}
  */
 const hasTrace = computed(() => Boolean(props.trace));
+
+/**
+ * @description Turn всё ещё в ожидании ответа модели. Используем для явного
+ * статуса «печатает» внутри debug-render, чтобы индикатор был заметен в ленте.
+ * @returns {boolean}
+ */
+const isPendingTurn = computed(() => props.turnStatus === 'pending');
 
 /**
  * @description Набор коротких числовых сводок по debug-полям. Пустые значения
@@ -182,6 +190,13 @@ const runtimeExtractionSummary = computed((): string => {
 			/>
 		</div>
 
+		<div
+			v-if="isPendingTurn"
+			class="rounded-xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-secondary)]/55 px-3 py-2 text-xs text-[var(--text-muted)]"
+		>
+			<span v-text="'Eternal AI печатает...'" />
+		</div>
+
 		<div v-if="traceMetrics.length" class="flex flex-wrap gap-2">
 			<SummaryChip
 				v-for="metric in traceMetrics"
@@ -202,7 +217,9 @@ const runtimeExtractionSummary = computed((): string => {
 			v-if="!hasTrace"
 			class="rounded-xl border border-dashed border-[var(--background-modifier-border)] px-3 py-3 text-sm text-[var(--text-muted)]"
 			v-text="
-				'Для этого turn trace пока нет: обычно это pending visual generation или старое сообщение без runtime-снимка.'
+				isPendingTurn
+					? 'Turn в ожидании ответа модели: trace появится после завершения генерации.'
+					: 'Для этого turn trace пока нет: обычно это pending visual generation или старое сообщение без runtime-снимка.'
 			"
 		/>
 

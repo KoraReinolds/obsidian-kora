@@ -137,6 +137,14 @@ const composerSubmitLoading = computed(
 	() => isSending.value || isCreativeRunning.value || isCustomRunning.value
 );
 
+/**
+ * @description Индикатор «печатает» в debug-режиме ленты. Показываем только для
+ * текстового чата (`sendCurrentDraft`) и только когда включён `Debug turn`.
+ */
+const showDebugTurnTypingIndicator = computed(
+	() => timelineDebugEnabled.value && isSending.value
+);
+
 const composerSubmitDisabled = computed(() => {
 	if (health.value?.status !== 'healthy') {
 		return true;
@@ -858,6 +866,13 @@ void refreshData();
 							v-text="'Debug turn'"
 						/>
 					</label>
+
+					<div
+						v-if="showDebugTurnTypingIndicator"
+						class="shrink-0 rounded-xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-secondary)]/55 px-3 py-2 text-xs text-[var(--text-muted)]"
+					>
+						<span v-text="'Eternal AI печатает...'" />
+					</div>
 
 					<ChatTimeline
 						surface-variant="messenger"

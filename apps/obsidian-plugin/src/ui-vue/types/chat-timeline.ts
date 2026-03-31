@@ -157,6 +157,7 @@ export interface ChatTimelineEternalDebugTurnItem extends ChatTimelineCustomItem
 		turnId: string;
 		userMessage?: ChatTimelineMessageItem | null;
 		assistantMessage?: ChatTimelineMessageItem | null;
+		turnStatus?: 'complete' | 'error' | 'pending' | null;
 		trace?: ChatTimelineEternalTracePayload | null;
 	};
 }
