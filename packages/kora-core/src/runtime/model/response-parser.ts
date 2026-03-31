@@ -40,11 +40,28 @@ function stripTaggedBlocks(rawText: string): string {
 function parseEnvironmentBlock(
 	rawBlock: string
 ): Record<string, unknown> | undefined {
-	if (!rawBlock.trim()) {
+	const normalized = rawBlock.trim();
+	if (!normalized) {
 		return undefined;
 	}
+
+	const xmlFieldPattern = /<([a-zA-Z][\w:-]*)>([\s\S]*?)<\/\1>/g;
+	const xmlFields: Record<string, unknown> = {};
+	let xmlMatch: RegExpExecArray | null = null;
+	while ((xmlMatch = xmlFieldPattern.exec(normalized)) !== null) {
+		const key = String(xmlMatch[1] || '').trim();
+		const value = xmlMatch[2]?.trim();
+		if (!key || !value) {
+			continue;
+		}
+		xmlFields[key] = value;
+	}
+	if (Object.keys(xmlFields).length > 0) {
+		return xmlFields;
+	}
+
 	try {
-		const parsed = JSON.parse(rawBlock) as unknown;
+		const parsed = JSON.parse(normalized) as unknown;
 		if (
 			typeof parsed === 'object' &&
 			parsed !== null &&
@@ -57,7 +74,7 @@ function parseEnvironmentBlock(
 		};
 	} catch {
 		return {
-			raw: rawBlock.trim(),
+			raw: normalized,
 		};
 	}
 }

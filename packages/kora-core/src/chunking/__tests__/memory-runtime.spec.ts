@@ -6,7 +6,12 @@ import {
 	buildDialogueArtifactsFromArchiveMessages,
 	buildSourceUnitsFromArchiveMessages,
 } from '../../memory/adapters/telegram-archive-artifact-adapter.js';
-import { parseAssistantResponse } from '../../runtime/model/response-parser.js';
+import type { Artifact } from '../../memory/model/types.js';
+import {
+	DefaultResponseParser,
+	parseAssistantResponse,
+} from '../../runtime/model/response-parser.js';
+import { TurnEngine } from '../../runtime/model/turn-engine.js';
 import type { ArchiveMessage } from '../../../../contracts/src/telegram.js';
 
 const baseContext = {
@@ -81,16 +86,99 @@ describe('memory/runtime adapters', () => {
 		const parsed = parseAssistantResponse(`
 <assistant_text>Привет, я рядом.</assistant_text>
 <action>улыбается</action>
-<environment>{"mood":"warm"}</environment>
+<environment><mood>warm</mood><location>park</location></environment>
 <memory>Пользователь любит ночные прогулки</memory>
 		`);
 
 		expect(parsed.assistantText).toBe('Привет, я рядом.');
 		expect(parsed.actions).toEqual(['улыбается']);
-		expect(parsed.environmentPatch).toEqual({ mood: 'warm' });
+		expect(parsed.environmentPatch).toEqual({
+			mood: 'warm',
+			location: 'park',
+		});
 		expect(parsed.memoryCandidates).toEqual([
 			'Пользователь любит ночные прогулки',
 		]);
-		expect(parsed.displayText).toContain('**улыбается**');
+		expect(parsed.displayText).toContain('*улыбается*');
+	});
+
+	it('assembles runtime prompt in top-down order', async () => {
+		const recalledArtifact: Artifact = {
+			id: 'artifact-1',
+			artifactType: 'semantic_memory',
+			sourceType: 'runtime_session',
+			sourceId: 'conversation-1',
+			scope: {
+				kind: 'conversation',
+				id: 'conversation-1',
+			},
+			context: 'relationship',
+			text: 'Пользователь любит медленные вечерние прогулки.',
+			embeddingText: 'Пользователь любит медленные вечерние прогулки.',
+			sourceUnitIds: [],
+			sourceRefs: [],
+			createdAt: '2026-01-01T00:00:00.000Z',
+			updatedAt: '2026-01-01T00:00:00.000Z',
+			score: 0.8,
+		};
+
+		const engine = new TurnEngine({
+			artifactStore: {
+				persistArtifacts: () => undefined,
+				recallArtifacts: () => [recalledArtifact],
+			},
+			modelGateway: {
+				complete: async () => 'Привет.',
+			},
+			responseParser: new DefaultResponseParser(),
+			now: () => new Date('2026-01-01T00:00:00.000Z'),
+		});
+
+		const result = await engine.run({
+			sessionId: 'conversation-1',
+			modelRef: 'test-model',
+			userInput: 'Привет',
+			recentMessages: [
+				{
+					actor: 'user',
+					kind: 'user_text',
+					text: 'Привет',
+				},
+			],
+		});
+
+		const prompt = result.trace.assembledPrompt;
+
+		expect(prompt.indexOf('Контекст системы:')).toBeGreaterThanOrEqual(0);
+		expect(prompt.indexOf('Контекст системы:')).toBeLessThan(
+			prompt.indexOf('Твоя роль в архитектуре:')
+		);
+		expect(prompt.indexOf('Твоя роль в архитектуре:')).toBeLessThan(
+			prompt.indexOf('Что такое текущий ход:')
+		);
+		expect(prompt.indexOf('Что такое текущий ход:')).toBeLessThan(
+			prompt.indexOf('Какие источники контекста тебе доступны:')
+		);
+		expect(
+			prompt.indexOf('Какие источники контекста тебе доступны:')
+		).toBeLessThan(prompt.indexOf('Как читать recalled artifacts:'));
+		expect(prompt.indexOf('Что такое structured output:')).toBeLessThan(
+			prompt.indexOf('Формат ответа:')
+		);
+		expect(prompt).toContain('Всегда отвечай только structured output.');
+		expect(prompt).toContain(
+			'В каждом ответе обязателен блок <assistant_text>...</assistant_text>.'
+		);
+		expect(prompt).toContain(
+			'Если дополнительные блоки не нужны, верни только <assistant_text>.'
+		);
+		expect(prompt).toContain(
+			'<environment><mood>...</mood><location>...</location></environment>'
+		);
+		expect(
+			prompt.indexOf(
+				'Ниже в system prompt могут идти recalled artifacts текущего хода.'
+			)
+		).toBeLessThan(prompt.indexOf(recalledArtifact.text));
 	});
 });
