@@ -115,6 +115,9 @@ const onRootClick = (event: MouseEvent): void => {
 			'inline-flex max-w-full shrink-0 items-center gap-1 rounded-full border border-solid font-medium',
 			mono ? 'font-mono' : '',
 			isClickable ? 'cursor-pointer transition-colors hover:opacity-90' : '',
+			toggle && pressed
+				? 'ring-1 ring-current/35 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]'
+				: '',
 			outlined ? 'bg-transparent' : '',
 			{
 				'border-[var(--background-modifier-border)] bg-[var(--background-primary)] text-[var(--text-muted)]':

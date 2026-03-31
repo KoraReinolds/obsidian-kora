@@ -644,9 +644,6 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 	.max-w-\[min\(100\%\,12rem\)\] {
 		max-width: min(100%, 12rem);
 	}
-	.max-w-\[min\(100\%\,22rem\)\] {
-		max-width: min(100%, 22rem);
-	}
 	.max-w-\[min\(100\%\,48rem\)\] {
 		max-width: min(100%, 48rem);
 	}
@@ -671,8 +668,8 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 	.min-w-\[4\.5rem\] {
 		min-width: 4.5rem;
 	}
-	.min-w-\[12rem\] {
-		min-width: 12rem;
+	.min-w-\[11rem\] {
+		min-width: 11rem;
 	}
 	.min-w-\[14rem\] {
 		min-width: 14rem;
@@ -939,16 +936,6 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 	.border-\[var\(--interactive-accent\)\] {
 		border-color: var(--interactive-accent);
 	}
-	.border-\[var\(--interactive-accent\)\]\/25 {
-		border-color: var(--interactive-accent);
-		@supports (color: color-mix(in lab, red, red)) {
-			border-color: color-mix(
-				in oklab,
-				var(--interactive-accent) 25%,
-				transparent
-			);
-		}
-	}
 	.border-\[var\(--interactive-accent\)\]\/40 {
 		border-color: var(--interactive-accent);
 		@supports (color: color-mix(in lab, red, red)) {
@@ -1017,16 +1004,6 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 	.bg-\[var\(--background-primary\)\] {
 		background-color: var(--background-primary);
 	}
-	.bg-\[var\(--background-primary\)\]\/35 {
-		background-color: var(--background-primary);
-		@supports (color: color-mix(in lab, red, red)) {
-			background-color: color-mix(
-				in oklab,
-				var(--background-primary) 35%,
-				transparent
-			);
-		}
-	}
 	.bg-\[var\(--background-primary\)\]\/40 {
 		background-color: var(--background-primary);
 		@supports (color: color-mix(in lab, red, red)) {
@@ -1043,6 +1020,16 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 			background-color: color-mix(
 				in oklab,
 				var(--background-primary) 55%,
+				transparent
+			);
+		}
+	}
+	.bg-\[var\(--background-primary\)\]\/80 {
+		background-color: var(--background-primary);
+		@supports (color: color-mix(in lab, red, red)) {
+			background-color: color-mix(
+				in oklab,
+				var(--background-primary) 80%,
 				transparent
 			);
 		}
@@ -1471,6 +1458,13 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 			var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
 			var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
 	}
+	.shadow-\[inset_0_0_0_1px_rgba\(255\,255\,255\,0\.08\)\] {
+		--tw-shadow: inset 0 0 0 1px
+			var(--tw-shadow-color, rgba(255, 255, 255, 0.08));
+		box-shadow:
+			var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
+			var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+	}
 	.shadow-\[inset_3px_0_0_0_var\(--interactive-accent\)\] {
 		--tw-shadow: inset 3px 0 0 0
 			var(--tw-shadow-color, var(--interactive-accent));
@@ -1524,6 +1518,12 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 				var(--interactive-accent) 30%,
 				transparent
 			);
+		}
+	}
+	.ring-current\/35 {
+		--tw-ring-color: currentcolor;
+		@supports (color: color-mix(in lab, red, red)) {
+			--tw-ring-color: color-mix(in oklab, currentcolor 35%, transparent);
 		}
 	}
 	.blur {
@@ -1799,6 +1799,11 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 			opacity: 40%;
 		}
 	}
+	.sm\:max-w-\[16rem\] {
+		@media (width >= 40rem) {
+			max-width: 16rem;
+		}
+	}
 	.sm\:opacity-0 {
 		@media (width >= 40rem) {
 			opacity: 0%;
@@ -1823,6 +1828,11 @@ Core UI tokens shared between Obsidian host and Vue core layer.
 	.md\:col-span-2 {
 		@media (width >= 48rem) {
 			grid-column: span 2 / span 2;
+		}
+	}
+	.md\:flex {
+		@media (width >= 48rem) {
+			display: flex;
 		}
 	}
 	.md\:grid-cols-2 {
