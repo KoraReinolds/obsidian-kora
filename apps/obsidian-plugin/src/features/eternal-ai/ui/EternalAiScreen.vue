@@ -6,6 +6,7 @@ import {
 	EntityEditorModal,
 	EntityList,
 	IconButton,
+	IconTextField,
 	ImageLightbox,
 	MessageCard,
 	PanelFrame,
@@ -44,6 +45,7 @@ const model = useEternalAiScreen({
 const {
 	conversations,
 	selectedConversationId,
+	selectedConversation,
 	draft,
 	health,
 	isRefreshing,
@@ -134,16 +136,64 @@ const composerTextareaDisabled = computed(
 );
 
 const composerSubmitLoading = computed(
-	() => isSending.value || isCreativeRunning.value || isCustomRunning.value
+	() => isCreativeRunning.value || isCustomRunning.value
 );
 
-/**
- * @description Индикатор «печатает» в debug-режиме ленты. Показываем только для
- * текстового чата (`sendCurrentDraft`) и только когда включён `Debug turn`.
- */
-const showDebugTurnTypingIndicator = computed(
-	() => timelineDebugEnabled.value && isSending.value
-);
+const conversationsQuery = ref('');
+const showReplyIndicator = computed(() => isSending.value);
+
+const filteredConversations = computed(() => {
+	const query = conversationsQuery.value.trim().toLowerCase();
+	if (!query) {
+		return conversations.value;
+	}
+	return conversations.value.filter(conversation =>
+		[
+			conversation.title,
+			conversation.model,
+			conversation.lastMessagePreview || '',
+		]
+			.join(' ')
+			.toLowerCase()
+			.includes(query)
+	);
+});
+
+const activeChatTitle = computed(() => {
+	const title = selectedConversation.value?.title?.trim();
+	return title || 'Eternal AI';
+});
+
+const activeChatInitials = computed(() => {
+	const title = activeChatTitle.value;
+	const words = title.split(/\s+/).filter(Boolean);
+	if (words.length === 1) {
+		return words[0].slice(0, 2).toUpperCase();
+	}
+	return words
+		.slice(0, 2)
+		.map(word => word.charAt(0).toUpperCase())
+		.join('');
+});
+
+const activeChatStatus = computed(() => {
+	if (showReplyIndicator.value) {
+		return 'печатает…';
+	}
+	if (isRefreshing.value || isLoadingMessages.value) {
+		return 'обновляем историю';
+	}
+	if (health.value?.status === 'healthy') {
+		if (selectedConversation.value) {
+			return `${selectedConversation.value.model} · ${selectedConversation.value.turnCount} turns`;
+		}
+		return 'в сети';
+	}
+	if (health.value?.status === 'misconfigured') {
+		return 'нужна настройка';
+	}
+	return 'не в сети';
+});
 
 const composerSubmitDisabled = computed(() => {
 	if (health.value?.status !== 'healthy') {
@@ -527,49 +577,57 @@ void refreshData();
 	<AppShell title="">
 		<template #toolbar>
 			<Toolbar>
-				<div class="flex min-w-0 w-full flex-wrap items-center gap-2">
-					<IconButton
-						size="sm"
-						variant="accent"
-						icon="plus"
-						label="Новый чат Eternal AI"
-						title="Новый чат"
-						@click="startNewConversation"
-					/>
-					<IconButton
-						size="sm"
-						variant="muted"
-						icon="database"
-						label="Открыть SQLite Viewer"
-						title="SQLite Viewer"
-						@click="props.openSqliteViewer?.()"
-					/>
-					<IconButton
-						size="sm"
-						variant="muted"
-						icon="rotate-ccw"
-						label="Обновить Eternal AI экран"
-						title="Обновить"
-						:disabled="
-							isRefreshing || isSending || isCreativeRunning || isCustomRunning
-						"
-						:loading="isRefreshing"
-						@click="refreshData()"
-					/>
-					<div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+				<div
+					class="flex min-w-0 w-full flex-col gap-2 rounded-2xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-primary)]/80 px-3 py-2"
+				>
+					<div class="flex min-w-0 items-center gap-3">
+						<div
+							class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--interactive-accent)] text-sm font-semibold text-white shadow-sm"
+							v-text="activeChatInitials"
+						/>
+						<div class="min-w-0 flex-1">
+							<div
+								class="truncate text-sm font-semibold text-[var(--text-normal)]"
+								v-text="activeChatTitle"
+							/>
+							<div
+								class="flex items-center gap-1.5 text-xs text-[var(--text-muted)]"
+							>
+								<span
+									v-if="showReplyIndicator"
+									class="inline-flex h-2 w-2 rounded-full bg-[var(--interactive-accent)] animate-pulse"
+								/>
+								<span class="truncate" v-text="activeChatStatus" />
+							</div>
+						</div>
+						<div class="hidden shrink-0 items-center gap-2 md:flex">
+							<SummaryChip :text="`Диалогов: ${conversations.length}`" />
+							<SummaryChip :text="`Статус: ${health?.status || 'loading'}`" />
+						</div>
+					</div>
+
+					<div class="flex min-w-0 flex-wrap items-center gap-2">
+						<IconTextField
+							v-model="conversationsQuery"
+							icon="search"
+							icon-label="Поиск диалогов"
+							placeholder="Поиск по локальным чатам…"
+							input-class="min-w-[14rem] flex-1 rounded-xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-secondary)]"
+							clearable
+						/>
 						<label
-							class="flex min-w-[12rem] max-w-[min(100%,22rem)] flex-col gap-0.5"
+							class="flex min-w-[11rem] flex-1 flex-col gap-0.5 sm:max-w-[16rem]"
 						>
 							<span
 								class="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-muted)]"
-								v-text="'Модель чата (Open Claw)'"
+								v-text="'Модель чата'"
 							/>
 							<select
-								class="kora-eternal-model-select rounded-lg border border-solid border-[var(--background-modifier-border)] bg-[var(--background-primary)] px-2 py-1.5 text-xs text-[var(--text-normal)]"
+								class="kora-eternal-model-select rounded-xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-secondary)] px-2.5 py-2 text-xs text-[var(--text-normal)]"
 								:value="selectedChatModelRef"
 								:title="
 									health?.status !== 'healthy'
-										? 'Модель чата можно менять всегда. Отправка сообщений и эффекты зависят от ключа Eternal и выбранной модели.'
+										? 'Модель можно менять всегда, но отправка зависит от настройки Eternal AI.'
 										: undefined
 								"
 								:disabled="isSending || isCreativeRunning || isCustomRunning"
@@ -577,23 +635,61 @@ void refreshData();
 							>
 								<option
 									v-for="(opt, idx) in chatModelOptions"
-									:key="opt.openClawRef || `${opt.apiModelId}-${idx}`"
+									:key="opt.openClawRef || `${opt.apiModelId}${idx}`"
 									:value="opt.openClawRef"
 									v-text="opt.label"
 								/>
 							</select>
 						</label>
-						<div class="flex flex-wrap gap-2">
-							<SummaryChip :text="`Диалогов: ${conversations.length}`" />
-							<SummaryChip
-								:text="`Сервер default: ${health?.model || 'n/a'}`"
+						<label
+							class="flex shrink-0 cursor-pointer items-center gap-2 rounded-xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-secondary)] px-3 py-2"
+							:title="
+								timelineDebugEnabled
+									? 'Сейчас включён полный debug turn.'
+									: 'Показать полный debug turn.'
+							"
+						>
+							<input
+								v-model="timelineDebugEnabled"
+								type="checkbox"
+								class="m-0 h-3.5 w-3.5 shrink-0 cursor-pointer accent-[var(--interactive-accent)]"
 							/>
-							<SummaryChip :text="`Статус: ${health?.status || 'loading'}`" />
-							<SummaryChip
-								v-if="openClawConfigPath"
-								:text="`Open Claw: ${openClawConfigPath}`"
+							<span
+								class="text-[11px] font-medium text-[var(--text-muted)]"
+								v-text="'Debug'"
 							/>
-						</div>
+						</label>
+						<IconButton
+							size="sm"
+							variant="accent"
+							icon="plus"
+							label="Новый чат Eternal AI"
+							title="Новый чат"
+							@click="startNewConversation"
+						/>
+						<IconButton
+							size="sm"
+							variant="muted"
+							icon="rotate-ccw"
+							label="Обновить Eternal AI экран"
+							title="Обновить"
+							:disabled="
+								isRefreshing ||
+								isSending ||
+								isCreativeRunning ||
+								isCustomRunning
+							"
+							:loading="isRefreshing"
+							@click="refreshData()"
+						/>
+						<IconButton
+							size="sm"
+							variant="muted"
+							icon="database"
+							label="Открыть SQLite Viewer"
+							title="SQLite Viewer"
+							@click="props.openSqliteViewer?.()"
+						/>
 					</div>
 				</div>
 			</Toolbar>
@@ -679,7 +775,7 @@ void refreshData();
 
 					<div class="mt-1 min-h-0 flex-1 overflow-auto pr-1">
 						<SelectableEntityList
-							:items="conversations"
+							:items="filteredConversations"
 							:get-key="getConversationKey"
 							:get-title="getConversationTitle"
 							:get-subtitle="getConversationSubtitle"
@@ -848,32 +944,6 @@ void refreshData();
 				<div
 					class="flex h-full min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-hidden"
 				>
-					<label
-						class="flex shrink-0 cursor-pointer items-center justify-end gap-2 rounded-xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-primary)]/35 px-2.5 py-1.5"
-						:title="
-							timelineDebugEnabled
-								? 'Обычный вид: user/assistant пузыри. Включено: полный debug turn в одном блоке.'
-								: 'Показать полный debug turn (prompt, raw, trace).'
-						"
-					>
-						<input
-							v-model="timelineDebugEnabled"
-							type="checkbox"
-							class="m-0 h-3.5 w-3.5 shrink-0 cursor-pointer accent-[var(--interactive-accent)]"
-						/>
-						<span
-							class="text-[11px] font-medium text-[var(--text-muted)]"
-							v-text="'Debug turn'"
-						/>
-					</label>
-
-					<div
-						v-if="showDebugTurnTypingIndicator"
-						class="shrink-0 rounded-xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-secondary)]/55 px-3 py-2 text-xs text-[var(--text-muted)]"
-					>
-						<span v-text="'Eternal AI печатает...'" />
-					</div>
-
 					<ChatTimeline
 						surface-variant="messenger"
 						:items="timelineItems"

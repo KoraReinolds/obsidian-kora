@@ -414,11 +414,8 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 	});
 
 	const timelineItems = computed<ChatTimelineItem[]>(() => {
-		const buildTurnItem = timelineDebugEnabled.value
-			? buildDebugTurnItem
-			: buildConversationTurnItem;
-		return turns.value.map(turn =>
-			buildTurnItem({
+		return turns.value.map(turn => {
+			const baseParams = {
 				turnId: turn.id,
 				userMessage: turn.userMessage
 					? mapMessageToTimelineMessage(turn.userMessage)
@@ -426,15 +423,21 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 				assistantMessage: turn.assistantMessage
 					? mapMessageToTimelineMessage(turn.assistantMessage)
 					: null,
-				turnStatus: turn.status,
 				trace: turn.trace ? buildTimelineTracePayload(turn.trace) : null,
 				rawPayload: {
 					type: 'eternal-turn',
 					mode: timelineDebugEnabled.value ? 'debug' : 'conversation',
 					turn,
 				},
-			})
-		);
+			};
+
+			return timelineDebugEnabled.value
+				? buildDebugTurnItem({
+						...baseParams,
+						turnStatus: turn.status,
+					})
+				: buildConversationTurnItem(baseParams);
+		});
 	});
 
 	const systemPromptSummary = computed(() => {

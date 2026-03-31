@@ -190,13 +190,6 @@ const runtimeExtractionSummary = computed((): string => {
 			/>
 		</div>
 
-		<div
-			v-if="isPendingTurn"
-			class="rounded-xl border border-solid border-[var(--background-modifier-border)] bg-[var(--background-secondary)]/55 px-3 py-2 text-xs text-[var(--text-muted)]"
-		>
-			<span v-text="'Eternal AI печатает...'" />
-		</div>
-
 		<div v-if="traceMetrics.length" class="flex flex-wrap gap-2">
 			<SummaryChip
 				v-for="metric in traceMetrics"
