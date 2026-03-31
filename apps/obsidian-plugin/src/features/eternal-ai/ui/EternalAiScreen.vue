@@ -50,7 +50,7 @@ const {
 	isLoadingMessages,
 	isSending,
 	isDeletingConversationId,
-	isDeletingMessageId,
+	isDeletingTurnId,
 	isDeletingArtifactId,
 	isUpdatingArtifactId,
 	screenMessage,
@@ -63,7 +63,7 @@ const {
 	startNewConversation,
 	sendCurrentDraft,
 	handleDeleteConversation,
-	handleDeleteMessage,
+	handleDeleteTurn,
 	leftTab,
 	effectsQuery,
 	selectedEffectId,
@@ -145,7 +145,7 @@ const composerSubmitDisabled = computed(() => {
 		isSending.value ||
 		isCreativeRunning.value ||
 		isCustomRunning.value ||
-		Boolean(isDeletingMessageId.value)
+		Boolean(isDeletingTurnId.value)
 	) {
 		return true;
 	}
@@ -362,7 +362,7 @@ const conversationEditorFields = computed<
 	{ key: 'id', label: 'ID', kind: 'readonly' },
 	{ key: 'title', label: 'Title', kind: 'readonly' },
 	{ key: 'model', label: 'Model', kind: 'readonly' },
-	{ key: 'messageCount', label: 'Messages', kind: 'readonly' },
+	{ key: 'turnCount', label: 'Turns', kind: 'readonly' },
 	{
 		key: 'lastMessagePreview',
 		label: 'Last message',
@@ -381,8 +381,8 @@ const getConversationTitle = (conversation: unknown): string =>
 	String((conversation as { title: string }).title);
 
 const getConversationSubtitle = (conversation: unknown): string => {
-	const item = conversation as { model: string; messageCount: number };
-	return `${item.model} · ${item.messageCount} сообщений`;
+	const item = conversation as { model: string; turnCount: number };
+	return `${item.model} · ${item.turnCount} turns`;
 };
 
 const getConversationPreview = (conversation: unknown): string =>
@@ -864,7 +864,7 @@ void refreshData();
 						:items="timelineItems"
 						:loading="isLoadingMessages"
 						empty-text="История ещё не началась. Отправьте первое сообщение."
-						@delete="handleDeleteMessage"
+						@delete="handleDeleteTurn"
 					/>
 
 					<EternalAiMessageComposer

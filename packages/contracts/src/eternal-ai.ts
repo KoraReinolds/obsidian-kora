@@ -1,19 +1,29 @@
 /**
  * @module packages/contracts/eternal-ai
- * @description Общие DTO для экрана Eternal AI в Obsidian и server-модуля,
- * который хранит историю локально и проксирует OpenAI-compatible chat API.
+ * @description Общие DTO для нового turn-centric слоя Eternal AI. История
+ * диалога больше не собирается эвристически из соседних сообщений: сервер
+ * хранит явные `turn`, а UI получает уже готовые агрегаты истории.
  */
 
 import type { CanonicalChatMessage } from './canonical-chat-message';
+
+export type EternalAiTurnKind =
+	| 'chat'
+	| 'creative_effect'
+	| 'custom_generation'
+	| 'error';
+
+export type EternalAiTurnStatus = 'complete' | 'error' | 'pending';
 
 export interface EternalAiConversationSummary {
 	id: string;
 	title: string;
 	model: string;
 	systemPrompt?: string | null;
+	headTurnId?: string | null;
 	lastMessagePreview?: string | null;
 	lastMessageAt?: string | null;
-	messageCount: number;
+	turnCount: number;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -21,11 +31,12 @@ export interface EternalAiConversationSummary {
 export interface EternalAiMessageRecord {
 	id: string;
 	conversationId: string;
+	turnId: string;
 	role: 'user' | 'assistant' | 'system';
 	contentText: string;
 	model?: string | null;
 	/** {@code pending} — визуальная генерация (Easy Effect / custom), ждём poll. */
-	status: 'complete' | 'error' | 'pending';
+	status: EternalAiTurnStatus;
 	errorText?: string | null;
 	attachments?: Array<Record<string, unknown>> | null;
 	metadata?: EternalAiMessageMetadata | null;
@@ -38,9 +49,8 @@ export interface EternalAiMessageRecord {
  * информация runtime и каноническое tg-first представление для UI/sync слоя.
  */
 export interface EternalAiMessageMetadata extends Record<string, unknown> {
-	traceId?: string;
-	parsedResponse?: Record<string, unknown>;
 	canonicalMessage?: CanonicalChatMessage | null;
+	parsedResponse?: Record<string, unknown>;
 }
 
 export interface CreateEternalAiConversationRequest {
@@ -54,12 +64,6 @@ export interface SendEternalAiMessageRequest {
 	text: string;
 	systemPrompt?: string;
 	model?: string;
-}
-
-export interface SendEternalAiMessageResponse {
-	conversation: EternalAiConversationSummary;
-	userMessage: EternalAiMessageRecord;
-	assistantMessage: EternalAiMessageRecord;
 }
 
 export interface EternalAiHealthResponse {
@@ -184,6 +188,7 @@ export interface EternalAiRuntimeExtractionSnapshot {
 export interface EternalAiTurnTraceRecord {
 	id: string;
 	conversationId: string;
+	turnId: string;
 	model: string;
 	status: 'success' | 'error';
 	promptText: string;
@@ -195,6 +200,37 @@ export interface EternalAiTurnTraceRecord {
 	errorText?: string | null;
 	startedAt: string;
 	finishedAt: string;
+}
+
+/**
+ * @description Атомарный шаг истории Eternal AI. Именно turn теперь является
+ * единицей undo/reset и будущего branching, а сообщения/trace выступают его
+ * дочерними данными.
+ */
+export interface EternalAiTurnRecord {
+	id: string;
+	conversationId: string;
+	parentTurnId?: string | null;
+	kind: EternalAiTurnKind;
+	status: EternalAiTurnStatus;
+	model?: string | null;
+	errorText?: string | null;
+	userMessage?: EternalAiMessageRecord | null;
+	assistantMessage?: EternalAiMessageRecord | null;
+	trace?: EternalAiTurnTraceRecord | null;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface SendEternalAiMessageResponse {
+	conversation: EternalAiConversationSummary;
+	turn: EternalAiTurnRecord;
+}
+
+export interface DeleteEternalAiTurnResponse {
+	conversation: EternalAiConversationSummary | null;
+	deleted: boolean;
+	deletedTurnId?: string | null;
 }
 
 /**
@@ -228,8 +264,8 @@ export interface StartCreativeEffectRequest {
 export interface StartCreativeEffectResponse {
 	request_id: string;
 	conversation: EternalAiConversationSummary;
-	/** Сообщение ассистента с промптом и плейсхолдером медиа до завершения poll. */
-	assistantMessage: EternalAiMessageRecord;
+	/** Turn с pending bubble ассистента до завершения poll. */
+	turn: EternalAiTurnRecord;
 }
 
 /**
@@ -242,9 +278,9 @@ export interface EternalAiCreativePollResponse {
 	result_url?: string | null;
 	error?: string | null;
 	detail?: string | null;
-	/** true, если сервер записал финальное сообщение ассистента в SQLite. */
+	/** true, если сервер записал финальный turn в SQLite. */
 	completed?: boolean;
-	assistantMessage?: EternalAiMessageRecord | null;
+	turn?: EternalAiTurnRecord | null;
 	conversation?: EternalAiConversationSummary | null;
 }
 
@@ -263,7 +299,7 @@ export interface StartCustomGenerationRequest {
 export interface StartCustomGenerationResponse {
 	request_id: string;
 	conversation: EternalAiConversationSummary;
-	assistantMessage: EternalAiMessageRecord;
+	turn: EternalAiTurnRecord;
 }
 
 /**

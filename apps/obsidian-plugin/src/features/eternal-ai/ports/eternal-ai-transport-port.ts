@@ -5,15 +5,15 @@
 
 import type {
 	CreateEternalAiArtifactRequest,
+	DeleteEternalAiTurnResponse,
 	EternalAiArtifactRecord,
 	EternalAiConversationSummary,
 	EternalAiCreativeEffectItem,
 	EternalAiCreativePollResponse,
 	EternalAiHealthResponse,
-	EternalAiMessageRecord,
 	EternalAiS4SafetyCheckRequest,
 	EternalAiS4SafetyCheckResponse,
-	EternalAiTurnTraceRecord,
+	EternalAiTurnRecord,
 	SendEternalAiMessageRequest,
 	SendEternalAiMessageResponse,
 	StartCustomGenerationRequest,
@@ -26,7 +26,7 @@ import type {
 export interface EternalAiTransportPort {
 	getHealth(): Promise<EternalAiHealthResponse>;
 	listConversations(): Promise<EternalAiConversationSummary[]>;
-	listMessages(conversationId: string): Promise<EternalAiMessageRecord[]>;
+	listTurns(conversationId: string): Promise<EternalAiTurnRecord[]>;
 	listArtifacts(
 		conversationId: string,
 		filters?: {
@@ -35,10 +35,6 @@ export interface EternalAiTransportPort {
 			limit?: number;
 		}
 	): Promise<EternalAiArtifactRecord[]>;
-	listTurnTraces(
-		conversationId: string,
-		limit?: number
-	): Promise<EternalAiTurnTraceRecord[]>;
 	createSeedArtifact(
 		request: CreateEternalAiArtifactRequest
 	): Promise<EternalAiArtifactRecord>;
@@ -49,10 +45,10 @@ export interface EternalAiTransportPort {
 		conversationId: string,
 		artifactId: string
 	): Promise<{ deleted: boolean }>;
-	deleteMessage(
+	deleteTurn(
 		conversationId: string,
-		messageId: string
-	): Promise<{ deleted: boolean }>;
+		turnId: string
+	): Promise<DeleteEternalAiTurnResponse>;
 	sendMessage(
 		request: SendEternalAiMessageRequest
 	): Promise<SendEternalAiMessageResponse>;

@@ -9,15 +9,15 @@ import {
 } from '../../../telegram/core/base-http-client';
 import type {
 	CreateEternalAiArtifactRequest,
+	DeleteEternalAiTurnResponse,
 	EternalAiArtifactRecord,
 	EternalAiConversationSummary,
 	EternalAiCreativeEffectItem,
 	EternalAiCreativePollResponse,
 	EternalAiHealthResponse,
-	EternalAiMessageRecord,
 	EternalAiS4SafetyCheckRequest,
 	EternalAiS4SafetyCheckResponse,
-	EternalAiTurnTraceRecord,
+	EternalAiTurnRecord,
 	SendEternalAiMessageRequest,
 	SendEternalAiMessageResponse,
 	StartCustomGenerationRequest,
@@ -33,9 +33,9 @@ interface EternalAiConversationsResponse {
 	error?: string;
 }
 
-interface EternalAiMessagesResponse {
+interface EternalAiTurnsResponse {
 	success: boolean;
-	messages?: EternalAiMessageRecord[];
+	turns?: EternalAiTurnRecord[];
 	error?: string;
 }
 
@@ -52,12 +52,6 @@ interface EternalAiArtifactMutationResponse {
 	error?: string;
 }
 
-interface EternalAiTurnTracesResponse {
-	success: boolean;
-	traces?: EternalAiTurnTraceRecord[];
-	error?: string;
-}
-
 interface EternalAiSendResponse extends SendEternalAiMessageResponse {
 	success: boolean;
 	error?: string;
@@ -66,6 +60,11 @@ interface EternalAiSendResponse extends SendEternalAiMessageResponse {
 interface EternalAiDeleteResponse {
 	success: boolean;
 	deleted?: boolean;
+	error?: string;
+}
+
+interface EternalAiDeleteTurnApiResponse extends DeleteEternalAiTurnResponse {
+	success: boolean;
 	error?: string;
 }
 
@@ -124,20 +123,18 @@ export class EternalAiBridge extends BaseHttpClient {
 		return response.conversations || [];
 	}
 
-	async listMessages(
-		conversationId: string
-	): Promise<EternalAiMessageRecord[]> {
-		const response = await this.handleRequest<EternalAiMessagesResponse>(
-			`/eternal_ai/conversations/${encodeURIComponent(conversationId)}/messages`,
+	async listTurns(conversationId: string): Promise<EternalAiTurnRecord[]> {
+		const response = await this.handleRequest<EternalAiTurnsResponse>(
+			`/eternal_ai/conversations/${encodeURIComponent(conversationId)}/turns`,
 			{},
-			'Ошибка загрузки Eternal AI сообщений'
+			'Ошибка загрузки Eternal AI turns'
 		);
 
 		if (!response?.success) {
-			throw new Error(response?.error || 'Не удалось загрузить сообщения');
+			throw new Error(response?.error || 'Не удалось загрузить turns');
 		}
 
-		return response.messages || [];
+		return response.turns || [];
 	}
 
 	async listArtifacts(
@@ -168,23 +165,6 @@ export class EternalAiBridge extends BaseHttpClient {
 		}
 
 		return response.artifacts || [];
-	}
-
-	async listTurnTraces(
-		conversationId: string,
-		limit = 20
-	): Promise<EternalAiTurnTraceRecord[]> {
-		const response = await this.handleRequest<EternalAiTurnTracesResponse>(
-			`/eternal_ai/conversations/${encodeURIComponent(conversationId)}/traces?limit=${encodeURIComponent(String(limit))}`,
-			{},
-			'Ошибка загрузки Eternal AI trace'
-		);
-
-		if (!response?.success) {
-			throw new Error(response?.error || 'Не удалось загрузить trace');
-		}
-
-		return response.traces || [];
 	}
 
 	async createSeedArtifact(
@@ -255,21 +235,21 @@ export class EternalAiBridge extends BaseHttpClient {
 		return { deleted: response.deleted === true };
 	}
 
-	async deleteMessage(
+	async deleteTurn(
 		conversationId: string,
-		messageId: string
-	): Promise<{ deleted: boolean }> {
-		const response = await this.handleRequest<EternalAiDeleteResponse>(
-			`/eternal_ai/conversations/${encodeURIComponent(conversationId)}/messages/${encodeURIComponent(messageId)}`,
+		turnId: string
+	): Promise<DeleteEternalAiTurnResponse> {
+		const response = await this.handleRequest<EternalAiDeleteTurnApiResponse>(
+			`/eternal_ai/conversations/${encodeURIComponent(conversationId)}/turns/${encodeURIComponent(turnId)}`,
 			{ method: 'DELETE' },
-			'Ошибка удаления Eternal AI сообщения'
+			'Ошибка удаления Eternal AI turn'
 		);
 
 		if (!response?.success) {
-			throw new Error(response?.error || 'Не удалось удалить сообщение');
+			throw new Error(response?.error || 'Не удалось удалить turn');
 		}
 
-		return { deleted: response.deleted === true };
+		return response;
 	}
 
 	async sendMessage(

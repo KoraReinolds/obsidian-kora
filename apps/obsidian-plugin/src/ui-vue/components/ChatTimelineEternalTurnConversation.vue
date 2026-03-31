@@ -19,7 +19,7 @@ defineProps<{
 
 const emit = defineEmits<{
 	(event: 'jump', targetId: string): void;
-	(event: 'delete', messageId: string): void;
+	(event: 'delete', turnId: string): void;
 }>();
 </script>
 
@@ -29,13 +29,13 @@ const emit = defineEmits<{
 			v-if="userMessage"
 			:item="userMessage"
 			@jump="emit('jump', $event)"
-			@delete="emit('delete', $event)"
+			@delete="emit('delete', turnId)"
 		/>
 		<ChatMessageBubble
 			v-if="assistantMessage"
 			:item="assistantMessage"
 			@jump="emit('jump', $event)"
-			@delete="emit('delete', $event)"
+			@delete="emit('delete', turnId)"
 		/>
 	</div>
 </template>

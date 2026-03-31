@@ -12,17 +12,15 @@ export function createEternalAiBridgeAdapter(
 	return {
 		getHealth: () => bridge.getHealth(),
 		listConversations: () => bridge.listConversations(),
-		listMessages: conversationId => bridge.listMessages(conversationId),
+		listTurns: conversationId => bridge.listTurns(conversationId),
 		listArtifacts: (conversationId, filters) =>
 			bridge.listArtifacts(conversationId, filters),
-		listTurnTraces: (conversationId, limit) =>
-			bridge.listTurnTraces(conversationId, limit),
 		createSeedArtifact: request => bridge.createSeedArtifact(request),
 		updateArtifact: request => bridge.updateArtifact(request),
 		deleteArtifact: (conversationId, artifactId) =>
 			bridge.deleteArtifact(conversationId, artifactId),
-		deleteMessage: (conversationId, messageId) =>
-			bridge.deleteMessage(conversationId, messageId),
+		deleteTurn: (conversationId, turnId) =>
+			bridge.deleteTurn(conversationId, turnId),
 		sendMessage: request => bridge.sendMessage(request),
 		deleteConversation: conversationId =>
 			bridge.deleteConversation(conversationId),

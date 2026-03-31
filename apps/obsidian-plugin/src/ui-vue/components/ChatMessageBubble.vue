@@ -47,8 +47,17 @@ const onBubbleContextMenu = (event: MouseEvent): void => {
 		return;
 	}
 	event.preventDefault();
+	const raw = (props.item as ChatTimelineMessageItem | undefined)
+		?.rawPayload as Record<string, unknown> | undefined;
+	const hasTurn = Boolean(raw && typeof raw.turnId === 'string' && raw.turnId);
+	const messageText =
+		typeof (props.item as ChatTimelineMessageItem).text === 'string'
+			? (props.item as ChatTimelineMessageItem).text
+			: '';
 	hostChatMessageContextMenu(event, {
 		messageId: props.item.id,
+		copyText: messageText,
+		hasTurn,
 		onDelete: () => emit('delete', props.item.id),
 	});
 };

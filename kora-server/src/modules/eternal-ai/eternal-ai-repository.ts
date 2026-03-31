@@ -1,18 +1,21 @@
 /**
  * @module modules/eternal-ai/eternal-ai-repository
- * @description Репозиторий Eternal AI истории. Хранит conversation headers и
- * полную последовательность сообщений, чтобы экран Obsidian мог открывать старые
- * диалоги без повторного запроса к внешнему провайдеру.
+ * @description Репозиторий нового turn-centric слоя Eternal AI. Все runtime-
+ * данные группируются вокруг явного `turn`, поэтому undo/reset и будущие
+ * ветвления не зависят от эвристики "user + следующий assistant".
  */
 
 import Database from 'better-sqlite3';
 import type {
-	EternalAiArtifactType,
 	CreateEternalAiConversationRequest,
 	EternalAiArtifactRecord,
+	EternalAiArtifactType,
 	EternalAiConversationSummary,
 	EternalAiMessageMetadata,
 	EternalAiMessageRecord,
+	EternalAiTurnKind,
+	EternalAiTurnRecord,
+	EternalAiTurnStatus,
 	EternalAiTurnTraceRecord,
 	UpdateEternalAiArtifactRequest,
 } from '../../../../packages/contracts/src/eternal-ai.js';
@@ -22,16 +25,32 @@ import type {
 	ArtifactRecallQuery,
 	ArtifactStorePort,
 } from '../../../../packages/kora-core/src/memory/index.js';
-import type { TurnTrace } from '../../../../packages/kora-core/src/runtime/index.js';
+import type {
+	RuntimeMessage,
+	TurnTrace,
+} from '../../../../packages/kora-core/src/runtime/index.js';
 
 interface ConversationRow {
 	id: string;
 	title: string;
 	model: string;
 	system_prompt: string | null;
+	head_turn_id: string | null;
 	last_message_preview: string | null;
 	last_message_at: string | null;
-	message_count: number;
+	turn_count: number;
+	created_at: string;
+	updated_at: string;
+}
+
+interface TurnRow {
+	id: string;
+	conversation_id: string;
+	parent_turn_id: string | null;
+	turn_kind: EternalAiTurnKind;
+	status: EternalAiTurnStatus;
+	model: string | null;
+	error_text: string | null;
 	created_at: string;
 	updated_at: string;
 }
@@ -39,10 +58,11 @@ interface ConversationRow {
 interface MessageRow {
 	id: string;
 	conversation_id: string;
+	turn_id: string;
 	role: 'user' | 'assistant' | 'system';
 	content_text: string;
 	model: string | null;
-	status: 'complete' | 'error' | 'pending';
+	status: EternalAiTurnStatus;
 	error_text: string | null;
 	attachments_json: string | null;
 	metadata_json: string | null;
@@ -52,6 +72,7 @@ interface MessageRow {
 interface ArtifactRow {
 	id: string;
 	conversation_id: string | null;
+	created_by_turn_id: string | null;
 	artifact_type: string;
 	context: string;
 	source_type: string;
@@ -70,6 +91,7 @@ interface ArtifactRow {
 interface TurnTraceRow {
 	id: string;
 	conversation_id: string;
+	turn_id: string;
 	model: string;
 	status: 'success' | 'error';
 	prompt_text: string;
@@ -86,18 +108,44 @@ interface TurnTraceRow {
 	finished_at: string;
 }
 
+interface EffectJobRow {
+	request_id: string;
+	conversation_id: string;
+	turn_id: string;
+	effect_id: string;
+	effect_tag: string | null;
+	status: string;
+	result_url: string | null;
+	error_text: string | null;
+	created_at: string;
+	updated_at: string;
+}
+
 export interface CreateConversationInput extends CreateEternalAiConversationRequest {
 	id: string;
 	createdAt: string;
 }
 
+export interface CreateTurnInput {
+	id: string;
+	conversationId: string;
+	parentTurnId?: string | null;
+	kind: EternalAiTurnKind;
+	status: EternalAiTurnStatus;
+	model?: string | null;
+	errorText?: string | null;
+	createdAt: string;
+	updatedAt: string;
+}
+
 export interface InsertMessageInput {
 	id: string;
 	conversationId: string;
+	turnId: string;
 	role: 'user' | 'assistant' | 'system';
 	contentText: string;
 	model?: string | null;
-	status: 'complete' | 'error' | 'pending';
+	status: EternalAiTurnStatus;
 	errorText?: string | null;
 	attachments?: Array<Record<string, unknown>> | null;
 	metadata?: Record<string, unknown> | null;
@@ -116,14 +164,15 @@ export class EternalAiRepository implements ArtifactStorePort {
 						c.title,
 						c.model,
 						c.system_prompt,
+						c.head_turn_id,
 						c.last_message_preview,
 						c.last_message_at,
 						c.created_at,
 						c.updated_at,
-						COUNT(m.id) AS message_count
+						COUNT(t.id) AS turn_count
 					FROM eternal_ai_conversations c
-					LEFT JOIN eternal_ai_messages m
-						ON m.conversation_id = c.id
+					LEFT JOIN eternal_ai_turns t
+						ON t.conversation_id = c.id
 					GROUP BY c.id
 					ORDER BY c.updated_at DESC
 				`
@@ -142,14 +191,15 @@ export class EternalAiRepository implements ArtifactStorePort {
 						c.title,
 						c.model,
 						c.system_prompt,
+						c.head_turn_id,
 						c.last_message_preview,
 						c.last_message_at,
 						c.created_at,
 						c.updated_at,
-						COUNT(m.id) AS message_count
+						COUNT(t.id) AS turn_count
 					FROM eternal_ai_conversations c
-					LEFT JOIN eternal_ai_messages m
-						ON m.conversation_id = c.id
+					LEFT JOIN eternal_ai_turns t
+						ON t.conversation_id = c.id
 					WHERE c.id = ?
 					GROUP BY c.id
 				`
@@ -170,11 +220,12 @@ export class EternalAiRepository implements ArtifactStorePort {
 						title,
 						model,
 						system_prompt,
+						head_turn_id,
 						last_message_preview,
 						last_message_at,
 						created_at,
 						updated_at
-					) VALUES (?, ?, ?, ?, NULL, NULL, ?, ?)
+					) VALUES (?, ?, ?, ?, NULL, NULL, NULL, ?, ?)
 				`
 			)
 			.run(
@@ -194,6 +245,7 @@ export class EternalAiRepository implements ArtifactStorePort {
 		title?: string;
 		model?: string;
 		systemPrompt?: string | null;
+		headTurnId?: string | null;
 		lastMessagePreview?: string | null;
 		lastMessageAt?: string | null;
 		updatedAt: string;
@@ -211,6 +263,7 @@ export class EternalAiRepository implements ArtifactStorePort {
 						title = ?,
 						model = ?,
 						system_prompt = ?,
+						head_turn_id = ?,
 						last_message_preview = ?,
 						last_message_at = ?,
 						updated_at = ?
@@ -221,6 +274,9 @@ export class EternalAiRepository implements ArtifactStorePort {
 				params.title ?? current.title,
 				params.model ?? current.model,
 				params.systemPrompt ?? current.systemPrompt ?? null,
+				params.headTurnId !== undefined
+					? params.headTurnId
+					: (current.headTurnId ?? null),
 				params.lastMessagePreview ?? current.lastMessagePreview ?? null,
 				params.lastMessageAt ?? current.lastMessageAt ?? null,
 				params.updatedAt,
@@ -228,13 +284,237 @@ export class EternalAiRepository implements ArtifactStorePort {
 			);
 	}
 
-	listMessages(conversationId: string): EternalAiMessageRecord[] {
+	createTurn(input: CreateTurnInput): EternalAiTurnRecord {
+		this.db
+			.prepare(
+				`
+					INSERT INTO eternal_ai_turns (
+						id,
+						conversation_id,
+						parent_turn_id,
+						turn_kind,
+						status,
+						model,
+						error_text,
+						created_at,
+						updated_at
+					) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+				`
+			)
+			.run(
+				input.id,
+				input.conversationId,
+				input.parentTurnId || null,
+				input.kind,
+				input.status,
+				input.model || null,
+				input.errorText || null,
+				input.createdAt,
+				input.updatedAt
+			);
+
+		return this.getTurn(input.id) as EternalAiTurnRecord;
+	}
+
+	getTurn(turnId: string): EternalAiTurnRecord | null {
+		const row = this.db
+			.prepare(
+				`
+					SELECT
+						id,
+						conversation_id,
+						parent_turn_id,
+						turn_kind,
+						status,
+						model,
+						error_text,
+						created_at,
+						updated_at
+					FROM eternal_ai_turns
+					WHERE id = ?
+				`
+			)
+			.get(turnId) as TurnRow | undefined;
+
+		if (!row) {
+			return null;
+		}
+
+		return this.mapTurn(
+			row,
+			this.getMessagesByTurnIds([row.id]),
+			this.getTraceByTurnIds([row.id])
+		);
+	}
+
+	listTurns(conversationId: string): EternalAiTurnRecord[] {
 		const rows = this.db
 			.prepare(
 				`
 					SELECT
 						id,
 						conversation_id,
+						parent_turn_id,
+						turn_kind,
+						status,
+						model,
+						error_text,
+						created_at,
+						updated_at
+					FROM eternal_ai_turns
+					WHERE conversation_id = ?
+					ORDER BY created_at ASC
+				`
+			)
+			.all(conversationId) as TurnRow[];
+
+		const turnIds = rows.map(row => row.id);
+		const messagesByTurnId = this.getMessagesByTurnIds(turnIds);
+		const tracesByTurnId = this.getTraceByTurnIds(turnIds);
+
+		return rows.map(row => this.mapTurn(row, messagesByTurnId, tracesByTurnId));
+	}
+
+	updateTurn(
+		turnId: string,
+		patch: {
+			status?: EternalAiTurnStatus;
+			errorText?: string | null;
+			model?: string | null;
+			updatedAt: string;
+		}
+	): EternalAiTurnRecord | null {
+		const current = this.db
+			.prepare(
+				`
+					SELECT
+						id,
+						conversation_id,
+						parent_turn_id,
+						turn_kind,
+						status,
+						model,
+						error_text,
+						created_at,
+						updated_at
+					FROM eternal_ai_turns
+					WHERE id = ?
+				`
+			)
+			.get(turnId) as TurnRow | undefined;
+
+		if (!current) {
+			return null;
+		}
+
+		this.db
+			.prepare(
+				`
+					UPDATE eternal_ai_turns
+					SET
+						status = ?,
+						model = ?,
+						error_text = ?,
+						updated_at = ?
+					WHERE id = ?
+				`
+			)
+			.run(
+				patch.status ?? current.status,
+				patch.model !== undefined ? patch.model : current.model,
+				patch.errorText !== undefined ? patch.errorText : current.error_text,
+				patch.updatedAt,
+				turnId
+			);
+
+		return this.getTurn(turnId);
+	}
+
+	deleteTurn(turnId: string): boolean {
+		const result = this.db
+			.prepare(`DELETE FROM eternal_ai_turns WHERE id = ?`)
+			.run(turnId);
+		return result.changes > 0;
+	}
+
+	deleteConversation(conversationId: string): boolean {
+		const result = this.db
+			.prepare(`DELETE FROM eternal_ai_conversations WHERE id = ?`)
+			.run(conversationId);
+		return result.changes > 0;
+	}
+
+	insertMessage(input: InsertMessageInput): EternalAiMessageRecord {
+		this.db
+			.prepare(
+				`
+					INSERT INTO eternal_ai_messages (
+						id,
+						conversation_id,
+						turn_id,
+						role,
+						content_text,
+						model,
+						status,
+						error_text,
+						attachments_json,
+						metadata_json,
+						created_at
+					) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				`
+			)
+			.run(
+				input.id,
+				input.conversationId,
+				input.turnId,
+				input.role,
+				input.contentText,
+				input.model || null,
+				input.status,
+				input.errorText || null,
+				input.attachments ? JSON.stringify(input.attachments) : null,
+				input.metadata ? JSON.stringify(input.metadata) : null,
+				input.createdAt
+			);
+
+		return this.getMessageById(input.id) as EternalAiMessageRecord;
+	}
+
+	getMessageById(messageId: string): EternalAiMessageRecord | null {
+		const row = this.db
+			.prepare(
+				`
+					SELECT
+						id,
+						conversation_id,
+						turn_id,
+						role,
+						content_text,
+						model,
+						status,
+						error_text,
+						attachments_json,
+						metadata_json,
+						created_at
+					FROM eternal_ai_messages
+					WHERE id = ?
+				`
+			)
+			.get(messageId) as MessageRow | undefined;
+
+		return row ? this.mapMessage(row) : null;
+	}
+
+	listMessagesForConversation(
+		conversationId: string
+	): EternalAiMessageRecord[] {
+		const rows = this.db
+			.prepare(
+				`
+					SELECT
+						id,
+						conversation_id,
+						turn_id,
 						role,
 						content_text,
 						model,
@@ -253,100 +533,11 @@ export class EternalAiRepository implements ArtifactStorePort {
 		return rows.map(row => this.mapMessage(row));
 	}
 
-	insertMessage(input: InsertMessageInput): EternalAiMessageRecord {
-		this.db
-			.prepare(
-				`
-					INSERT INTO eternal_ai_messages (
-						id,
-						conversation_id,
-						role,
-						content_text,
-						model,
-						status,
-						error_text,
-						attachments_json,
-						metadata_json,
-						created_at
-					) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-				`
-			)
-			.run(
-				input.id,
-				input.conversationId,
-				input.role,
-				input.contentText,
-				input.model || null,
-				input.status,
-				input.errorText || null,
-				input.attachments ? JSON.stringify(input.attachments) : null,
-				input.metadata ? JSON.stringify(input.metadata) : null,
-				input.createdAt
-			);
-
-		const row = this.db
-			.prepare(
-				`
-					SELECT
-						id,
-						conversation_id,
-						role,
-						content_text,
-						model,
-						status,
-						error_text,
-						attachments_json,
-						metadata_json,
-						created_at
-					FROM eternal_ai_messages
-					WHERE id = ?
-				`
-			)
-			.get(input.id) as MessageRow;
-
-		return this.mapMessage(row);
-	}
-
-	/**
-	 * @description Загрузка сообщения по первичному ключу (для poll creative и слияния метаданных).
-	 * @param {string} messageId - UUID сообщения
-	 * @returns {EternalAiMessageRecord | null}
-	 */
-	getMessageById(messageId: string): EternalAiMessageRecord | null {
-		const row = this.db
-			.prepare(
-				`
-					SELECT
-						id,
-						conversation_id,
-						role,
-						content_text,
-						model,
-						status,
-						error_text,
-						attachments_json,
-						metadata_json,
-						created_at
-					FROM eternal_ai_messages
-					WHERE id = ?
-				`
-			)
-			.get(messageId) as MessageRow | undefined;
-
-		return row ? this.mapMessage(row) : null;
-	}
-
-	/**
-	 * @description Обновляет строку сообщения (дозапись результата генерации в то же сообщение ассистента).
-	 * @param {string} messageId - id сообщения
-	 * @param {object} patch - Поля для замены; {@code metadata} сливается поверх существующего JSON.
-	 * @returns {EternalAiMessageRecord | null}
-	 */
 	updateMessage(
 		messageId: string,
 		patch: {
 			contentText?: string;
-			status?: 'complete' | 'error' | 'pending';
+			status?: EternalAiTurnStatus;
 			errorText?: string | null;
 			attachments?: Array<Record<string, unknown>> | null;
 			metadata?: Record<string, unknown> | null;
@@ -394,30 +585,39 @@ export class EternalAiRepository implements ArtifactStorePort {
 		return this.getMessageById(messageId);
 	}
 
-	deleteConversation(conversationId: string): boolean {
-		const result = this.db
-			.prepare('DELETE FROM eternal_ai_conversations WHERE id = ?')
-			.run(conversationId);
-		return result.changes > 0;
-	}
-
-	deleteMessage(conversationId: string, messageId: string): boolean {
-		const result = this.db
+	getLastMessageForConversation(
+		conversationId: string
+	): EternalAiMessageRecord | null {
+		const row = this.db
 			.prepare(
 				`
-					DELETE FROM eternal_ai_messages
-					WHERE id = ? AND conversation_id = ?
+					SELECT
+						id,
+						conversation_id,
+						turn_id,
+						role,
+						content_text,
+						model,
+						status,
+						error_text,
+						attachments_json,
+						metadata_json,
+						created_at
+					FROM eternal_ai_messages
+					WHERE conversation_id = ?
+					ORDER BY created_at DESC
+					LIMIT 1
 				`
 			)
-			.run(messageId, conversationId);
-		return result.changes > 0;
+			.get(conversationId) as MessageRow | undefined;
+
+		return row ? this.mapMessage(row) : null;
 	}
 
 	insertEffectJob(input: {
 		requestId: string;
 		conversationId: string;
-		/** id якорного сообщения: для новых задач — pending assistant; для старых дампов — user. */
-		userMessageId: string;
+		turnId: string;
 		effectId: string;
 		effectTag: string | null;
 		status: string;
@@ -430,22 +630,21 @@ export class EternalAiRepository implements ArtifactStorePort {
 					INSERT INTO eternal_ai_effect_jobs (
 						request_id,
 						conversation_id,
-						user_message_id,
+						turn_id,
 						effect_id,
 						effect_tag,
 						status,
 						result_url,
 						error_text,
-						assistant_message_id,
 						created_at,
 						updated_at
-					) VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?, ?)
+					) VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?)
 				`
 			)
 			.run(
 				input.requestId,
 				input.conversationId,
-				input.userMessageId,
+				input.turnId,
 				input.effectId,
 				input.effectTag,
 				input.status,
@@ -454,47 +653,26 @@ export class EternalAiRepository implements ArtifactStorePort {
 			);
 	}
 
-	getEffectJob(requestId: string): {
-		request_id: string;
-		conversation_id: string;
-		user_message_id: string;
-		effect_id: string;
-		effect_tag: string | null;
-		status: string;
-		result_url: string | null;
-		error_text: string | null;
-		assistant_message_id: string | null;
-	} | null {
+	getEffectJob(requestId: string): EffectJobRow | null {
 		const row = this.db
 			.prepare(
 				`
 					SELECT
 						request_id,
 						conversation_id,
-						user_message_id,
+						turn_id,
 						effect_id,
 						effect_tag,
 						status,
 						result_url,
 						error_text,
-						assistant_message_id
+						created_at,
+						updated_at
 					FROM eternal_ai_effect_jobs
 					WHERE request_id = ?
 				`
 			)
-			.get(requestId) as
-			| {
-					request_id: string;
-					conversation_id: string;
-					user_message_id: string;
-					effect_id: string;
-					effect_tag: string | null;
-					status: string;
-					result_url: string | null;
-					error_text: string | null;
-					assistant_message_id: string | null;
-			  }
-			| undefined;
+			.get(requestId) as EffectJobRow | undefined;
 
 		return row || null;
 	}
@@ -505,7 +683,6 @@ export class EternalAiRepository implements ArtifactStorePort {
 			status?: string;
 			result_url?: string | null;
 			error_text?: string | null;
-			assistant_message_id?: string | null;
 			updatedAt: string;
 		}
 	): void {
@@ -522,7 +699,6 @@ export class EternalAiRepository implements ArtifactStorePort {
 						status = ?,
 						result_url = ?,
 						error_text = ?,
-						assistant_message_id = ?,
 						updated_at = ?
 					WHERE request_id = ?
 				`
@@ -531,21 +707,11 @@ export class EternalAiRepository implements ArtifactStorePort {
 				patch.status ?? current.status,
 				patch.result_url !== undefined ? patch.result_url : current.result_url,
 				patch.error_text !== undefined ? patch.error_text : current.error_text,
-				patch.assistant_message_id !== undefined
-					? patch.assistant_message_id
-					: current.assistant_message_id,
 				patch.updatedAt,
 				requestId
 			);
 	}
 
-	/**
-	 * @description Удаляет завершённые effect_jobs с `updated_at` строго раньше порога.
-	 * Итог генерации уже в `eternal_ai_messages`; строка джобы нужна в основном для
-	 * идемпотентного poll в ограниченном окне после финала.
-	 * @param {string} olderThanIso - ISO-время: удаляются строки, у которых `updated_at` меньше этого значения
-	 * @returns {number} Число удалённых строк
-	 */
 	deleteCompletedEffectJobsOlderThan(olderThanIso: string): number {
 		const result = this.db
 			.prepare(
@@ -571,6 +737,7 @@ export class EternalAiRepository implements ArtifactStorePort {
 					SELECT
 						id,
 						conversation_id,
+						created_by_turn_id,
 						artifact_type,
 						context,
 						source_type,
@@ -611,6 +778,7 @@ export class EternalAiRepository implements ArtifactStorePort {
 					SELECT
 						id,
 						conversation_id,
+						created_by_turn_id,
 						artifact_type,
 						context,
 						source_type,
@@ -682,12 +850,16 @@ export class EternalAiRepository implements ArtifactStorePort {
 		return result.changes > 0;
 	}
 
-	persistArtifacts(artifacts: Artifact[]): void {
+	persistArtifacts(
+		artifacts: Artifact[],
+		createdByTurnId?: string | null
+	): void {
 		const insert = this.db.prepare(
 			`
 				INSERT INTO eternal_ai_artifacts (
 					id,
 					conversation_id,
+					created_by_turn_id,
 					artifact_type,
 					context,
 					source_type,
@@ -701,9 +873,10 @@ export class EternalAiRepository implements ArtifactStorePort {
 					metadata_json,
 					created_at,
 					updated_at
-				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 				ON CONFLICT(id) DO UPDATE SET
 					conversation_id = excluded.conversation_id,
+					created_by_turn_id = excluded.created_by_turn_id,
 					artifact_type = excluded.artifact_type,
 					context = excluded.context,
 					source_type = excluded.source_type,
@@ -725,6 +898,7 @@ export class EternalAiRepository implements ArtifactStorePort {
 				artifact.scope.kind === 'conversation'
 					? artifact.scope.id || null
 					: null,
+				createdByTurnId || null,
 				artifact.artifactType,
 				artifact.context,
 				artifact.sourceType,
@@ -750,6 +924,7 @@ export class EternalAiRepository implements ArtifactStorePort {
 					SELECT
 						id,
 						conversation_id,
+						created_by_turn_id,
 						artifact_type,
 						context,
 						source_type,
@@ -800,6 +975,7 @@ export class EternalAiRepository implements ArtifactStorePort {
 
 	insertTurnTrace(params: {
 		conversationId: string;
+		turnId: string;
 		trace: TurnTrace;
 		status: 'success' | 'error';
 		errorText?: string | null;
@@ -810,12 +986,14 @@ export class EternalAiRepository implements ArtifactStorePort {
 			environmentPatch: null,
 			usedStructuredBlocks: false,
 		};
+
 		this.db
 			.prepare(
 				`
 					INSERT INTO eternal_ai_turn_traces (
 						id,
 						conversation_id,
+						turn_id,
 						model,
 						status,
 						prompt_text,
@@ -830,12 +1008,13 @@ export class EternalAiRepository implements ArtifactStorePort {
 						error_text,
 						started_at,
 						finished_at
-					) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+					) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 				`
 			)
 			.run(
 				params.trace.id,
 				params.conversationId,
+				params.turnId,
 				params.trace.modelRef,
 				params.status,
 				params.trace.assembledPrompt,
@@ -865,6 +1044,7 @@ export class EternalAiRepository implements ArtifactStorePort {
 					SELECT
 						id,
 						conversation_id,
+						turn_id,
 						model,
 						status,
 						prompt_text,
@@ -890,15 +1070,119 @@ export class EternalAiRepository implements ArtifactStorePort {
 		return rows.map(row => this.mapTurnTrace(row));
 	}
 
+	toRuntimeMessages(conversationId: string): RuntimeMessage[] {
+		return this.listMessagesForConversation(conversationId).map(message => ({
+			actor:
+				message.role === 'assistant'
+					? 'assistant'
+					: message.role === 'system'
+						? 'system'
+						: 'user',
+			kind:
+				message.role === 'assistant'
+					? 'assistant_text'
+					: message.role === 'system'
+						? 'system_note'
+						: 'user_text',
+			text: message.contentText,
+			createdAt: message.createdAt,
+			metadata: message.metadata || undefined,
+		})) satisfies RuntimeMessage[];
+	}
+
+	private getMessagesByTurnIds(
+		turnIds: string[]
+	): Map<string, EternalAiMessageRecord[]> {
+		const map = new Map<string, EternalAiMessageRecord[]>();
+		if (!turnIds.length) {
+			return map;
+		}
+
+		const placeholders = turnIds.map(() => '?').join(', ');
+		const rows = this.db
+			.prepare(
+				`
+					SELECT
+						id,
+						conversation_id,
+						turn_id,
+						role,
+						content_text,
+						model,
+						status,
+						error_text,
+						attachments_json,
+						metadata_json,
+						created_at
+					FROM eternal_ai_messages
+					WHERE turn_id IN (${placeholders})
+					ORDER BY created_at ASC
+				`
+			)
+			.all(...turnIds) as MessageRow[];
+
+		for (const row of rows) {
+			const current = map.get(row.turn_id) || [];
+			current.push(this.mapMessage(row));
+			map.set(row.turn_id, current);
+		}
+
+		return map;
+	}
+
+	private getTraceByTurnIds(
+		turnIds: string[]
+	): Map<string, EternalAiTurnTraceRecord> {
+		const map = new Map<string, EternalAiTurnTraceRecord>();
+		if (!turnIds.length) {
+			return map;
+		}
+
+		const placeholders = turnIds.map(() => '?').join(', ');
+		const rows = this.db
+			.prepare(
+				`
+					SELECT
+						id,
+						conversation_id,
+						turn_id,
+						model,
+						status,
+						prompt_text,
+						raw_response,
+						recalled_artifacts_json,
+						prompt_fragments_json,
+						parsed_actions_json,
+						parsed_memory_candidates_json,
+						parsed_environment_patch_json,
+						parsed_used_structured_blocks,
+						timings_json,
+						error_text,
+						started_at,
+						finished_at
+					FROM eternal_ai_turn_traces
+					WHERE turn_id IN (${placeholders})
+				`
+			)
+			.all(...turnIds) as TurnTraceRow[];
+
+		for (const row of rows) {
+			map.set(row.turn_id, this.mapTurnTrace(row));
+		}
+
+		return map;
+	}
+
 	private mapConversation(row: ConversationRow): EternalAiConversationSummary {
 		return {
 			id: row.id,
 			title: row.title,
 			model: row.model,
 			systemPrompt: row.system_prompt,
+			headTurnId: row.head_turn_id,
 			lastMessagePreview: row.last_message_preview,
 			lastMessageAt: row.last_message_at,
-			messageCount: Number(row.message_count || 0),
+			turnCount: Number(row.turn_count || 0),
 			createdAt: row.created_at,
 			updatedAt: row.updated_at,
 		};
@@ -914,9 +1198,11 @@ export class EternalAiRepository implements ArtifactStorePort {
 			!Array.isArray(metadata.canonicalMessage)
 				? (metadata.canonicalMessage as CanonicalChatMessage)
 				: null;
+
 		return {
 			id: row.id,
 			conversationId: row.conversation_id,
+			turnId: row.turn_id,
 			role: row.role,
 			contentText: row.content_text,
 			model: row.model,
@@ -928,6 +1214,33 @@ export class EternalAiRepository implements ArtifactStorePort {
 			metadata,
 			canonicalMessage,
 			createdAt: row.created_at,
+		};
+	}
+
+	private mapTurn(
+		row: TurnRow,
+		messagesByTurnId: Map<string, EternalAiMessageRecord[]>,
+		tracesByTurnId: Map<string, EternalAiTurnTraceRecord>
+	): EternalAiTurnRecord {
+		const messages = messagesByTurnId.get(row.id) || [];
+		const userMessage =
+			messages.find(message => message.role === 'user') || null;
+		const assistantMessage =
+			messages.find(message => message.role === 'assistant') || null;
+
+		return {
+			id: row.id,
+			conversationId: row.conversation_id,
+			parentTurnId: row.parent_turn_id,
+			kind: row.turn_kind,
+			status: row.status,
+			model: row.model,
+			errorText: row.error_text,
+			userMessage,
+			assistantMessage,
+			trace: tracesByTurnId.get(row.id) || null,
+			createdAt: row.created_at,
+			updatedAt: row.updated_at,
 		};
 	}
 
@@ -1024,6 +1337,7 @@ export class EternalAiRepository implements ArtifactStorePort {
 		return {
 			id: row.id,
 			conversationId: row.conversation_id,
+			turnId: row.turn_id,
 			model: row.model,
 			status: row.status,
 			promptText: row.prompt_text,

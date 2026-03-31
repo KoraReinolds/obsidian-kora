@@ -44,6 +44,16 @@ export const HOST_IMAGE_CONTEXT_MENU: InjectionKey<
  */
 export type HostChatMessageContextMenuPayload = {
 	messageId: string;
+	/**
+	 * @description Полный текст bubble для “Скопировать всё”.
+	 * Обычно это уже отрендеренный plain text, который видит пользователь.
+	 */
+	copyText?: string | null;
+	/**
+	 * @description Подсказка host-меню: если bubble относится к turn, можно
+	 * показывать “Удалить turn” вместо “Удалить сообщение”.
+	 */
+	hasTurn?: boolean;
 	onDelete: () => void;
 };
 

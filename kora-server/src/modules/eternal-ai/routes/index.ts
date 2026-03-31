@@ -40,13 +40,13 @@ export function registerEternalAiRoutes(app: Express): void {
 	});
 
 	app.get(
-		'/eternal_ai/conversations/:conversationId/messages',
+		'/eternal_ai/conversations/:conversationId/turns',
 		(req: Request, res: Response) => {
 			try {
 				const service = getEternalAiService();
 				res.json({
 					success: true,
-					messages: service.listMessages(req.params.conversationId),
+					turns: service.listTurns(req.params.conversationId),
 				});
 			} catch (error: any) {
 				res.status(500).json({ success: false, error: error.message });
@@ -140,36 +140,14 @@ export function registerEternalAiRoutes(app: Express): void {
 		}
 	);
 
-	app.get(
-		'/eternal_ai/conversations/:conversationId/traces',
-		(req: Request, res: Response) => {
-			try {
-				const service = getEternalAiService();
-				const limit = Number.parseInt(String(req.query.limit || '20'), 10);
-				res.json({
-					success: true,
-					traces: service.listTurnTraces(
-						req.params.conversationId,
-						Number.isFinite(limit) ? limit : 20
-					),
-				});
-			} catch (error: any) {
-				res.status(500).json({ success: false, error: error.message });
-			}
-		}
-	);
-
 	app.delete(
-		'/eternal_ai/conversations/:conversationId/messages/:messageId',
+		'/eternal_ai/conversations/:conversationId/turns/:turnId',
 		(req: Request, res: Response) => {
 			try {
 				const service = getEternalAiService();
 				res.json({
 					success: true,
-					deleted: service.deleteMessage(
-						req.params.conversationId,
-						req.params.messageId
-					),
+					...service.deleteTurn(req.params.conversationId, req.params.turnId),
 				});
 			} catch (error: any) {
 				res.status(500).json({ success: false, error: error.message });

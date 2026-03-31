@@ -15,9 +15,8 @@ import type {
 	EternalAiCustomMode,
 	EternalAiCreativeEffectItem,
 	EternalAiHealthResponse,
-	EternalAiMessageRecord,
 	EternalAiS4SafetyCheckResponse,
-	EternalAiTurnTraceRecord,
+	EternalAiTurnRecord,
 } from '../../../../../../packages/contracts/src/eternal-ai';
 import {
 	ChatTimelineEternalTurnConversation,
@@ -109,26 +108,12 @@ function isKoraCustomCatalogEffectId(effectId: string): boolean {
 }
 
 /**
- * @description Извлекает `traceId` из `metadata` сообщения (assistant / user после error-path).
- * @param {EternalAiMessageRecord} message - сообщение Eternal AI
- * @returns {string | null}
- */
-function getTraceIdFromMessage(message: EternalAiMessageRecord): string | null {
-	const meta = message.metadata;
-	if (!meta || typeof meta !== 'object') {
-		return null;
-	}
-	const id = (meta as Record<string, unknown>).traceId;
-	return typeof id === 'string' ? id : null;
-}
-
-/**
  * @description Собирает DTO инспектора ленты из записи turn trace.
- * @param {EternalAiTurnTraceRecord} trace - снимок с сервера
+ * @param {NonNullable<EternalAiTurnRecord['trace']>} trace - снимок с сервера
  * @returns {ChatTimelineEternalTracePayload}
  */
 function buildTimelineTracePayload(
-	trace: EternalAiTurnTraceRecord
+	trace: NonNullable<EternalAiTurnRecord['trace']>
 ): ChatTimelineEternalTracePayload {
 	return {
 		traceId: trace.id,
@@ -174,11 +159,13 @@ function buildTimelineTracePayload(
 /**
  * @description Нормализует одно сообщение Eternal AI в универсальный bubble-item.
  * Этот item используется и как самостоятельная строка (system), и как часть turn renderer.
- * @param {EternalAiMessageRecord} message - исходное сообщение из БД
+ * @param {EternalAiTurnRecord['userMessage'] | EternalAiTurnRecord['assistantMessage']} message - исходное сообщение из БД
  * @returns {ChatTimelineMessageItem}
  */
 function getCanonicalMessageForTimeline(
-	message: EternalAiMessageRecord
+	message: NonNullable<
+		EternalAiTurnRecord['userMessage'] | EternalAiTurnRecord['assistantMessage']
+	>
 ): CanonicalChatMessage {
 	const canonicalMessage = message.canonicalMessage;
 	if (!canonicalMessage) {
@@ -190,7 +177,9 @@ function getCanonicalMessageForTimeline(
 }
 
 function mapMessageToTimelineMessage(
-	message: EternalAiMessageRecord
+	message: NonNullable<
+		EternalAiTurnRecord['userMessage'] | EternalAiTurnRecord['assistantMessage']
+	>
 ): ChatTimelineMessageItem {
 	const role = message.role;
 	const isUser = role === 'user';
@@ -285,19 +274,18 @@ function buildDebugTurnItem(params: {
 export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 	const conversations = ref<EternalAiConversationSummary[]>([]);
 	const selectedConversationId = ref<string | null>(null);
-	const messages = ref<EternalAiMessageRecord[]>([]);
+	const turns = ref<EternalAiTurnRecord[]>([]);
 	const draft = ref('');
 	const health = ref<EternalAiHealthResponse | null>(null);
 	const isRefreshing = ref(false);
 	const isLoadingMessages = ref(false);
 	const isSending = ref(false);
 	const isDeletingConversationId = ref<string | null>(null);
-	const isDeletingMessageId = ref<string | null>(null);
+	const isDeletingTurnId = ref<string | null>(null);
 	const isDeletingArtifactId = ref<string | null>(null);
 	const isUpdatingArtifactId = ref<string | null>(null);
 	const isLoadingArtifacts = ref(false);
 	const isCreatingArtifact = ref(false);
-	const turnTraces = ref<EternalAiTurnTraceRecord[]>([]);
 	const artifacts = ref<EternalAiArtifactRecord[]>([]);
 	/** Включён ли режим полного debug turn в ленте; выключен — обычный диалог. */
 	const timelineDebugEnabled = ref(false);
@@ -359,14 +347,6 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 			: false
 	);
 
-	const traceById = computed(() => {
-		const map = new Map<string, EternalAiTurnTraceRecord>();
-		for (const trace of turnTraces.value) {
-			map.set(trace.id, trace);
-		}
-		return map;
-	});
-
 	const canManageArtifacts = computed(() =>
 		Boolean(selectedConversationId.value)
 	);
@@ -384,85 +364,26 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 	});
 
 	const timelineItems = computed<ChatTimelineItem[]>(() => {
-		const traces = traceById.value;
-		const items: ChatTimelineItem[] = [];
-		const usedMessageIds = new Set<string>();
 		const buildTurnItem = timelineDebugEnabled.value
 			? buildDebugTurnItem
 			: buildConversationTurnItem;
-
-		for (let index = 0; index < messages.value.length; index += 1) {
-			const message = messages.value[index];
-			if (usedMessageIds.has(message.id)) {
-				continue;
-			}
-
-			if (message.role === 'system') {
-				usedMessageIds.add(message.id);
-				items.push(mapMessageToTimelineMessage(message));
-				continue;
-			}
-
-			if (message.role === 'user') {
-				const nextMessage = messages.value[index + 1];
-				const currentTraceId = getTraceIdFromMessage(message);
-				const nextTraceId =
-					nextMessage?.role === 'assistant'
-						? getTraceIdFromMessage(nextMessage)
-						: null;
-				const trace =
-					(currentTraceId ? traces.get(currentTraceId) : undefined) ||
-					(nextTraceId ? traces.get(nextTraceId) : undefined) ||
-					null;
-				const assistantMessage =
-					nextMessage?.role === 'assistant' ? nextMessage : null;
-
-				if (assistantMessage) {
-					usedMessageIds.add(assistantMessage.id);
-				}
-				usedMessageIds.add(message.id);
-
-				items.push(
-					buildTurnItem({
-						turnId: trace?.id || assistantMessage?.id || message.id,
-						userMessage: mapMessageToTimelineMessage(message),
-						assistantMessage: assistantMessage
-							? mapMessageToTimelineMessage(assistantMessage)
-							: null,
-						trace: trace ? buildTimelineTracePayload(trace) : null,
-						rawPayload: {
-							type: 'eternal-turn',
-							mode: timelineDebugEnabled.value ? 'debug' : 'conversation',
-							userMessage: message,
-							assistantMessage,
-							trace,
-						},
-					})
-				);
-				continue;
-			}
-
-			usedMessageIds.add(message.id);
-			const traceId = getTraceIdFromMessage(message);
-			const trace = traceId ? traces.get(traceId) : null;
-			items.push(
-				buildTurnItem({
-					turnId: trace?.id || message.id,
-					userMessage: null,
-					assistantMessage: mapMessageToTimelineMessage(message),
-					trace: trace ? buildTimelineTracePayload(trace) : null,
-					rawPayload: {
-						type: 'eternal-turn',
-						mode: timelineDebugEnabled.value ? 'debug' : 'conversation',
-						userMessage: null,
-						assistantMessage: message,
-						trace,
-					},
-				})
-			);
-		}
-
-		return items;
+		return turns.value.map(turn =>
+			buildTurnItem({
+				turnId: turn.id,
+				userMessage: turn.userMessage
+					? mapMessageToTimelineMessage(turn.userMessage)
+					: null,
+				assistantMessage: turn.assistantMessage
+					? mapMessageToTimelineMessage(turn.assistantMessage)
+					: null,
+				trace: turn.trace ? buildTimelineTracePayload(turn.trace) : null,
+				rawPayload: {
+					type: 'eternal-turn',
+					mode: timelineDebugEnabled.value ? 'debug' : 'conversation',
+					turn,
+				},
+			})
+		);
 	});
 
 	const systemPromptSummary = computed(() => {
@@ -485,13 +406,12 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 	 * @param {{ silent?: boolean }} loadOpts - {@code silent: true} — без isLoadingMessages
 	 * @returns {Promise<void>}
 	 */
-	const loadMessages = async (
+	const loadTurns = async (
 		conversationId: string | null,
 		loadOpts?: { silent?: boolean }
 	): Promise<void> => {
 		if (!conversationId) {
-			messages.value = [];
-			turnTraces.value = [];
+			turns.value = [];
 			return;
 		}
 
@@ -500,38 +420,16 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 			isLoadingMessages.value = true;
 		}
 		try {
-			messages.value = await options.transport.listMessages(conversationId);
+			turns.value = await options.transport.listTurns(conversationId);
 		} catch (error) {
 			screen.setMessage(
 				'error',
-				`Не удалось загрузить историю Eternal AI: ${(error as Error).message}`
+				`Не удалось загрузить turns Eternal AI: ${(error as Error).message}`
 			);
 		} finally {
 			if (!silent) {
 				isLoadingMessages.value = false;
 			}
-		}
-	};
-
-	const loadTurnTraces = async (
-		conversationId: string | null,
-		_loadOpts?: { silent?: boolean }
-	): Promise<void> => {
-		if (!conversationId) {
-			turnTraces.value = [];
-			return;
-		}
-
-		try {
-			turnTraces.value = await options.transport.listTurnTraces(
-				conversationId,
-				20
-			);
-		} catch (error) {
-			screen.setMessage(
-				'error',
-				`Не удалось загрузить trace Eternal AI: ${(error as Error).message}`
-			);
 		}
 	};
 
@@ -695,17 +593,12 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 				selectedConversationId.value = conversations.value[0]?.id || null;
 			}
 
-			await loadMessages(selectedConversationId.value, {
+			await loadTurns(selectedConversationId.value, {
 				silent: refreshOpts?.silentMessages,
 			});
-			await Promise.all([
-				loadTurnTraces(selectedConversationId.value, {
-					silent: refreshOpts?.silentMessages,
-				}),
-				loadArtifacts(selectedConversationId.value, {
-					silent: refreshOpts?.silentMessages,
-				}),
-			]);
+			await loadArtifacts(selectedConversationId.value, {
+				silent: refreshOpts?.silentMessages,
+			});
 
 			if (health.value.status !== 'healthy') {
 				screen.setMessage(
@@ -731,17 +624,15 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 
 		selectedConversationId.value = conversationId;
 		await Promise.all([
-			loadMessages(conversationId),
-			loadTurnTraces(conversationId),
+			loadTurns(conversationId),
 			loadArtifacts(conversationId),
 		]);
 	};
 
 	const startNewConversation = (): void => {
 		selectedConversationId.value = null;
-		messages.value = [];
+		turns.value = [];
 		artifacts.value = [];
-		turnTraces.value = [];
 		screen.setMessage(
 			'neutral',
 			'Новый чат начнётся с первого отправленного сообщения.'
@@ -889,7 +780,7 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 			await options.transport.deleteConversation(conversationId);
 			if (selectedConversationId.value === conversationId) {
 				selectedConversationId.value = null;
-				messages.value = [];
+				turns.value = [];
 			}
 			await refreshData();
 		} catch (error) {
@@ -902,23 +793,23 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 		}
 	};
 
-	const handleDeleteMessage = async (messageId: string): Promise<void> => {
+	const handleDeleteTurn = async (turnId: string): Promise<void> => {
 		const conversationId = selectedConversationId.value;
 		if (!conversationId) {
 			return;
 		}
 
-		isDeletingMessageId.value = messageId;
+		isDeletingTurnId.value = turnId;
 		try {
-			await options.transport.deleteMessage(conversationId, messageId);
+			await options.transport.deleteTurn(conversationId, turnId);
 			await refreshData(conversationId);
 		} catch (error) {
 			screen.setMessage(
 				'error',
-				`Не удалось удалить сообщение: ${(error as Error).message}`
+				`Не удалось удалить turn: ${(error as Error).message}`
 			);
 		} finally {
-			isDeletingMessageId.value = null;
+			isDeletingTurnId.value = null;
 		}
 	};
 
@@ -999,7 +890,7 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 			});
 
 			selectedConversationId.value = start.conversation.id;
-			await loadMessages(start.conversation.id, { silent: true });
+			await loadTurns(start.conversation.id, { silent: true });
 
 			let attempts = 0;
 			const maxAttempts = 180;
@@ -1111,7 +1002,7 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 			});
 
 			selectedConversationId.value = start.conversation.id;
-			await loadMessages(start.conversation.id, { silent: true });
+			await loadTurns(start.conversation.id, { silent: true });
 
 			let attempts = 0;
 			const maxAttempts = 180;
@@ -1149,14 +1040,14 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 		conversations,
 		selectedConversationId,
 		selectedConversation,
-		messages,
+		turns,
 		draft,
 		health,
 		isRefreshing,
 		isLoadingMessages,
 		isSending,
 		isDeletingConversationId,
-		isDeletingMessageId,
+		isDeletingTurnId,
 		isDeletingArtifactId,
 		isUpdatingArtifactId,
 		isLoadingArtifacts,
@@ -1167,7 +1058,6 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 		timelineDebugEnabled,
 		timelineItems,
 		artifacts,
-		turnTraces,
 		canManageArtifacts,
 		systemPromptSummary,
 		refreshData,
@@ -1178,7 +1068,7 @@ export function useEternalAiScreen(options: EternalAiScreenModelOptions) {
 		deleteArtifact,
 		sendCurrentDraft,
 		handleDeleteConversation,
-		handleDeleteMessage,
+		handleDeleteTurn,
 		leftTab,
 		creativeEffects,
 		effectsQuery,
