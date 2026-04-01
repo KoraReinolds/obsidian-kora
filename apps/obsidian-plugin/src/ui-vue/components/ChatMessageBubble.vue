@@ -1,9 +1,7 @@
 <script setup lang="ts">
 /**
  * @description Универсальный bubble-рендер для одного элемента chat timeline.
- * Поле `bubbleChrome: 'messenger'` — компактный чат (время в строке или внизу справа).
- * Копирование — выделение текста мышью и стандартный Ctrl+C / контекстное меню ОС.
- * Удаление — ПКМ по пузырю (кроме превью картинки) при наличии host-меню.
+ * Поле `bubbleChrome: 'messenger'` даёт компактный чат с таймстампом как в мессенджере.
  */
 import { computed, inject, ref } from 'vue';
 import type { ChatTimelineItem, ChatTimelineMessageItem } from '../types';
@@ -34,8 +32,8 @@ const hostChatMessageContextMenu = inject(
 );
 
 /**
- * @description ПКМ по пузырю: меню удаления в Obsidian. Превью картинки не всплывает сюда ({@code stopPropagation} на {@code img}).
- * @param {MouseEvent} event - {@code contextmenu}.
+ * @description ПКМ по пузырю открывает host-меню удаления, если оно доступно.
+ * @param {MouseEvent} event - Событие `contextmenu`.
  * @returns {void}
  */
 const onBubbleContextMenu = (event: MouseEvent): void => {
@@ -202,7 +200,8 @@ const toggleThoughtReveal = (index: number): void => {
 };
 
 /**
- * @description Текст для чипа реакции (лейбл + счётчик).
+ * @description Текст для чипа реакции.
+ * @returns {string}
  */
 const reactionLabel = (label: string, count?: number): string =>
 	count ? `${label} ${count}` : label;
@@ -357,7 +356,7 @@ const reactionLabel = (label: string, count?: number): string =>
 				v-else-if="!hasRichParts && item.text"
 				:class="bodyTextClass"
 				v-text="item.text"
-			></div>
+			/>
 
 			<div v-else-if="hasRichParts" class="flex flex-col gap-2">
 				<template
@@ -374,33 +373,21 @@ const reactionLabel = (label: string, count?: number): string =>
 						class="whitespace-pre-wrap text-sm italic leading-6 text-[var(--text-muted)]"
 						v-text="part.text"
 					/>
-					<button
+					<span
 						v-else-if="part.kind === 'thought' && part.visibility === 'spoiler'"
-						type="button"
-						class="rounded-xl border border-dashed px-3 py-2 text-left transition-colors"
-						:style="{
-							borderColor: 'rgba(255, 255, 255, 0.12)',
-							backgroundColor: isThoughtRevealed(index)
-								? 'rgba(255, 255, 255, 0.05)'
-								: 'rgba(255, 255, 255, 0.025)',
-						}"
+						role="button"
+						tabindex="0"
+						class="kora-thought-inline"
+						:class="isThoughtRevealed(index) ? 'is-revealed' : ''"
 						@click="toggleThoughtReveal(index)"
+						@keydown.enter.prevent="toggleThoughtReveal(index)"
+						@keydown.space.prevent="toggleThoughtReveal(index)"
 					>
-						<div
-							class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]"
-							v-text="'Мысль'"
-						/>
-						<div
-							v-if="isThoughtRevealed(index)"
-							class="whitespace-pre-wrap text-sm italic leading-6"
-							v-text="part.text"
-						/>
-						<div
-							v-else
-							class="text-sm italic text-[var(--text-muted)]"
-							v-text="'Нажмите, чтобы раскрыть spoiler'"
-						/>
-					</button>
+						<span class="kora-thought-inline__label">
+							{{ isThoughtRevealed(index) ? 'мысль:' : 'скрытая мысль:' }}
+						</span>
+						<span class="kora-thought-inline__text" v-text="part.text" />
+					</span>
 					<div
 						v-else-if="part.kind === 'thought'"
 						class="whitespace-pre-wrap text-sm italic leading-6 text-[var(--text-muted)]"
@@ -514,7 +501,7 @@ const reactionLabel = (label: string, count?: number): string =>
 
 <style scoped>
 /**
- * Стек как у Telegram Web: Roboto подключается в `styles.base.css` (@import fonts.googleapis.com).
+ * Стек как у Telegram Web: Roboto подключается в `styles.base.css`.
  */
 .kora-messenger-body {
 	font-family:
@@ -530,5 +517,46 @@ const reactionLabel = (label: string, count?: number): string =>
 		sans-serif;
 	font-weight: 400;
 	-webkit-font-smoothing: antialiased;
+}
+
+.kora-thought-inline {
+	display: inline;
+	cursor: pointer;
+	color: color-mix(in srgb, var(--text-normal) 76%, var(--text-muted));
+	transition:
+		color 140ms ease,
+		opacity 140ms ease;
+}
+
+.kora-thought-inline:hover {
+	color: color-mix(in srgb, var(--text-normal) 84%, var(--text-muted));
+}
+
+.kora-thought-inline:focus-visible {
+	outline: none;
+	text-decoration: underline;
+	text-decoration-color: var(--interactive-accent);
+	text-underline-offset: 0.15em;
+}
+
+.kora-thought-inline__label {
+	margin-right: 0.3rem;
+	font-size: 0.78em;
+	letter-spacing: 0.03em;
+	text-transform: uppercase;
+	color: var(--text-faint);
+}
+
+.kora-thought-inline__text {
+	font-style: italic;
+	opacity: 0.14;
+}
+
+.kora-thought-inline.is-revealed .kora-thought-inline__text {
+	opacity: 0.78;
+}
+
+.kora-thought-inline.is-revealed .kora-thought-inline__label {
+	color: var(--text-muted);
 }
 </style>

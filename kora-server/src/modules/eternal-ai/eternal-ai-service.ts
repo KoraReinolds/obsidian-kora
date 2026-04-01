@@ -230,7 +230,7 @@ export class EternalAiService {
 	): DeleteEternalAiTurnResponse {
 		const conversation = this.repository.getConversation(conversationId);
 		if (!conversation) {
-			throw new Error('Диалог не найден.');
+			throw new Error('Conversation not found.');
 		}
 		if (!conversation.headTurnId) {
 			return {
@@ -238,11 +238,6 @@ export class EternalAiService {
 				deleted: false,
 				deletedTurnId: null,
 			};
-		}
-		if (conversation.headTurnId !== turnId) {
-			throw new Error(
-				'Сейчас можно удалить только последний turn (head истории).'
-			);
 		}
 
 		const turn = this.repository.getTurn(turnId);
@@ -253,8 +248,17 @@ export class EternalAiService {
 				deletedTurnId: null,
 			};
 		}
+		if (turn.conversationId !== conversationId) {
+			throw new Error('Turn does not belong to the selected conversation.');
+		}
 
-		const deleted = this.repository.deleteTurn(turnId);
+		const updatedAt = new Date().toISOString();
+		const deleted = this.repository.reparentAndDeleteTurn({
+			conversationId,
+			turnId,
+			nextParentTurnId: turn.parentTurnId || null,
+			updatedAt,
+		});
 		if (!deleted) {
 			return {
 				conversation,
@@ -263,11 +267,14 @@ export class EternalAiService {
 			};
 		}
 
-		const updatedConversation = this.syncConversationHead({
-			conversationId,
-			headTurnId: turn.parentTurnId || null,
-			updatedAt: new Date().toISOString(),
-		});
+		const updatedConversation =
+			conversation.headTurnId === turnId
+				? this.syncConversationHead({
+						conversationId,
+						headTurnId: turn.parentTurnId || null,
+						updatedAt,
+					})
+				: this.repository.getConversation(conversationId);
 
 		return {
 			conversation: updatedConversation,

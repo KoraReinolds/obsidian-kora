@@ -437,6 +437,54 @@ export class EternalAiRepository implements ArtifactStorePort {
 		return result.changes > 0;
 	}
 
+	reparentAndDeleteTurn(params: {
+		conversationId: string;
+		turnId: string;
+		nextParentTurnId: string | null;
+		updatedAt: string;
+	}): boolean {
+		const run = this.db.transaction(
+			(input: {
+				conversationId: string;
+				turnId: string;
+				nextParentTurnId: string | null;
+				updatedAt: string;
+			}): boolean => {
+				this.db
+					.prepare(
+						`
+							UPDATE eternal_ai_turns
+							SET
+								parent_turn_id = ?,
+								updated_at = ?
+							WHERE conversation_id = ?
+								AND parent_turn_id = ?
+						`
+					)
+					.run(
+						input.nextParentTurnId,
+						input.updatedAt,
+						input.conversationId,
+						input.turnId
+					);
+
+				const deleteResult = this.db
+					.prepare(
+						`
+							DELETE FROM eternal_ai_turns
+							WHERE id = ?
+								AND conversation_id = ?
+						`
+					)
+					.run(input.turnId, input.conversationId);
+
+				return deleteResult.changes > 0;
+			}
+		);
+
+		return run(params);
+	}
+
 	deleteConversation(conversationId: string): boolean {
 		const result = this.db
 			.prepare(`DELETE FROM eternal_ai_conversations WHERE id = ?`)
