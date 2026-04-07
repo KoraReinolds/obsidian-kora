@@ -53,11 +53,23 @@ export class McpToolsGenerator {
 		definition: McpToolDefinition<any, any>,
 		baseUrl: string
 	): void {
-		server.registerTool(
+		const registerTool = server.registerTool as (
+			name: string,
+			config: {
+				description?: string;
+				inputSchema?: Record<string, unknown>;
+			},
+			cb: (input: Record<string, unknown>) => Promise<unknown>
+		) => unknown;
+
+		registerTool(
 			definition.toolName,
 			{
 				description: definition.description,
-				inputSchema: getToolInputRawShape(definition),
+				inputSchema: getToolInputRawShape(definition) as Record<
+					string,
+					unknown
+				>,
 			},
 			async input => {
 				return await callMcpTool(definition, baseUrl, input as any);

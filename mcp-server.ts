@@ -13,7 +13,7 @@ const KORA_URL = getMcpUrl(MCP_CONFIG.DEFAULT_PORT);
 const server = new McpServer({
 	name: 'kora-obsidian-vault',
 	version: '0.1.0',
-	info: { summary: 'Expose Obsidian vault files through MCP' },
+	description: 'Expose Obsidian vault files through MCP',
 });
 
 // 🚀 Автоматическая регистрация всех MCP инструментов из эндпоинтов
