@@ -5,7 +5,10 @@
 
 import type { Express, Request, Response } from 'express';
 import { existsSync } from 'fs';
-import { initClient } from '../../../services/strategy-service.js';
+import {
+	normalizeIntegrationId,
+	resolveTelegramStrategy,
+} from '../../../services/telegram-strategy-resolver.js';
 import type {
 	SendFileRequest,
 	SendMessageResponse,
@@ -18,16 +21,25 @@ export function registerSendFileRoute(app: Express): void {
 	app.post('/send_file', async (req: Request, res: Response) => {
 		try {
 			const requestData: SendFileRequest = req.body;
-			const { peer, filePath, caption } = requestData;
+			const {
+				peer,
+				filePath,
+				caption,
+				integrationId: integrationIdRaw,
+			} = requestData;
 
-			if (!peer || !filePath)
+			if (!peer || !filePath) {
 				return res
 					.status(400)
 					.json({ error: 'peer and filePath are required' });
-			if (!existsSync(filePath))
+			}
+			if (!existsSync(filePath)) {
 				return res.status(400).json({ error: 'File not found' });
+			}
 
-			const strategy = await initClient();
+			const strategy = await resolveTelegramStrategy(
+				normalizeIntegrationId(integrationIdRaw)
+			);
 			const result = await strategy.sendFile(peer, {
 				file: filePath,
 				caption: caption || '',

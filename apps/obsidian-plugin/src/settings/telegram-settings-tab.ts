@@ -1,4 +1,11 @@
-import { App, PluginSettingTab, Setting, Notice } from 'obsidian';
+import {
+	App,
+	Notice,
+	PluginSettingTab,
+	Setting,
+	type DropdownComponent,
+} from 'obsidian';
+import type { IntegrationAccount } from '../../../../packages/contracts/src/telegram';
 import type KoraPlugin from '../main';
 
 export class TelegramSettingTab extends PluginSettingTab {
@@ -14,11 +21,9 @@ export class TelegramSettingTab extends PluginSettingTab {
 	}
 
 	display(): void {
-		console.log('TelegramSettingTab display() called');
 		const { containerEl } = this;
 		containerEl.empty();
 
-		console.log('Current telegram settings:', this.plugin.settings.telegram);
 		this.renderTelegramBasics(containerEl);
 		this.renderGramJs(containerEl);
 	}
@@ -39,6 +44,37 @@ export class TelegramSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
+
+		const integrationHostEl = containerEl.createDiv();
+		void this.renderDefaultPublishIntegrationSetting(integrationHostEl);
+	}
+
+	private async renderDefaultPublishIntegrationSetting(
+		containerEl: HTMLElement
+	): Promise<void> {
+		containerEl.empty();
+		const bridge =
+			this.plugin.getGramJSBridge?.() ||
+			((this.plugin as unknown as { gramjsBridge?: any }).gramjsBridge ?? null);
+		const accounts = await this.loadAccountsSafe(bridge);
+		const description = bridge
+			? 'Какой Telegram account использовать по умолчанию для publish. Пусто = legacy current mode.'
+			: 'Bridge Kora server недоступен, поэтому доступен только legacy mode.';
+
+		new Setting(containerEl)
+			.setName('Default Publish Integration')
+			.setDesc(description)
+			.addDropdown(dropdown => {
+				this.populateIntegrationDropdown(
+					dropdown,
+					accounts,
+					this.plugin.settings.telegram.defaultPublishIntegrationId || ''
+				);
+				dropdown.onChange(async value => {
+					this.plugin.settings.telegram.defaultPublishIntegrationId = value;
+					await this.plugin.saveSettings();
+				});
+			});
 	}
 
 	private renderGramJs(containerEl: HTMLElement) {
@@ -172,9 +208,15 @@ export class TelegramSettingTab extends PluginSettingTab {
 					.onClick(async () => {
 						const bridge =
 							this.plugin.getGramJSBridge?.() ||
-							(this.plugin as any).gramjsBridge;
+							((this.plugin as unknown as { gramjsBridge?: any })
+								.gramjsBridge ??
+								null);
 						if (bridge) {
-							await bridge.testConnection();
+							await bridge.testConnection(
+								this.normalizeIntegrationId(
+									this.plugin.settings.telegram.defaultPublishIntegrationId
+								)
+							);
 						} else {
 							new Notice('Kora server bridge not initialized');
 						}
@@ -220,5 +262,60 @@ export class TelegramSettingTab extends PluginSettingTab {
 				cls: 'setting-item-description',
 			});
 		}
+	}
+
+	private async loadAccountsSafe(
+		bridge: {
+			isServerRunning(): Promise<boolean>;
+			getIntegrationAccounts(
+				forceReload?: boolean
+			): Promise<IntegrationAccount[]>;
+		} | null
+	): Promise<IntegrationAccount[]> {
+		if (!bridge) {
+			return [];
+		}
+		try {
+			const isRunning = await bridge.isServerRunning();
+			if (!isRunning) {
+				return [];
+			}
+			const accounts = await bridge.getIntegrationAccounts();
+			return accounts.filter(account => account.provider === 'telegram');
+		} catch (error) {
+			console.error(
+				'[TelegramSettingTab] Failed to load integration accounts',
+				error
+			);
+			return [];
+		}
+	}
+
+	private populateIntegrationDropdown(
+		dropdown: DropdownComponent,
+		accounts: IntegrationAccount[],
+		selectedValue: string
+	): void {
+		dropdown.addOption('', 'Legacy / current mode');
+		for (const account of accounts) {
+			dropdown.addOption(account.id, this.formatIntegrationLabel(account));
+		}
+		dropdown.setValue(selectedValue || '');
+	}
+
+	private formatIntegrationLabel(account: IntegrationAccount): string {
+		const flags = [account.transport, account.source];
+		if (account.isDefault) {
+			flags.push('default');
+		}
+		return `${account.title} [${flags.join(' / ')}]`;
+	}
+
+	private normalizeIntegrationId(value: unknown): string | undefined {
+		if (typeof value !== 'string') {
+			return undefined;
+		}
+		const trimmed = value.trim();
+		return trimmed.length > 0 ? trimmed : undefined;
 	}
 }

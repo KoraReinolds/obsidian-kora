@@ -8,6 +8,7 @@ import type {
 	ArchiveBackfillRequest,
 	ArchiveBackfillResponse,
 } from '../../../../../packages/contracts/src/telegram.js';
+import { normalizeIntegrationId } from '../../../services/telegram-strategy-resolver.js';
 import { getArchiveSyncService } from '../services/archive-service-singleton.js';
 
 /**
@@ -22,6 +23,7 @@ export function registerArchiveBackfillRoutes(app: Express): void {
 				chatId,
 				peer,
 				limit = 200,
+				integrationId: integrationIdRaw,
 			} = (req.body || {}) as ArchiveBackfillRequest;
 
 			if (!chatId) {
@@ -32,6 +34,7 @@ export function registerArchiveBackfillRoutes(app: Express): void {
 				chatId,
 				peer,
 				limit: typeof limit === 'number' ? limit : Number(limit) || 200,
+				integrationId: normalizeIntegrationId(integrationIdRaw),
 			});
 
 			const response: ArchiveBackfillResponse = {

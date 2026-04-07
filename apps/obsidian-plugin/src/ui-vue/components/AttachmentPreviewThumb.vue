@@ -79,12 +79,13 @@ const handleRootClick = (): void => {
 
 <template>
 	<div
-		class="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl border border-solid border-[rgba(255,255,255,0.1)] bg-black/20"
-		:class="
+		class="relative shrink-0 overflow-hidden rounded-xl border border-solid border-[rgba(255,255,255,0.1)] bg-black/20"
+		:class="[
+			isVideo ? 'h-48 w-36 sm:h-56 sm:w-44' : 'h-24 w-24',
 			!src && emptyPickable
 				? 'cursor-pointer hover:ring-1 hover:ring-[var(--interactive-accent)]/40'
-				: ''
-		"
+				: '',
+		]"
 		:role="!src && emptyPickable ? 'button' : undefined"
 		:tabindex="!src && emptyPickable ? 0 : undefined"
 		@keydown.enter.prevent="handleRootClick"

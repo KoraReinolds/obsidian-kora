@@ -19,6 +19,7 @@ export interface TelegramSettings {
 	useCustomEmojis?: boolean;
 	disableWebPagePreview?: boolean;
 	folderConfigs: TelegramFolderConfig[];
+	defaultPublishIntegrationId?: string;
 }
 
 /**
@@ -33,6 +34,7 @@ export interface ArchiveSettings {
 	defaultDesktopExportPath: string;
 	defaultSyncLimit: number;
 	recentMessagesLimit: number;
+	defaultArchiveIntegrationId?: string;
 }
 
 export interface KoraMcpPluginSettings {
@@ -122,6 +124,7 @@ export const DEFAULT_SETTINGS: KoraMcpPluginSettings = {
 		useCustomEmojis: false,
 		disableWebPagePreview: true,
 		folderConfigs: [],
+		defaultPublishIntegrationId: '',
 	},
 	gramjs: {
 		apiId: 0,
@@ -137,6 +140,7 @@ export const DEFAULT_SETTINGS: KoraMcpPluginSettings = {
 		defaultDesktopExportPath: '',
 		defaultSyncLimit: 200,
 		recentMessagesLimit: 50,
+		defaultArchiveIntegrationId: '',
 	},
 	vectorSettings: defaultVectorSettings,
 	eternalAiSettings: {

@@ -1,10 +1,9 @@
-/**
+﻿/**
  * Route: /edit_message
  * Edits an existing message text with optional emoji entities.
  */
 
 import type { Express, Request, Response } from 'express';
-import { initClient } from '../../../services/strategy-service.js';
 import type {
 	MessageOptions,
 	EditMessageRequest,
@@ -14,6 +13,10 @@ import {
 	processMessage,
 	validateMessageParams,
 } from '../../../utils/markdown-converter.js';
+import {
+	normalizeIntegrationId,
+	resolveTelegramStrategy,
+} from '../../../services/telegram-strategy-resolver.js';
 
 /**
  * JSDoc: Registers POST /edit_message endpoint.
@@ -21,8 +24,6 @@ import {
 export function registerEditMessageRoute(app: Express): void {
 	app.post('/edit_message', async (req: Request, res: Response) => {
 		try {
-			const strategy = await initClient();
-			const mode = strategy.getMode();
 			const requestData: EditMessageRequest = req.body;
 			const {
 				peer,
@@ -31,16 +32,21 @@ export function registerEditMessageRoute(app: Express): void {
 				entities,
 				buttons,
 				disableWebPagePreview,
+				integrationId: integrationIdRaw,
 			} = requestData;
 
 			// Validate required parameters
 			validateMessageParams('edit', { peer, messageId, message });
 
+			const integrationId = normalizeIntegrationId(integrationIdRaw);
+			const strategy = await resolveTelegramStrategy(integrationId);
+			const mode = strategy.getMode();
+
 			// Process message (handles both regular and markdown)
 			const processed = processMessage({
 				peer,
 				message,
-				fileName: undefined, // EditMessageRequest doesn't have fileName
+				fileName: undefined,
 				entities,
 				buttons,
 				disableWebPagePreview,

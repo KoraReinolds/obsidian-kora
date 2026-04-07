@@ -8,6 +8,7 @@ import type {
 	ArchiveSyncRequest,
 	ArchiveSyncResponse,
 } from '../../../../../packages/contracts/src/telegram.js';
+import { normalizeIntegrationId } from '../../../services/telegram-strategy-resolver.js';
 import { getArchiveSyncService } from '../services/archive-service-singleton.js';
 
 /**
@@ -22,6 +23,7 @@ export function registerArchiveSyncRoutes(app: Express): void {
 				peer,
 				limit = 200,
 				forceFull = false,
+				integrationId: integrationIdRaw,
 			} = (req.body || {}) as ArchiveSyncRequest;
 
 			if (!peer) {
@@ -32,6 +34,7 @@ export function registerArchiveSyncRoutes(app: Express): void {
 				peer,
 				limit: typeof limit === 'number' ? limit : Number(limit) || 200,
 				forceFull: Boolean(forceFull),
+				integrationId: normalizeIntegrationId(integrationIdRaw),
 			});
 
 			const response: ArchiveSyncResponse = {

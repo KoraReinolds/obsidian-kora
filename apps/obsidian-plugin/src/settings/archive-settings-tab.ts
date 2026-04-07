@@ -1,4 +1,11 @@
-import { App, Notice, PluginSettingTab, Setting } from 'obsidian';
+import {
+	App,
+	Notice,
+	PluginSettingTab,
+	Setting,
+	type DropdownComponent,
+} from 'obsidian';
+import type { IntegrationAccount } from '../../../../packages/contracts/src/telegram';
 import type KoraPlugin from '../main';
 
 /**
@@ -54,6 +61,7 @@ export class ArchiveSettingTab extends PluginSettingTab {
 						this.plugin.settings.archiveSettings.serverHost =
 							value.trim() || '127.0.0.1';
 						await this.plugin.saveSettings();
+						this.display();
 					})
 			);
 
@@ -70,8 +78,12 @@ export class ArchiveSettingTab extends PluginSettingTab {
 							Number(value) || 8125
 						);
 						await this.plugin.saveSettings();
+						this.display();
 					})
 			);
+
+		const integrationHostEl = containerEl.createDiv();
+		void this.renderDefaultArchiveIntegrationSetting(integrationHostEl);
 
 		new Setting(containerEl)
 			.setName('Путь к файлу БД архива')
@@ -160,7 +172,9 @@ export class ArchiveSettingTab extends PluginSettingTab {
 					.onClick(async () => {
 						const bridge =
 							this.plugin.getArchiveBridge?.() ||
-							(this.plugin as any).archiveBridge;
+							((this.plugin as unknown as { archiveBridge?: any })
+								.archiveBridge ??
+								null);
 
 						if (!bridge) {
 							new Notice('Мост архива не инициализирован');
@@ -170,5 +184,82 @@ export class ArchiveSettingTab extends PluginSettingTab {
 						await bridge.testConnection();
 					})
 			);
+	}
+
+	private async renderDefaultArchiveIntegrationSetting(
+		containerEl: HTMLElement
+	): Promise<void> {
+		containerEl.empty();
+		const bridge =
+			this.plugin.getArchiveBridge?.() ||
+			((this.plugin as unknown as { archiveBridge?: any }).archiveBridge ??
+				null);
+		const accounts = await this.loadAccountsSafe(bridge);
+		const description = bridge
+			? 'Какой Telegram account использовать по умолчанию для archive sync/backfill. Пусто = legacy current mode.'
+			: 'Archive bridge недоступен, поэтому доступен только legacy mode.';
+
+		new Setting(containerEl)
+			.setName('Default Archive Integration')
+			.setDesc(description)
+			.addDropdown(dropdown => {
+				this.populateIntegrationDropdown(
+					dropdown,
+					accounts,
+					this.plugin.settings.archiveSettings.defaultArchiveIntegrationId || ''
+				);
+				dropdown.onChange(async value => {
+					this.plugin.settings.archiveSettings.defaultArchiveIntegrationId =
+						value;
+					await this.plugin.saveSettings();
+				});
+			});
+	}
+
+	private async loadAccountsSafe(
+		bridge: {
+			isServerReachable(): Promise<boolean>;
+			getIntegrationAccounts(
+				forceReload?: boolean
+			): Promise<IntegrationAccount[]>;
+		} | null
+	): Promise<IntegrationAccount[]> {
+		if (!bridge) {
+			return [];
+		}
+		try {
+			const isRunning = await bridge.isServerReachable();
+			if (!isRunning) {
+				return [];
+			}
+			const accounts = await bridge.getIntegrationAccounts();
+			return accounts.filter(account => account.provider === 'telegram');
+		} catch (error) {
+			console.error(
+				'[ArchiveSettingTab] Failed to load integration accounts',
+				error
+			);
+			return [];
+		}
+	}
+
+	private populateIntegrationDropdown(
+		dropdown: DropdownComponent,
+		accounts: IntegrationAccount[],
+		selectedValue: string
+	): void {
+		dropdown.addOption('', 'Legacy / current mode');
+		for (const account of accounts) {
+			dropdown.addOption(account.id, this.formatIntegrationLabel(account));
+		}
+		dropdown.setValue(selectedValue || '');
+	}
+
+	private formatIntegrationLabel(account: IntegrationAccount): string {
+		const flags = [account.transport, account.source];
+		if (account.isDefault) {
+			flags.push('default');
+		}
+		return `${account.title} [${flags.join(' / ')}]`;
 	}
 }

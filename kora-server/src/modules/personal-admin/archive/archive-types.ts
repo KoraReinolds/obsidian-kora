@@ -93,6 +93,7 @@ export interface ArchiveSyncOptions {
 	peer: string;
 	limit: number;
 	forceFull?: boolean;
+	integrationId?: string;
 }
 
 /**

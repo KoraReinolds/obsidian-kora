@@ -13,7 +13,7 @@ import type {
 	ArchiveBackfillResult,
 	ArchiveSyncResult,
 } from '../../../../../packages/contracts/src/telegram.js';
-import { initClient } from '../../../services/strategy-service.js';
+import { resolveTelegramStrategy } from '../../../services/telegram-strategy-resolver.js';
 import { ArchiveNormalizer } from './archive-normalizer.js';
 import { ArchiveRepository } from './archive-repository.js';
 import type {
@@ -40,10 +40,10 @@ export class ArchiveSyncService {
 	 * @throws {Error} При ошибке доступа к Telegram или записи в БД.
 	 */
 	async syncPeer(options: ArchiveSyncOptions): Promise<ArchiveSyncResult> {
-		const { peer, limit, forceFull = false } = options;
+		const { peer, limit, forceFull = false, integrationId } = options;
 		const startedAt = new Date().toISOString();
-		const strategy = await initClient();
-		const dialog = await this.findDialogForPeer(peer, limit);
+		const strategy = await resolveTelegramStrategy(integrationId);
+		const dialog = await this.findDialogForPeer(peer, limit, integrationId);
 		const chatId = this.normalizer.resolveChatId(peer, dialog);
 		const previousLastMessageId = forceFull
 			? null
@@ -148,26 +148,15 @@ export class ArchiveSyncService {
 	 * @async
 	 * @description Догружает более старую историю выбранного архивного чата через Telegram `maxId`.
 	 * Используется вручную из UI, когда пользователь дошел до самой старой локальной страницы.
-	 * @param {{ chatId: string; peer?: string; limit: number }} options - Идентификатор чата и параметры одного backfill-запроса.
-	 * @returns {Promise<{
-	 *  chatId: string;
-	 *  peer: string;
-	 *  inserted: number;
-	 *  updated: number;
-	 *  skipped: number;
-	 *  totalProcessed: number;
-	 *  oldestMessageId: number | null;
-	 *  hasMoreOlder: boolean;
-	 *  mode: string;
-	 * }>} Итог backfill-запроса.
 	 */
 	async backfillOlder(options: {
 		chatId: string;
 		peer?: string;
 		limit: number;
+		integrationId?: string;
 	}): Promise<ArchiveBackfillResult> {
-		const { chatId, limit, peer } = options;
-		const strategy = await initClient();
+		const { chatId, limit, peer, integrationId } = options;
+		const strategy = await resolveTelegramStrategy(integrationId);
 		const chat = this.repository.getChat(chatId);
 		if (!chat) {
 			throw new Error(`Чат ${chatId} не найден в локальном архиве`);
@@ -205,16 +194,14 @@ export class ArchiveSyncService {
 	 * @async
 	 * @description Поиск диалога best-effort, чтобы в архиве сохранялись понятные
 	 * названия и username, а не только сырой peer.
-	 * @param {string} peer - Peer, использованный в синке.
-	 * @param {number} limit - Повторно использует лимит синка, чтобы ограничить обход диалогов.
-	 * @returns {Promise<any | undefined>} Подходящий диалог или undefined.
 	 */
 	private async findDialogForPeer(
 		peer: string,
-		limit: number
+		limit: number,
+		integrationId?: string
 	): Promise<any | undefined> {
 		try {
-			const strategy = await initClient();
+			const strategy = await resolveTelegramStrategy(integrationId);
 			const dialogs = await strategy.getDialogs({
 				limit: Math.max(limit, 200),
 			});
@@ -241,9 +228,6 @@ export class ArchiveSyncService {
 
 	/**
 	 * @description Нормализует и атомарно сохраняет пакет сообщений в архив.
-	 * @param {string} chatId - Идентификатор архивного чата.
-	 * @param {any[]} rawMessages - Пакет сообщений Telegram.
-	 * @returns {{ sortedMessages: any[]; counters: ArchiveSyncCounters }} Сортированный пакет и счетчики insert/update/skip.
 	 */
 	private persistMessages(
 		chatId: string,

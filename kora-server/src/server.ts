@@ -27,6 +27,7 @@ import cors from 'cors';
 
 // Route registrars
 import { registerEternalAiRoutes } from './modules/eternal-ai/routes/index.js';
+import { registerIntegrationRoutes } from './modules/integrations/routes/index.js';
 import { registerPersonalAdminRoutes } from './modules/personal-admin/routes/index.js';
 import { registerPublishRoutes } from './modules/publish/routes/index.js';
 import { registerRuntimeRoutes } from './modules/runtime/routes/index.js';
@@ -39,6 +40,7 @@ import { registerSqliteViewerRoutes } from './routes/sqlite-viewer.js';
 
 // Services
 import { getConfig } from './services/config-service.js';
+import { getIntegrationRegistry } from './modules/integrations/services/integration-registry-singleton.js';
 import { attachGracefulShutdown } from './services/shutdown-service.js';
 
 const app = express();
@@ -65,6 +67,7 @@ registerChannelRoutes(app);
 registerMessageRoutes(app);
 registerConfigRoutes(app);
 registerSqliteViewerRoutes(app);
+registerIntegrationRoutes(app);
 
 // Vector routes
 registerRuntimeRoutes(app);
@@ -74,6 +77,13 @@ registerEternalAiRoutes(app);
 
 // Archive routes
 registerPersonalAdminRoutes(app);
+
+// Warm up integration registry without failing the server startup.
+try {
+	getIntegrationRegistry().initialize();
+} catch (error) {
+	console.warn('[server] Failed to initialize integration registry:', error);
+}
 
 // Graceful shutdown
 attachGracefulShutdown();

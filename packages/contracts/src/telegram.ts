@@ -33,6 +33,7 @@ export interface SendMessageRequest {
 	buttons?: InlineButton[][];
 	disableWebPagePreview?: boolean;
 	fileName?: string;
+	integrationId?: string;
 }
 
 export interface EditMessageRequest {
@@ -42,6 +43,7 @@ export interface EditMessageRequest {
 	entities?: MessageEntity[];
 	buttons?: InlineButton[][];
 	disableWebPagePreview?: boolean;
+	integrationId?: string;
 }
 
 export interface SendFileRequest {
@@ -50,6 +52,7 @@ export interface SendFileRequest {
 	caption?: string;
 	buttons?: InlineButton[][];
 	parseMode?: string;
+	integrationId?: string;
 }
 
 export interface GetMessagesRequest {
@@ -57,6 +60,7 @@ export interface GetMessagesRequest {
 	startDate?: string;
 	endDate?: string;
 	limit?: number;
+	integrationId?: string;
 }
 
 /**
@@ -69,6 +73,7 @@ export interface ArchiveSyncRequest {
 	peer: string;
 	limit?: number;
 	forceFull?: boolean;
+	integrationId?: string;
 }
 
 /**
@@ -92,6 +97,7 @@ export interface ArchiveBackfillRequest {
 	chatId: string;
 	peer?: string;
 	limit?: number;
+	integrationId?: string;
 }
 
 /**
@@ -566,4 +572,39 @@ export interface HealthResponse {
 	timestamp: string;
 	mode?: string;
 	version?: string;
+}
+/**
+ * @description Разрешения Telegram integration account, которые нужны UI для
+ * выбора аккаунта под publish/archive сценарии.
+ */
+export interface IntegrationAccountCapabilities {
+	sendText: boolean;
+	editText: boolean;
+	sendFiles: boolean;
+	readHistory: boolean;
+}
+
+/**
+ * @description Безопасное публичное описание одного Telegram integration
+ * account, доступного Kora server. Секреты и runtime-конфиг наружу не отдаются.
+ */
+export interface IntegrationAccount {
+	id: string;
+	provider: 'telegram' | string;
+	source: 'openclaw' | 'kora' | string;
+	transport: 'bot' | 'userbot' | string;
+	accountId: string;
+	title: string;
+	enabled: boolean;
+	isDefault: boolean;
+	capabilities: IntegrationAccountCapabilities;
+}
+
+/**
+ * @description Ответ на GET /integrations/accounts и POST /integrations/reload.
+ */
+export interface IntegrationAccountsResponse {
+	success: boolean;
+	accounts: IntegrationAccount[];
+	error?: string;
 }

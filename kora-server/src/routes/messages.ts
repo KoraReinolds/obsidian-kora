@@ -1,10 +1,13 @@
-/**
+﻿/**
  * Route: /messages
  * Fetches messages for a given peer with optional date filters.
  */
 
 import type { Express, Request, Response } from 'express';
-import { initClient } from '../services/strategy-service.js';
+import {
+	normalizeIntegrationId,
+	resolveTelegramStrategy,
+} from '../services/telegram-strategy-resolver.js';
 import { formatTelegramMessage } from '../utils/format.js';
 import type { MessagesResponse } from '../../../packages/contracts/src/telegram.js';
 
@@ -19,10 +22,13 @@ export function registerMessageRoutes(app: Express): void {
 				startDate,
 				endDate,
 				limit = '100',
+				integrationId: integrationIdRaw,
 			} = req.query as Record<string, string>;
 			if (!peer) return res.status(400).json({ error: 'peer is required' });
 
-			const strategy = await initClient();
+			const strategy = await resolveTelegramStrategy(
+				normalizeIntegrationId(integrationIdRaw)
+			);
 			const start = startDate ? new Date(startDate) : null;
 			const end = endDate ? new Date(endDate) : null;
 

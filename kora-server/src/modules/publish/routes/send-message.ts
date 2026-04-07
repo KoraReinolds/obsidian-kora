@@ -1,10 +1,9 @@
-/**
+﻿/**
  * Route: /send_message
  * Sends a text message with optional emoji entities and inline buttons.
  */
 
 import type { Express, Request, Response } from 'express';
-import { initClient } from '../../../services/strategy-service.js';
 import { createInlineKeyboard } from '../../../utils/keyboard.js';
 import type {
 	MessageOptions,
@@ -15,6 +14,10 @@ import {
 	processMessage,
 	validateMessageParams,
 } from '../../../utils/markdown-converter.js';
+import {
+	normalizeIntegrationId,
+	resolveTelegramStrategy,
+} from '../../../services/telegram-strategy-resolver.js';
 
 /**
  * JSDoc: Registers POST /send_message endpoint.
@@ -30,12 +33,14 @@ export function registerSendMessageRoute(app: Express): void {
 				entities,
 				buttons,
 				disableWebPagePreview,
+				integrationId: integrationIdRaw,
 			} = requestData;
 
 			// Validate required parameters
 			validateMessageParams('send', { peer, message });
 
-			const strategy = await initClient();
+			const integrationId = normalizeIntegrationId(integrationIdRaw);
+			const strategy = await resolveTelegramStrategy(integrationId);
 			const mode = strategy.getMode();
 
 			// Process message (handles both regular and markdown)

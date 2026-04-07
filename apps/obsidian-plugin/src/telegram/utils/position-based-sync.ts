@@ -10,7 +10,7 @@ import {
 	LinkParser,
 	ParsedObsidianLink,
 } from '../formatting';
-import { ChannelFileParser, PostFileParser } from '../parsing';
+import { ChannelFileParser } from '../parsing';
 import { ChannelConfigService } from './channel-config-service';
 import type { KoraMcpPluginSettings } from '../../plugin-settings';
 
@@ -31,8 +31,6 @@ export class PositionBasedSync {
 	private messageFormatter: ObsidianTelegramFormatter;
 	private vaultOps: VaultOperations;
 	private linkParser: LinkParser;
-	private channelFileParser: ChannelFileParser;
-	private postFileParser: PostFileParser;
 
 	constructor(
 		app: App,
@@ -76,10 +74,9 @@ export class PositionBasedSync {
 			return result;
 		}
 
-		const { channelId, links, postIds } = channelData;
+		const { channelId, links, postIds, frontmatter } = channelData;
 
 		try {
-			// Process each position
 			for (let i = 0; i < links.length; i++) {
 				const link = links[i];
 
@@ -92,10 +89,10 @@ export class PositionBasedSync {
 					const syncResult = await this.syncNoteAtPosition({
 						channelId,
 						link,
+						channelFrontmatter: frontmatter,
 					});
 
 					if (syncResult.success && syncResult.messageId) {
-						// Update post ID at this position
 						postIds[i] = syncResult.messageId;
 						link.postId = syncResult.messageId;
 
@@ -105,7 +102,6 @@ export class PositionBasedSync {
 							result.created++;
 						}
 
-						// Add to newPostIds if it's new
 						if (!syncResult.wasUpdated) {
 							result.newPostIds.push(syncResult.messageId);
 						}
@@ -115,14 +111,12 @@ export class PositionBasedSync {
 						);
 					}
 
-					// Small delay between operations
 					await new Promise(resolve => setTimeout(resolve, 500));
 				} catch (error) {
 					result.errors.push(`Error syncing ${link.file.basename}: ${error}`);
 				}
 			}
 
-			// Update the post_ids array in frontmatter
 			await this.updatePostIdsArray(listFile, postIds);
 		} catch (error) {
 			result.success = false;
@@ -138,23 +132,26 @@ export class PositionBasedSync {
 	private async syncNoteAtPosition(params: {
 		channelId: string;
 		link: ParsedObsidianLink;
+		channelFrontmatter?: Record<string, unknown>;
 	}): Promise<{
 		success: boolean;
 		messageId?: number;
 		wasUpdated: boolean;
 		error?: string;
 	}> {
-		const { link, channelId } = params;
+		const { link, channelId, channelFrontmatter } = params;
 		const file = link.file;
 		const existingPostId = link.postId;
 
 		try {
 			if (!file) throw new Error('File not found');
 
-			// Get note content
 			const content = await this.vaultOps.getFileContent(file);
+			const integrationId = await this.resolvePublishIntegrationId(
+				file,
+				channelFrontmatter
+			);
 
-			// Format message for Telegram with source context
 			const conversionResult = await this.messageFormatter.formatMarkdownNote({
 				fileName: file.basename,
 				markdownContent: content,
@@ -164,7 +161,6 @@ export class PositionBasedSync {
 			const { processedText, entities: customEmojiEntities } =
 				telegramFormatter.processCustomEmojis(conversionResult.text);
 
-			// Combine all entities
 			const combinedEntities = [
 				...(conversionResult.entities || []),
 				...customEmojiEntities,
@@ -178,6 +174,7 @@ export class PositionBasedSync {
 				buttons,
 				disableWebPagePreview:
 					this.settings.telegram.disableWebPagePreview || true,
+				integrationId,
 			};
 
 			const isUpdate = !!existingPostId;
@@ -211,6 +208,45 @@ export class PositionBasedSync {
 				error: `Exception during sync: ${error}`,
 			};
 		}
+	}
+
+	private async resolvePublishIntegrationId(
+		file: TFile,
+		channelFrontmatter?: Record<string, unknown>
+	): Promise<string | undefined> {
+		const noteFrontmatter = await this.frontmatterUtils.getFrontmatter(file);
+		const noteIntegrationId =
+			this.readIntegrationIdFromFrontmatter(noteFrontmatter);
+		if (noteIntegrationId) {
+			return noteIntegrationId;
+		}
+
+		const channelIntegrationId =
+			this.readIntegrationIdFromFrontmatter(channelFrontmatter);
+		if (channelIntegrationId) {
+			return channelIntegrationId;
+		}
+
+		return this.normalizeIntegrationId(
+			this.settings.telegram.defaultPublishIntegrationId
+		);
+	}
+
+	private readIntegrationIdFromFrontmatter(
+		frontmatter?: Record<string, unknown>
+	): string | undefined {
+		if (!frontmatter) {
+			return undefined;
+		}
+		return this.normalizeIntegrationId(frontmatter.integration_id);
+	}
+
+	private normalizeIntegrationId(value: unknown): string | undefined {
+		if (typeof value !== 'string') {
+			return undefined;
+		}
+		const trimmed = value.trim();
+		return trimmed.length > 0 ? trimmed : undefined;
 	}
 
 	/**

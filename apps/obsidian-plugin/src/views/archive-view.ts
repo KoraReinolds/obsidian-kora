@@ -58,7 +58,10 @@ export class ArchiveView extends ItemView {
 			container,
 			ArchiveScreen,
 			{
-				transport: createArchiveBridgeAdapter(this.archiveBridge),
+				transport: createArchiveBridgeAdapter(this.archiveBridge, {
+					defaultIntegrationId:
+						this.plugin.settings.archiveSettings.defaultArchiveIntegrationId,
+				}),
 				pipelineTransport: createPipelineRuntimeBridgeAdapter(
 					this.archiveBridge,
 					this.vectorBridge

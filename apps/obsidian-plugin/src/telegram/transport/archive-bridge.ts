@@ -28,6 +28,8 @@ import type {
 	GetArchivedMessagesRequest,
 	GramJSConfig,
 	GramJSBridgeConfig,
+	IntegrationAccount,
+	IntegrationAccountsResponse,
 } from '../../../../../packages/contracts/src/telegram';
 
 /**
@@ -48,6 +50,27 @@ export class ArchiveBridge extends BaseHttpClient {
 		}
 
 		super(httpConfig);
+	}
+
+	/**
+	 * @description Возвращает список integration accounts с archive server.
+	 * @param {boolean} forceReload - Принудительно перечитать registry на сервере.
+	 * @returns {Promise<IntegrationAccount[]>}
+	 */
+	async getIntegrationAccounts(
+		forceReload = false
+	): Promise<IntegrationAccount[]> {
+		const endpoint = forceReload
+			? '/integrations/reload'
+			: '/integrations/accounts';
+		const method = forceReload ? 'POST' : 'GET';
+		const response = await this.handleRequest<IntegrationAccountsResponse>(
+			endpoint,
+			{ method },
+			'Ошибка получения integration accounts архива'
+		);
+
+		return response?.accounts || [];
 	}
 
 	/**

@@ -4,18 +4,20 @@ import {
 	type HttpClientConfig,
 } from '../core/base-http-client';
 import type {
-	GramJSBridgeConfig,
-	SendMessageRequest,
-	EditMessageRequest,
-	SendFileRequest,
-	GetMessagesRequest,
-	SendMessageResponse,
 	Channel,
 	ChannelsResponse,
+	ConfigResponse,
+	EditMessageRequest,
+	GetMessagesRequest,
+	GramJSBridgeConfig,
+	GramJSConfig,
+	IntegrationAccount,
+	IntegrationAccountsResponse,
 	Message,
 	MessagesResponse,
-	GramJSConfig,
-	ConfigResponse,
+	SendFileRequest,
+	SendMessageRequest,
+	SendMessageResponse,
 	UserInfo,
 } from '../../../../../packages/contracts/src/telegram';
 
@@ -42,6 +44,27 @@ export class GramJSBridge extends BaseHttpClient {
 	 */
 	async isServerRunning(): Promise<boolean> {
 		return await this.isServerReachable();
+	}
+
+	/**
+	 * @description Возвращает список доступных Telegram integration accounts.
+	 * @param {boolean} forceReload - Принудительно перечитать registry на сервере.
+	 * @returns {Promise<IntegrationAccount[]>}
+	 */
+	async getIntegrationAccounts(
+		forceReload = false
+	): Promise<IntegrationAccount[]> {
+		const endpoint = forceReload
+			? '/integrations/reload'
+			: '/integrations/accounts';
+		const method = forceReload ? 'POST' : 'GET';
+		const response = await this.handleRequest<IntegrationAccountsResponse>(
+			endpoint,
+			{ method },
+			'Ошибка получения integration accounts'
+		);
+
+		return response?.accounts || [];
 	}
 
 	/**
@@ -100,17 +123,27 @@ export class GramJSBridge extends BaseHttpClient {
 	 * @description Возвращает данные текущего пользователя Kora server.
 	 * @returns {Promise<UserInfo>}
 	 */
-	async getMe(): Promise<UserInfo> {
-		return await this.makeRequest<UserInfo>('/me');
+	async getMe(integrationId?: string): Promise<UserInfo> {
+		const params = new URLSearchParams();
+		if (integrationId) {
+			params.append('integrationId', integrationId);
+		}
+		const suffix = params.toString() ? `?${params.toString()}` : '';
+		return await this.makeRequest<UserInfo>(`/me${suffix}`);
 	}
 
 	/**
 	 * @description Возвращает список каналов, групп и чатов.
 	 * @returns {Promise<Channel[]>}
 	 */
-	async getChannels(): Promise<Channel[]> {
+	async getChannels(integrationId?: string): Promise<Channel[]> {
+		const params = new URLSearchParams();
+		if (integrationId) {
+			params.append('integrationId', integrationId);
+		}
+		const suffix = params.toString() ? `?${params.toString()}` : '';
 		const data = await this.handleRequest<ChannelsResponse>(
-			'/channels',
+			`/channels${suffix}`,
 			{},
 			'Ошибка получения каналов'
 		);
@@ -131,10 +164,11 @@ export class GramJSBridge extends BaseHttpClient {
 	 * @returns {Promise<Message[]>}
 	 */
 	async getMessages(request: GetMessagesRequest): Promise<Message[]> {
-		const { peer, startDate, endDate, limit = 100 } = request;
+		const { peer, startDate, endDate, limit = 100, integrationId } = request;
 		const params = new URLSearchParams({ peer, limit: limit.toString() });
 		if (startDate) params.append('startDate', startDate);
 		if (endDate) params.append('endDate', endDate);
+		if (integrationId) params.append('integrationId', integrationId);
 
 		const data = await this.handleRequest<MessagesResponse>(
 			`/messages?${params.toString()}`,
@@ -173,7 +207,7 @@ export class GramJSBridge extends BaseHttpClient {
 	 * @description Проверяет подключение к Kora server и показывает Notice.
 	 * @returns {Promise<boolean>}
 	 */
-	async testConnection(): Promise<boolean> {
+	async testConnection(integrationId?: string): Promise<boolean> {
 		try {
 			const isRunning = await this.isServerRunning();
 			if (!isRunning) {
@@ -181,7 +215,7 @@ export class GramJSBridge extends BaseHttpClient {
 				return false;
 			}
 
-			const userInfo = await this.getMe();
+			const userInfo = await this.getMe(integrationId);
 			new Notice(
 				`Telegram подключен через Kora server как: @${userInfo.username}`
 			);

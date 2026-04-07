@@ -342,6 +342,11 @@ export default class KoraPlugin extends Plugin {
 			}
 
 			await this.archiveBridge.updateArchiveServerConfig({
+				mode: this.settings.gramjs.mode || 'userbot',
+				botToken: this.settings.gramjs.botToken,
+				apiId: this.settings.gramjs.apiId,
+				apiHash: this.settings.gramjs.apiHash,
+				stringSession: this.settings.gramjs.stringSession,
 				archiveDatabasePath: this.settings.archiveSettings.databasePath,
 				semanticBackend: 'sqlite',
 				semanticDatabasePath: this.settings.vectorSettings.semanticDatabasePath,
