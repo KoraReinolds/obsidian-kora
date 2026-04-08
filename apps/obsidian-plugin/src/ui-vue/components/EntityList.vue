@@ -3,11 +3,11 @@
  * @module ui-vue/components/EntityList
  * @description Базовый карточечный список сущностей. Компонент объединяет common
  * list-паттерны (`loading`, `empty`, selection, actions, slots поверх
- * `MessageCard`) и оставляет доменную логику получения данных и мутаций снаружи.
+ * канонического `ListItem`) и оставляет доменную логику получения данных и мутаций снаружи.
  * Разрушительные действия (удаление) не размещаются в строке — их место в модалке.
  */
 import { computed, ref } from 'vue';
-import MessageCard from './MessageCard.vue';
+import ListItem from './ListItem.vue';
 import PlaceholderState from './PlaceholderState.vue';
 import IconButton from './IconButton.vue';
 import type { IEntityListAction, TEntityListKey } from '../types/entity-list';
@@ -25,11 +25,13 @@ interface EntityListProps {
 	emptyText?: string;
 	emptyTitle?: string;
 	selectedKey?: TEntityListKey | null;
+	selectedKeys?: TEntityListKey[];
 	selectable?: boolean;
 	onSelect?: (item: unknown) => void;
 	compact?: boolean;
 	stacked?: boolean;
 	hoverable?: boolean;
+	itemHeaderLayout?: 'row' | 'column';
 	/**
 	 * @description Открыть редактор/детали сущности. Кнопка показывается только
 	 * если передан обработчик. Чтобы скрыть кнопку при наличии `onEdit`, задайте
@@ -74,10 +76,12 @@ const props = withDefaults(defineProps<EntityListProps>(), {
 	emptyText: 'Список пуст.',
 	emptyTitle: '',
 	selectedKey: null,
+	selectedKeys: () => [],
 	selectable: false,
 	compact: true,
 	stacked: false,
 	hoverable: true,
+	itemHeaderLayout: 'column',
 	showEditButton: true,
 	editButtonLabel: 'Редактировать',
 	editButtonTitle: 'Редактировать',
@@ -135,7 +139,8 @@ const resolveSubtitle = (item: unknown): string =>
 const resolveMeta = (item: unknown): string => props.getMeta?.(item) || '';
 const resolveBody = (item: unknown): string => props.getBody?.(item) || '';
 const isSelected = (item: unknown): boolean =>
-	props.selectedKey !== null && props.getKey(item) === props.selectedKey;
+	(props.selectedKey !== null && props.getKey(item) === props.selectedKey) ||
+	props.selectedKeys.includes(props.getKey(item));
 
 const handleSelect = (item: unknown): void => {
 	if (!isSelectable.value) {
@@ -210,9 +215,9 @@ const runAction = async (
 		<div
 			v-else
 			class="flex min-h-0 flex-1 flex-col"
-			:class="stacked ? 'gap-0' : 'gap-2'"
+			:class="compact ? 'gap-2' : 'gap-2.5'"
 		>
-			<MessageCard
+			<ListItem
 				v-for="(item, index) in items"
 				:key="getKey(item)"
 				:title="resolveTitle(item)"
@@ -224,19 +229,49 @@ const runAction = async (
 				:hoverable="hoverable"
 				:clickable="isSelectable"
 				:selected="isSelected(item)"
+				:header-layout="itemHeaderLayout"
 				@click="handleSelect(item)"
 			>
-				<template v-if="$slots.title" #title>
-					<slot name="title" :item="item" :index="index" />
+				<template #title>
+					<div class="min-w-0 flex-1">
+						<div v-show="$slots.title" class="min-w-0">
+							<slot
+								name="title"
+								:item="item"
+								:index="index"
+								:selected="isSelected(item)"
+							/>
+						</div>
+						<span
+							v-show="!$slots.title"
+							class="truncate"
+							v-text="resolveTitle(item)"
+						/>
+					</div>
 				</template>
 				<template v-if="$slots.subtitle" #subtitle>
-					<slot name="subtitle" :item="item" :index="index" />
+					<slot
+						name="subtitle"
+						:item="item"
+						:index="index"
+						:selected="isSelected(item)"
+					/>
 				</template>
 				<template v-if="$slots.meta" #meta>
-					<slot name="meta" :item="item" :index="index" />
+					<slot
+						name="meta"
+						:item="item"
+						:index="index"
+						:selected="isSelected(item)"
+					/>
 				</template>
 				<template v-if="$slots.badges" #badges>
-					<slot name="badges" :item="item" :index="index" />
+					<slot
+						name="badges"
+						:item="item"
+						:index="index"
+						:selected="isSelected(item)"
+					/>
 				</template>
 				<template
 					v-if="showEditControl || actions.length > 0 || $slots.actions"
@@ -277,12 +312,22 @@ const runAction = async (
 					</div>
 				</template>
 				<template v-if="$slots.body" #body>
-					<slot name="body" :item="item" :index="index" />
+					<slot
+						name="body"
+						:item="item"
+						:index="index"
+						:selected="isSelected(item)"
+					/>
 				</template>
 				<template v-if="$slots.footer" #footer>
-					<slot name="footer" :item="item" :index="index" />
+					<slot
+						name="footer"
+						:item="item"
+						:index="index"
+						:selected="isSelected(item)"
+					/>
 				</template>
-			</MessageCard>
+			</ListItem>
 		</div>
 	</div>
 </template>

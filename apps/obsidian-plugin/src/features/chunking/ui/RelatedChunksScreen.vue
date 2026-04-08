@@ -219,6 +219,7 @@ watch(
 							(item.contentRaw.length > 220 ? '…' : '')
 					"
 					:on-select="item => openRelated(item)"
+					item-header-layout="column"
 				>
 					<template #badges="{ item }">
 						<SummaryChip
@@ -244,10 +245,7 @@ watch(
 						/>
 					</template>
 					<template #footer="{ item }">
-						<div
-							class="text-[10px] text-[var(--text-muted)]"
-							v-text="`📄 ${item.sourceFile}`"
-						/>
+						<div v-text="`📄 ${item.sourceFile}`" />
 					</template>
 				</EntityList>
 			</PanelFrame>
@@ -271,6 +269,7 @@ watch(
 					:get-title="note => note.basename"
 					:get-meta="note => note.path"
 					:get-body="() => 'Нужна индексация для векторного поиска.'"
+					item-header-layout="column"
 				/>
 			</PanelFrame>
 		</div>

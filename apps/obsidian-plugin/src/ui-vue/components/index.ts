@@ -6,6 +6,7 @@ export { default as Toolbar } from './Toolbar.vue';
 export { default as PanelFrame } from './PanelFrame.vue';
 export { default as StatusBanner } from './StatusBanner.vue';
 export { default as SummaryChip } from './SummaryChip.vue';
+export { default as ListItem } from './ListItem.vue';
 export { default as MessageCard } from './MessageCard.vue';
 export { default as ChatTimeline } from './ChatTimeline.vue';
 export { default as ChatMessageBubble } from './ChatMessageBubble.vue';

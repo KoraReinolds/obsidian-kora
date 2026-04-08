@@ -10,8 +10,8 @@ import type {
 import {
 	AppShell,
 	DataGrid,
+	EntityList,
 	IconButton,
-	MessageCard,
 	PanelFrame,
 	PlaceholderState,
 	StatusBanner,
@@ -691,18 +691,30 @@ onMounted(async () => {
 						>
 							Таблицы
 						</div>
-						<div class="flex flex-col gap-2">
-							<MessageCard
-								v-for="table in availableTables"
-								:key="table.name"
-								:title="table.name"
-								:meta="`${table.rowCount} · ${table.columns.length}`"
-								:selected="selectedTable === table.name"
-								:clickable="true"
-								compact
-								@click="selectTable(table.name)"
-							/>
-						</div>
+						<EntityList
+							:items="availableTables"
+							:get-key="
+								table =>
+									(table as SqliteViewerDatabaseRecord['tables'][number]).name
+							"
+							:get-title="
+								table =>
+									(table as SqliteViewerDatabaseRecord['tables'][number]).name
+							"
+							:get-meta="
+								table =>
+									`${(table as SqliteViewerDatabaseRecord['tables'][number]).rowCount} · ${(table as SqliteViewerDatabaseRecord['tables'][number]).columns.length}`
+							"
+							:selected-key="selectedTable"
+							:on-select="
+								table =>
+									selectTable(
+										(table as SqliteViewerDatabaseRecord['tables'][number]).name
+									)
+							"
+							compact
+							item-header-layout="column"
+						/>
 					</div>
 				</div>
 			</PanelFrame>

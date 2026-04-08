@@ -10,6 +10,7 @@
 import {
 	AppShell,
 	DiffPreview,
+	EntityList,
 	IconButton,
 	IconTextField,
 	MessageCard,
@@ -272,73 +273,102 @@ const backendVariant = computed<
 						text="Фильтр не совпал ни с одной строкой."
 					/>
 
-					<div v-else class="flex flex-col gap-1.5">
-						<MessageCard
-							v-for="row in screen.filteredUnifiedRows.value"
-							:key="row.chunkId"
-							clickable
-							compact
-							stacked
-							:selected="screen.selectedChunkId.value === row.chunkId"
-							@click="screen.selectRow(row.chunkId)"
-						>
-							<template #title>
+					<EntityList
+						v-else
+						:items="screen.filteredUnifiedRows.value"
+						:get-key="row => (row as SemanticInspectorUnifiedRow).chunkId"
+						:get-title="
+							row =>
+								(row as SemanticInspectorUnifiedRow).indexRecord?.title ||
+								(row as SemanticInspectorUnifiedRow).localItem?.headingPath ||
+								(row as SemanticInspectorUnifiedRow).chunkId
+						"
+						:selected-key="screen.selectedChunkId.value"
+						:on-select="
+							row =>
+								screen.selectRow((row as SemanticInspectorUnifiedRow).chunkId)
+						"
+						compact
+						item-header-layout="column"
+					>
+						<template #badges="{ item }">
+							<SummaryChip
+								v-if="(item as SemanticInspectorUnifiedRow).indexRecord"
+								:text="
+									(item as SemanticInspectorUnifiedRow).indexRecord!.contentType
+								"
+								size="xs"
+								variant="accent"
+							/>
+							<SummaryChip
+								v-if="
+									(item as SemanticInspectorUnifiedRow).indexRecord?.pointId
+								"
+								size="xs"
+								class="max-w-[min(100%,12rem)] shrink truncate font-mono text-[9px]"
+								:text="
+									(item as SemanticInspectorUnifiedRow).indexRecord!.pointId
+								"
+							/>
+						</template>
+						<template #body="{ item }">
+							<div
+								v-if="
+									!isSameChunkBothSides(item as SemanticInspectorUnifiedRow)
+								"
+								class="grid w-full min-w-0 grid-cols-2 gap-2 text-[11px] leading-snug"
+							>
 								<div
-									class="flex w-full min-w-0 flex-wrap items-center gap-1 border-b border-solid border-[var(--background-modifier-border)] pb-1.5"
+									class="min-h-[1.25em] min-w-0 border-r border-solid border-[var(--background-modifier-border)] pr-2 text-[var(--text-normal)]"
 								>
-									<template v-if="row.indexRecord">
-										<SummaryChip
-											:text="row.indexRecord.contentType"
-											size="xs"
-											variant="accent"
-										/>
-										<SummaryChip
-											size="xs"
-											class="max-w-[min(100%,12rem)] shrink truncate font-mono text-[9px]"
-											:text="row.indexRecord.pointId"
-										/>
-									</template>
+									<span
+										v-if="
+											(item as SemanticInspectorUnifiedRow).localItem &&
+											(item as SemanticInspectorUnifiedRow).localItem!
+												.status !== 'deleted'
+										"
+										v-text="
+											clip(
+												(item as SemanticInspectorUnifiedRow).localItem!
+													.content,
+												PREVIEW_MAX
+											)
+										"
+									/>
+									<span
+										v-else-if="!(item as SemanticInspectorUnifiedRow).localItem"
+										class="text-[var(--text-muted)] italic"
+										v-text="'—'"
+									/>
 								</div>
-							</template>
-							<template #body>
-								<div
-									v-if="!isSameChunkBothSides(row)"
-									class="grid w-full min-w-0 grid-cols-2 gap-2 text-[11px] leading-snug"
-								>
-									<div
-										class="min-h-[1.25em] min-w-0 border-r border-solid border-[var(--background-modifier-border)] pr-2 text-[var(--text-normal)]"
-									>
-										<span
-											v-if="row.localItem && row.localItem.status !== 'deleted'"
-											v-text="clip(row.localItem.content, PREVIEW_MAX)"
-										/>
-										<span
-											v-else-if="!row.localItem"
-											class="text-[var(--text-muted)] italic"
-											v-text="'—'"
-										/>
-									</div>
-									<div class="min-w-0 text-[var(--text-normal)]">
-										<span
-											v-if="row.indexRecord"
-											v-text="clip(row.indexRecord.preview, PREVIEW_MAX)"
-										/>
-										<span
-											v-else
-											class="text-[var(--text-muted)] italic"
-											v-text="'—'"
-										/>
-									</div>
+								<div class="min-w-0 text-[var(--text-normal)]">
+									<span
+										v-if="(item as SemanticInspectorUnifiedRow).indexRecord"
+										v-text="
+											clip(
+												(item as SemanticInspectorUnifiedRow).indexRecord!
+													.preview,
+												PREVIEW_MAX
+											)
+										"
+									/>
+									<span
+										v-else
+										class="text-[var(--text-muted)] italic"
+										v-text="'—'"
+									/>
 								</div>
-								<div
-									v-else
-									class="text-[11px] leading-snug text-[var(--text-normal)]"
-								>
-									<span v-text="mergedRowPreview(row)" />
-								</div>
-							</template>
-						</MessageCard>
-					</div>
+							</div>
+							<div
+								v-else
+								class="text-[11px] leading-snug text-[var(--text-normal)]"
+							>
+								<span
+									v-text="mergedRowPreview(item as SemanticInspectorUnifiedRow)"
+								/>
+							</div>
+						</template>
+					</EntityList>
 				</PanelFrame>
 
 				<PanelFrame padding="sm" gap="sm" scroll>

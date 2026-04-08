@@ -37,6 +37,7 @@ import { registerChannelRoutes } from './routes/channels.js';
 import { registerMessageRoutes } from './routes/messages.js';
 import { registerConfigRoutes } from './routes/config.js';
 import { registerSqliteViewerRoutes } from './routes/sqlite-viewer.js';
+import { registerGitCommitDraftRoutes } from './routes/git-commit-draft.js';
 
 // Services
 import { getConfig } from './services/config-service.js';
@@ -67,6 +68,7 @@ registerChannelRoutes(app);
 registerMessageRoutes(app);
 registerConfigRoutes(app);
 registerSqliteViewerRoutes(app);
+registerGitCommitDraftRoutes(app);
 registerIntegrationRoutes(app);
 
 // Vector routes

@@ -10,6 +10,8 @@ import {
 	EternalAiView,
 	SQLITE_VIEWER_VIEW_TYPE,
 	SqliteViewerView,
+	WORKSPACE_STATUS_VIEW_TYPE,
+	WorkspaceStatusView,
 } from './views';
 import { ArchiveBridge, GramJSBridge } from './telegram';
 import { VectorBridge } from './vector';
@@ -122,6 +124,10 @@ export default class KoraPlugin extends Plugin {
 			SQLITE_VIEWER_VIEW_TYPE,
 			leaf => new SqliteViewerView(leaf, this)
 		);
+		this.registerView(
+			WORKSPACE_STATUS_VIEW_TYPE,
+			leaf => new WorkspaceStatusView(leaf, this.app, this)
+		);
 		this.addRibbonIcon('git-branch', 'Open Related Chunks', () => {
 			this.activateRelatedChunksView();
 		});
@@ -153,6 +159,13 @@ export default class KoraPlugin extends Plugin {
 			name: 'Open SQLite Viewer',
 			callback: () => {
 				void this.activateSqliteViewerView();
+			},
+		});
+		this.addCommand({
+			id: 'open-workspace-git-status',
+			name: 'Open Workspace Git Status',
+			callback: () => {
+				void this.activateWorkspaceStatusView();
 			},
 		});
 
@@ -395,6 +408,13 @@ export default class KoraPlugin extends Plugin {
 		const leaf = this.app.workspace.getRightLeaf(false);
 		if (!leaf) return;
 		await leaf.setViewState({ type: SQLITE_VIEWER_VIEW_TYPE, active: true });
+		this.app.workspace.revealLeaf(leaf);
+	}
+
+	async activateWorkspaceStatusView() {
+		const leaf = this.app.workspace.getRightLeaf(false);
+		if (!leaf) return;
+		await leaf.setViewState({ type: WORKSPACE_STATUS_VIEW_TYPE, active: true });
 		this.app.workspace.revealLeaf(leaf);
 	}
 }

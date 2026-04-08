@@ -58,6 +58,10 @@ defineProps({
 		type: [String, Number, null] as PropType<TEntityListKey | null>,
 		default: null,
 	},
+	selectedKeys: {
+		type: Array as PropType<TEntityListKey[]>,
+		default: () => [],
+	},
 	onSelect: {
 		type: Function as PropType<(item: unknown) => void>,
 		default: undefined,
@@ -73,6 +77,10 @@ defineProps({
 	hoverable: {
 		type: Boolean,
 		default: true,
+	},
+	itemHeaderLayout: {
+		type: String as PropType<'row' | 'column'>,
+		default: 'column',
 	},
 	onEdit: {
 		type: Function as PropType<(item: unknown) => void>,
