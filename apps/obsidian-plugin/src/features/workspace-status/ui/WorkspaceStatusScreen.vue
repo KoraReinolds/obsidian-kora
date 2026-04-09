@@ -51,7 +51,11 @@ const branchDraft = ref<WorkspaceBranchDraftInput>({
 	slug: '',
 });
 
-const repositories = computed(() => snapshot.value?.repositories ?? []);
+const repositories = computed(() =>
+	(snapshot.value?.repositories ?? []).filter(
+		repo => !repo.hiddenInWorkspaceStatus
+	)
+);
 
 const repositoryById = computed(() =>
 	Object.fromEntries(repositories.value.map(repo => [repo.id, repo]))
@@ -225,6 +229,9 @@ function getTrackingText(repo: WorkspaceStatusRepositoryRecord): string {
 	}
 
 	const pieces: string[] = [];
+	if (repo.canonicalBranch) {
+		pieces.push(`canonical ${repo.canonicalRemote}/${repo.canonicalBranch}`);
+	}
 	pieces.push(repo.upstream || 'no upstream');
 	if (repo.ahead > 0) {
 		pieces.push(`ahead ${repo.ahead}`);
@@ -402,15 +409,6 @@ async function refreshSnapshot(options?: {
 async function executeAction(action: WorkspaceGitAction): Promise<void> {
 	if (selectedRepositories.value.length === 0) {
 		setMessage('warning', 'Сначала выберите хотя бы один репозиторий.');
-		return;
-	}
-
-	if (
-		action === 'sync-hard' &&
-		!window.confirm(
-			'Sync Hard выполнит reset --hard для выбранных репозиториев и их submodules. Продолжить?'
-		)
-	) {
 		return;
 	}
 
@@ -635,26 +633,16 @@ onMounted(async () => {
 					<IconButton
 						size="sm"
 						variant="muted"
-						icon="arrow-right-left"
-						label="Sync Soft"
-						title="Sync Soft"
-						:loading="runningAction === 'sync-soft'"
+						icon="git-branch"
+						label="Canonical"
+						title="Переключиться на каноническую ветку"
+						:loading="runningAction === 'switch-canonical'"
 						:disabled="isLoading || selectedRepositories.length === 0"
-						@click="executeAction('sync-soft')"
+						@click="executeAction('switch-canonical')"
 					/>
 					<IconButton
 						size="sm"
-						variant="danger"
-						icon="shield-alert"
-						label="Sync Hard"
-						title="Sync Hard"
-						:loading="runningAction === 'sync-hard'"
-						:disabled="isLoading || selectedRepositories.length === 0"
-						@click="executeAction('sync-hard')"
-					/>
-					<IconButton
-						size="sm"
-						variant="accent"
+						variant="muted"
 						icon="upload"
 						label="Push"
 						title="Push"

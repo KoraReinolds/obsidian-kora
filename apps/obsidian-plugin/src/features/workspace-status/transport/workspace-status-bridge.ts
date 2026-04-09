@@ -28,6 +28,13 @@ interface WorkspaceRegistryProject {
 	path: string;
 	kind: string;
 	order: number;
+	ui?: {
+		hiddenInWorkspaceStatus?: boolean;
+	};
+	repo?: {
+		defaultBranch?: string;
+		defaultRemote?: string;
+	};
 	automation?: {
 		status?: boolean;
 	};
@@ -36,8 +43,7 @@ interface WorkspaceRegistryProject {
 export type WorkspaceGitAction =
 	| 'refresh'
 	| 'pull-rebase'
-	| 'sync-soft'
-	| 'sync-hard'
+	| 'switch-canonical'
 	| 'push'
 	| 'commit'
 	| 'create-branch';
@@ -66,6 +72,9 @@ export interface WorkspaceStatusRepositoryRecord {
 	kind: string;
 	path: string;
 	absolutePath: string;
+	hiddenInWorkspaceStatus: boolean;
+	canonicalBranch: string;
+	canonicalRemote: string;
 	statusEnabled: boolean;
 	exists: boolean;
 	isGitRepository: boolean;
@@ -268,6 +277,28 @@ async function loadProjects(
 		}
 		return left.name.localeCompare(right.name);
 	});
+}
+
+function resolveProjectAbsolutePath(
+	project: WorkspaceRegistryProject,
+	workspaceRoot: string
+): string {
+	return path.resolve(workspaceRoot, project.path);
+}
+
+function findProjectByAbsolutePath(
+	projects: WorkspaceRegistryProject[],
+	workspaceRoot: string,
+	targetPath: string
+): WorkspaceRegistryProject | null {
+	const normalizedTarget = path.normalize(targetPath);
+	return (
+		projects.find(
+			project =>
+				path.normalize(resolveProjectAbsolutePath(project, workspaceRoot)) ===
+				normalizedTarget
+		) || null
+	);
 }
 
 async function collectGitState(
@@ -478,13 +509,16 @@ async function inspectRepository(
 	project: WorkspaceRegistryProject,
 	workspaceRoot: string
 ): Promise<WorkspaceStatusRepositoryRecord> {
-	const absolutePath = path.resolve(workspaceRoot, project.path);
+	const absolutePath = resolveProjectAbsolutePath(project, workspaceRoot);
 	const baseRecord: WorkspaceStatusRepositoryRecord = {
 		id: project.id,
 		name: project.name,
 		kind: project.kind,
 		path: project.path,
 		absolutePath,
+		hiddenInWorkspaceStatus: Boolean(project.ui?.hiddenInWorkspaceStatus),
+		canonicalBranch: getCanonicalBranch(project),
+		canonicalRemote: getCanonicalRemote(project),
 		statusEnabled: Boolean(project.automation?.status),
 		exists: false,
 		isGitRepository: false,
@@ -560,14 +594,12 @@ async function inspectRepository(
 	return baseRecord;
 }
 
-function getTargetRef(state: MutableGitState): string {
-	if (state.upstream) {
-		return state.upstream;
-	}
-	if (!state.head || state.head === 'detached HEAD') {
-		throw new Error('Detached HEAD: невозможно определить upstream для sync.');
-	}
-	return `origin/${state.head}`;
+function getCanonicalBranch(project: WorkspaceRegistryProject): string {
+	return project.repo?.defaultBranch?.trim() || '';
+}
+
+function getCanonicalRemote(project: WorkspaceRegistryProject): string {
+	return project.repo?.defaultRemote?.trim() || 'origin';
 }
 
 async function runGitAndThrowOnFailure(
@@ -616,7 +648,8 @@ async function pushRepositoryFamily(
 
 async function updateRepositoryFamily(
 	repositoryPath: string,
-	action: WorkspaceGitAction,
+	projects: WorkspaceRegistryProject[],
+	workspaceRoot: string,
 	logs: string[]
 ): Promise<void> {
 	await ensureGitRepository(repositoryPath);
@@ -626,22 +659,11 @@ async function updateRepositoryFamily(
 		logs
 	);
 
-	const repositoryState = await collectGitState(repositoryPath);
-	if (action === 'pull-rebase') {
-		await runGitAndThrowOnFailure(
-			['pull', '--rebase', '--autostash'],
-			repositoryPath,
-			logs
-		);
-	} else {
-		const targetRef = getTargetRef(repositoryState);
-		const resetMode = action === 'sync-hard' ? '--hard' : '--soft';
-		await runGitAndThrowOnFailure(
-			['reset', resetMode, targetRef],
-			repositoryPath,
-			logs
-		);
-	}
+	await runGitAndThrowOnFailure(
+		['pull', '--rebase', '--autostash'],
+		repositoryPath,
+		logs
+	);
 
 	const submoduleDefinitions = await readSubmodulePaths(repositoryPath);
 	if (submoduleDefinitions.length === 0) {
@@ -654,11 +676,116 @@ async function updateRepositoryFamily(
 		logs
 	);
 
-	const updateArgs =
-		action === 'pull-rebase'
-			? ['submodule', 'update', '--init', '--recursive', '--remote', '--rebase']
-			: ['submodule', 'update', '--init', '--recursive', '--remote'];
-	await runGitAndThrowOnFailure(updateArgs, repositoryPath, logs);
+	for (const definition of submoduleDefinitions) {
+		const submodulePath = path.resolve(repositoryPath, definition.path);
+		const submoduleProject = findProjectByAbsolutePath(
+			projects,
+			workspaceRoot,
+			submodulePath
+		);
+
+		if (!submoduleProject) {
+			logs.push(
+				`$ skip submodule ${definition.path}\nNo managed project entry found for ${submodulePath}`
+			);
+			continue;
+		}
+
+		await switchRepositoryToCanonicalBranch(
+			submoduleProject,
+			submodulePath,
+			logs
+		);
+		await runGitAndThrowOnFailure(
+			['pull', '--rebase', '--autostash'],
+			submodulePath,
+			logs
+		);
+	}
+}
+
+async function switchRepositoryToCanonicalBranch(
+	project: WorkspaceRegistryProject,
+	repositoryPath: string,
+	logs: string[]
+): Promise<void> {
+	await ensureGitRepository(repositoryPath);
+
+	const canonicalBranch = getCanonicalBranch(project);
+	if (!canonicalBranch) {
+		throw new Error(
+			`Для проекта ${project.id} не задан repo.defaultBranch в registry.`
+		);
+	}
+
+	const canonicalRemote = getCanonicalRemote(project);
+	await runGitAndThrowOnFailure(
+		['fetch', '--prune', canonicalRemote],
+		repositoryPath,
+		logs
+	);
+
+	const localBranchCheck = await runGit(
+		['show-ref', '--verify', '--quiet', `refs/heads/${canonicalBranch}`],
+		repositoryPath
+	);
+
+	if (localBranchCheck.exitCode === 0) {
+		await runGitAndThrowOnFailure(
+			['switch', canonicalBranch],
+			repositoryPath,
+			logs
+		);
+		return;
+	}
+
+	const remoteRef = `${canonicalRemote}/${canonicalBranch}`;
+	const remoteBranchCheck = await runGit(
+		['show-ref', '--verify', '--quiet', `refs/remotes/${remoteRef}`],
+		repositoryPath
+	);
+	if (remoteBranchCheck.exitCode !== 0) {
+		throw new Error(`Не найдена каноническая ветка ${remoteRef}.`);
+	}
+
+	await runGitAndThrowOnFailure(
+		['switch', '--track', '-c', canonicalBranch, remoteRef],
+		repositoryPath,
+		logs
+	);
+}
+
+async function switchRepositoryFamilyToCanonicalBranch(
+	project: WorkspaceRegistryProject,
+	repositoryPath: string,
+	projects: WorkspaceRegistryProject[],
+	workspaceRoot: string,
+	logs: string[]
+): Promise<void> {
+	await switchRepositoryToCanonicalBranch(project, repositoryPath, logs);
+
+	const submoduleDefinitions = await readSubmodulePaths(repositoryPath);
+	for (const definition of submoduleDefinitions) {
+		const submodulePath = path.resolve(repositoryPath, definition.path);
+		const submoduleProject = findProjectByAbsolutePath(
+			projects,
+			workspaceRoot,
+			submodulePath
+		);
+
+		if (!submoduleProject) {
+			logs.push(
+				`$ skip submodule ${definition.path}\nNo managed project entry found for ${submodulePath}`
+			);
+			continue;
+		}
+
+		await switchRepositoryToCanonicalBranch(
+			submoduleProject,
+			submodulePath,
+			logs
+		);
+	}
 }
 
 function makeCommitMessage(draft: WorkspaceCommitDraftState): string {
@@ -712,12 +839,25 @@ export class WorkspaceStatusBridge {
 		const results: WorkspaceActionResult[] = [];
 		for (const project of selectedProjects) {
 			const logs: string[] = [];
-			const repositoryPath = path.resolve(workspaceRoot, project.path);
+			const repositoryPath = resolveProjectAbsolutePath(project, workspaceRoot);
 			try {
 				if (action === 'push') {
 					await pushRepositoryFamily(repositoryPath, logs);
+				} else if (action === 'switch-canonical') {
+					await switchRepositoryFamilyToCanonicalBranch(
+						project,
+						repositoryPath,
+						projects,
+						workspaceRoot,
+						logs
+					);
 				} else {
-					await updateRepositoryFamily(repositoryPath, action, logs);
+					await updateRepositoryFamily(
+						repositoryPath,
+						projects,
+						workspaceRoot,
+						logs
+					);
 				}
 				results.push({
 					id: project.id,
