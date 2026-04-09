@@ -286,6 +286,17 @@ function resolveProjectAbsolutePath(
 	return path.resolve(workspaceRoot, project.path);
 }
 
+function formatWorkspaceRelativePath(
+	workspaceRoot: string,
+	targetPath: string
+): string {
+	const relativePath = path.relative(workspaceRoot, targetPath);
+	if (!relativePath || relativePath.startsWith('..')) {
+		return targetPath;
+	}
+	return relativePath;
+}
+
 function findProjectByAbsolutePath(
 	projects: WorkspaceRegistryProject[],
 	workspaceRoot: string,
@@ -686,7 +697,7 @@ async function updateRepositoryFamily(
 
 		if (!submoduleProject) {
 			logs.push(
-				`$ skip submodule ${definition.path}\nNo managed project entry found for ${submodulePath}`
+				`$ skip submodule ${definition.path}\nNo managed project entry found for ${formatWorkspaceRelativePath(workspaceRoot, submodulePath)}`
 			);
 			continue;
 		}
@@ -775,7 +786,7 @@ async function switchRepositoryFamilyToCanonicalBranch(
 
 		if (!submoduleProject) {
 			logs.push(
-				`$ skip submodule ${definition.path}\nNo managed project entry found for ${submodulePath}`
+				`$ skip submodule ${definition.path}\nNo managed project entry found for ${formatWorkspaceRelativePath(workspaceRoot, submodulePath)}`
 			);
 			continue;
 		}

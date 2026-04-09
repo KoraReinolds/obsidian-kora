@@ -948,16 +948,11 @@ onMounted(async () => {
 													`submodules: ${getSubmoduleSummary(primarySelectedRepository)}`
 												"
 											/>
-											<div
-												v-if="primarySelectedRepository.absolutePath"
-												class="text-[var(--text-muted)]"
-												v-text="primarySelectedRepository.absolutePath"
-											/>
-											<div
-												v-if="primarySelectedRepository.error"
-												class="text-[var(--text-error)]"
-												v-text="primarySelectedRepository.error"
-											/>
+										<div
+											v-if="primarySelectedRepository.error"
+											class="text-[var(--text-error)]"
+											v-text="primarySelectedRepository.error"
+										/>
 										</div>
 									</template>
 								</MessageCard>
